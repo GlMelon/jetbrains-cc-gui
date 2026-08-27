@@ -11,12 +11,8 @@ import {
 } from '../modelLabelUtils';
 import { useReasoningEffortGuard } from '../reasoningUtils';
 import {
-  AVAILABLE_MODELS,
-  DSH_PRESETS,
   REASONING_LEVELS,
   getUserDshPresetOptions,
-  modelSupports1MContext,
-  normalizeClaudeModelId,
   strip1MContextSuffix,
   type CodexFastMode,
   type ModelInfo,
@@ -97,7 +93,7 @@ function getReasoningLabel(
 export const ModelConfigSelect = ({
   selectedModel,
   onModelSelect,
-  models = AVAILABLE_MODELS,
+  models = [], // A1:registry 为权威来源,调用方(ButtonArea)传入;不再回退静态表。
   currentProvider = 'claude',
   loading = false,
   error = null,
@@ -195,7 +191,10 @@ export const ModelConfigSelect = ({
   );
 
   const strippedValue = strip1MContextSuffix(selectedModel);
-  const normalizedValue = currentProvider === 'claude' ? normalizeClaudeModelId(strippedValue) : strippedValue;
+  // A3:前端不再做 id→role 离线归一化,仅剥离 [1m] 后缀。
+  const normalizedValue = strippedValue;
+  // A4:1M 能力读模型条目的 supports1MContext 字段(registry 下发)。
+  const selectedModelInfo = models.find((model) => model.id === normalizedValue);
   const currentModel = models.find((model) => model.id === normalizedValue)
     || models.find((model) => model.id === strippedValue)
     || (strippedValue
@@ -203,13 +202,13 @@ export const ModelConfigSelect = ({
       : models[0]);
   const modelMapping = readClaudeModelMapping();
   const show1MContext = currentProvider === 'claude'
-    && modelSupports1MContext(selectedModel)
+    && selectedModelInfo?.supports1MContext
     && longContextEnabled;
   const showContextRow = currentProvider === 'claude' && !!onLongContextChange;
   const showEffortRow = showEffort && !!onReasoningChange;
   const showSpeed = currentProvider === 'codex' && !!onCodexFastModeChange;
   const showPreset = currentProvider === 'dsh' && !!onDshPresetChange;
-  const contextSupported = modelSupports1MContext(selectedModel);
+  const contextSupported = selectedModelInfo?.supports1MContext ?? false;
 
   const modelLabel = currentModel
     ? resolveModelDisplayLabel(currentModel, {
@@ -222,12 +221,12 @@ export const ModelConfigSelect = ({
     : selectedModel;
 
   const dshOptions = useMemo(
-    () => [...DSH_PRESETS, ...getUserDshPresetOptions()],
+    // getUserDshPresetOptions 已合并内置 preset(DSH_PRESETS)与用户安装项。
+    () => getUserDshPresetOptions(),
     [],
   );
   const currentDshPreset = dshOptions.find((preset) => preset.id === dshPreset) || dshOptions[0];
-  const dshPresetLabel = currentDshPreset?.label
-    || (currentDshPreset?.labelKey ? t(currentDshPreset.labelKey, { defaultValue: currentDshPreset.id }) : '');
+  const dshPresetLabel = currentDshPreset?.label || currentDshPreset?.id || '';
   const effortLabel = currentLevel ? getReasoningLabel(t, currentLevel.id) : '';
   const speedLabel = t(`codexFastMode.${codexFastMode}.label`, {
     defaultValue: codexFastMode === 'fast' ? 'Fast' : 'Standard',
@@ -465,7 +464,7 @@ export const ModelConfigSelect = ({
             {activeSubmenu === 'model' && (
               <ModelSelect
                 value={selectedModel}
-                onChange={onModelSelect}
+                onChange={(modelId) => onModelSelect(modelId)}
                 models={models}
                 currentProvider={currentProvider}
                 loading={loading}

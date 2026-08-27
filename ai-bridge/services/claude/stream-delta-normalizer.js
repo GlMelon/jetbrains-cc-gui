@@ -1,84 +1,26 @@
-// @ts-check
-/**
- * 流式增量归一化:逐内容块区分"累积快照"与"增量 delta",吸收中途纠正重写。
- */
-
-/**
- * 单个内容块的流式模式。一旦某块产出过确认的快照 delta 即锁定为 'snapshot';
- * 否则按增量 delta 累积拼接(Anthropic 标准)。
- * @typedef {'snapshot' | 'incremental'} StreamMode
- */
-
-/**
- * 一次请求内随 delta 携带的逐块流式簿记(挂在共享 turnState 上)。
- * 内容 Map 以块索引为键;模式 Map 以 `${kind}:${blockIndex}` 为键。
- * @typedef {{
- *   textBlockContentByIndex?: Map<number, string>,
- *   thinkingBlockContentByIndex?: Map<number, string>,
- *   blockStreamModeByKey?: Map<string, StreamMode>,
- * }} BlockStateMaps
- */
-
-/** @typedef {'textBlockContentByIndex' | 'thinkingBlockContentByIndex'} BlockMapKey */
-
-/**
- * 取出(必要时懒初始化)指定 key 对应的块内容 Map。
- *
- * @param {BlockStateMaps} turnState 共享 turn 状态
- * @param {BlockMapKey} key         块 Map 字段名
- * @returns {Map<number, string>} 块内容 Map
- */
 export function getBlockMap(turnState, key) {
-  const existing = turnState[key];
-  if (existing instanceof Map) {
-    return existing;
+  if (!(turnState[key] instanceof Map)) {
+    turnState[key] = new Map();
   }
-  const fresh = new Map();
-  turnState[key] = fresh;
-  return fresh;
+  return turnState[key];
 }
 
-/**
- * @param {number | string} index 原始块索引
- * @returns {number} 规范化后的非负整数索引(非法回退 0)
- */
 function getBlockIndex(index) {
   const numericIndex = typeof index === 'string' ? Number(index) : index;
   return Number.isInteger(numericIndex) && numericIndex >= 0 ? numericIndex : 0;
 }
 
-/**
- * @param {BlockStateMaps} turnState 共享 turn 状态
- * @returns {Map<string, StreamMode>} 块流式模式 Map
- */
 function getModeMap(turnState) {
-  const existing = turnState.blockStreamModeByKey;
-  if (existing instanceof Map) {
-    return existing;
+  if (!(turnState.blockStreamModeByKey instanceof Map)) {
+    turnState.blockStreamModeByKey = new Map();
   }
-  const fresh = new Map();
-  turnState.blockStreamModeByKey = fresh;
-  return fresh;
+  return turnState.blockStreamModeByKey;
 }
 
-/**
- * @param {string} kind       块类型('text' / 'thinking')
- * @param {number} blockIndex 块索引
- * @returns {string} 模式 Map 的复合键
- */
 function modeKey(kind, blockIndex) {
   return `${kind}:${blockIndex}`;
 }
 
-/**
- * 计算本次 delta 相对已累积内容的"新内容"。
- *
- * @param {string} previous 已累积内容
- * @param {string} incoming 本次到达内容
- * @param {StreamMode | undefined} mode 当前块已锁定的流式模式
- * @param {'stream' | 'snapshot' | undefined} origin delta 来源通道
- * @returns {{ novel: string, next: string, mode: StreamMode | undefined }}
- */
 function getPayloadMap(turnState, fieldName) {
   if (!(turnState[fieldName] instanceof Map)) {
     turnState[fieldName] = new Map();
@@ -102,8 +44,35 @@ function computeNovelDelta(previous, incoming, mode, origin) {
 
   // Cumulative-snapshot path: incoming is previous + new content. Confirms the
   // block is in snapshot mode for any subsequent corrective rewrites.
+  //
+  // Special case `incoming === previous` (novel === ''): meaning depends on
+  // which path the caller is on, distinguished by `origin`:
+  //
+  //   • origin === 'snapshot' — assistant-message snapshot re-delivering the
+  //     fully-accumulated block. The whole block has already been emitted via
+  //     live deltas. Always absorb: re-emitting would duplicate the entire
+  //     block in the UI (issue tracker streaming-duplication-fix). This was
+  //     the legacy unconditional behavior, and is correct for THIS path.
+  //
+  //   • origin === 'stream' — a live content_block_delta. Each call is one
+  //     fresh delta from the provider. An identical delta is a real duplicate
+  //     (repeated characters like "刚刚", "谢谢", "慢慢", or any token
+  //     boundary that emits the same token twice). The legacy code wrongly
+  //     absorbed these AND locked snapshot mode, swallowing the rest of the
+  //     reply — issue #1371's "除第一个字都会被吞掉". Treat it as an
+  //     incremental delta: emit the duplicate as novel content and DO NOT
+  //     lock snapshot mode. A real snapshot provider would never emit an
+  //     identical re-send as its first ambiguous signal — its defining trait
+  //     is monotonically GROWING accumulated content.
   if (incoming.startsWith(previous)) {
-    return { novel: incoming.slice(previous.length), next: incoming, mode: 'snapshot' };
+    const novel = incoming.slice(previous.length);
+    if (!novel) {
+      if (origin === 'snapshot' || mode === 'snapshot' || mode === 'incremental') {
+        return { novel: '', next: previous, mode };
+      }
+      return { novel: incoming, next: previous + incoming, mode };
+    }
+    return { novel, next: incoming, mode: 'snapshot' };
   }
 
   // Stale replay: incoming is fully contained at the start or end of previous.
@@ -143,16 +112,31 @@ function computeNovelDelta(previous, incoming, mode, origin) {
 }
 
 /**
- * 归一化一条流式 delta,返回应下发给前端的新增内容。
+ * Normalise an incoming delta against the block's accumulated content and
+ * return the novel slice to emit (empty string when nothing new to deliver).
  *
- * @param {BlockStateMaps} turnState   共享 turn 状态
- * @param {'text' | 'thinking'} kind   块类型
- * @param {number | string} index      块索引
- * @param {unknown} incoming           原始 delta 内容(非字符串视为空串)
- * @param {'stream' | 'snapshot' | undefined} origin delta 来源通道
- * @returns {string} 新增内容(可能为空串)
+ * Maintains two pieces of per-block state on `turnState`:
+ *   • blockMap (kind+index → accumulated content)
+ *   • modeMap  (kind+index → 'snapshot' | 'incremental' | undefined)
+ *
+ * @param {object} turnState  Per-turn streaming state (see createTurnState).
+ * @param {'text'|'thinking'} kind  Which block channel.
+ * @param {number|string} index  Content block index from the SDK event.
+ * @param {string} incoming  The payload to normalise.
+ * @param {'stream'|'snapshot'} [origin='stream']  Call-site semantics —
+ *   determines how `incoming === previous` is interpreted:
+ *     • 'stream'   — one fresh content_block_delta from the provider; an
+ *                    identical re-send is a real duplicate token (e.g. "刚刚",
+ *                    "谢谢") and must emit. Pass this from the live event
+ *                    handler. Default.
+ *     • 'snapshot' — an assistant-message snapshot re-delivering the fully
+ *                    accumulated block; an identical match means "nothing new"
+ *                    and must absorb to avoid duplicating the whole block in
+ *                    the UI. Used internally by {@link resolveSnapshotDelta} —
+ *                    direct callers should prefer that wrapper.
+ * @returns {string}  The novel suffix to emit, or '' to skip emission.
  */
-export function normalizeStreamDelta(turnState, kind, index, incoming, origin) {
+export function normalizeStreamDelta(turnState, kind, index, incoming, origin = 'stream') {
   const text = typeof incoming === 'string' ? incoming : '';
   const key = kind === 'thinking' ? 'thinkingBlockContentByIndex' : 'textBlockContentByIndex';
   const blockMap = getBlockMap(turnState, key);
@@ -203,19 +187,13 @@ export function normalizeStreamDelta(turnState, kind, index, incoming, origin) {
  * Returns the novel delta to emit plus `hadPrevious` (whether the block already
  * held streamed content before this snapshot) — the gate the tail-fill fix
  * depends on. IO and emit-gating stay with the caller so this stays pure.
- *
- * @param {BlockStateMaps} turnState   共享 turn 状态
- * @param {'text' | 'thinking'} kind   块类型
- * @param {number | string} index      块索引
- * @param {string} snapshot            整块快照文本
- * @returns {{ delta: string, hadPrevious: boolean }}
  */
 export function resolveSnapshotDelta(turnState, kind, index, snapshot) {
   const key = kind === 'thinking' ? 'thinkingBlockContentByIndex' : 'textBlockContentByIndex';
   const blockMap = getBlockMap(turnState, key);
   const blockIndex = getBlockIndex(index);
   const hadPrevious = (blockMap.get(blockIndex) || '').length > 0;
-  const delta = normalizeStreamDelta(turnState, kind, index, snapshot);
+  const delta = normalizeStreamDelta(turnState, kind, index, snapshot, 'snapshot');
   return { delta, hadPrevious };
 }
 
@@ -296,9 +274,6 @@ export function prepareAssistantSnapshotBlock(turnState, kind, index, incoming, 
  *
  * Token usage is intentionally NOT reset here — it accumulates across turns and
  * is owned by the caller's usage bookkeeping.
- *
- * @param {BlockStateMaps} turnState 共享 turn 状态
- * @returns {void}
  */
 export function resetTurnBlockState(turnState) {
   turnState.textBlockContentByIndex = new Map();

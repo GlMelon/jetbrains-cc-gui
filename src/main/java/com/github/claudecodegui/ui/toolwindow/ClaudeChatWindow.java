@@ -29,6 +29,7 @@ import com.github.claudecodegui.util.AttachmentStorageService;
 import com.github.claudecodegui.util.HtmlLoader;
 import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.GsonHolder;
+import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.Disposable;
@@ -55,7 +56,8 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -137,19 +139,6 @@ public class ClaudeChatWindow {
      * frontend ready.
      */
     private volatile boolean frontendReady = false;
-    private final FrontendReadyTransitionTracker frontendReadyTransitions =
-            new FrontendReadyTransitionTracker();
-    private final SurfaceRefreshCoordinator surfaceRefreshCoordinator =
-            new SurfaceRefreshCoordinator();
-    private final SurfacePresentationCoordinator surfacePresentationCoordinator =
-            new SurfacePresentationCoordinator();
-    private final Disposable surfaceRefreshAlarmDisposable =
-            Disposer.newDisposable("ccgui-osr-frame-fence-timeout");
-    private final Alarm surfaceRefreshAlarm =
-            new Alarm(Alarm.ThreadToUse.SWING_THREAD, surfaceRefreshAlarmDisposable);
-    private final SurfaceAttemptTimeoutOwner surfaceAttemptTimeoutOwner =
-            new SurfaceAttemptTimeoutOwner();
-    private volatile int activePageGeneration;
     private volatile boolean hasEverBeenFrontendReady = false;
     private final PendingCodeSnippetBuffer pendingCodeSnippetBuffer = new PendingCodeSnippetBuffer();
     private final PendingFileReferencesBuffer pendingFileReferencesBuffer =
@@ -752,10 +741,6 @@ public class ClaudeChatWindow {
         }
     }
 
-    /**
-     * Add project-tree paths through the dedicated structured file-reference
-     * bridge, buffering the batch until the WebView is ready when necessary.
-     */
     public void addFileReferencesFromExternal(List<String> filePaths) {
         if (filePaths == null || filePaths.isEmpty()) {
             return;
@@ -781,92 +766,14 @@ public class ClaudeChatWindow {
     }
 
     private void updateFrontendReadyState(boolean ready) {
-        FrontendReadyTransition transition = frontendReadyTransitions.update(ready);
         frontendReady = ready;
         if (!ready) {
-            surfaceRefreshCoordinator.invalidate();
-            cancelScheduledOsrSurfaceRefresh();
             return;
         }
         hasEverBeenFrontendReady = true;
         flushPendingCodeSnippet();
         flushPendingFileReferences();
-        ApplicationManager.getApplication().invokeLater(() -> {
-            completeFrontendReadyUiUpdate(
-                    disposed,
-                    transition.becameReady(),
-                    () -> frontendReadyTransitions.isCurrentReady(transition.epoch()),
-                    () -> requestSurfaceRefresh(
-                            browser, transition.epoch(), 0L, "frontend_ready"),
-                    this::isWebviewActive,
-                    () -> tryConsumePendingSurfaceRefresh("frontend_ready"),
-                    this::loadRestoredHistoryIfNeeded
-            );
-        });
-    }
-
-    /**
-     * Starts native publication after React has committed a restored-history snapshot.
-     * The event does not claim that Chromium or OSR has painted; the OSR frame fence establishes
-     * that separately from real paint callbacks. The bridge generation gate rejects messages
-     * from obsolete pages before this method runs, while the ready epoch rejects queued stale work.
-     */
-    private void onHistoryRenderComplete(long commitEpoch) {
-        long readyEpoch = frontendReadyTransitions.currentEpoch();
-        JBCefBrowser acknowledgingBrowser = browser;
-        if (acknowledgingBrowser == null) {
-            return;
-        }
-        CefBrowser acknowledgingCefBrowser;
-        try {
-            acknowledgingCefBrowser = acknowledgingBrowser.getCefBrowser();
-        } catch (Exception | LinkageError e) {
-            LOG.debug("Ignoring history DOM acknowledgment without a live CEF browser", e);
-            return;
-        }
-        int acknowledgingGeneration = activePageGeneration;
-        ApplicationManager.getApplication().invokeLater(() -> completeHistoryRenderUiUpdate(
-                disposed,
-                () -> isHistoryRenderOwnerCurrent(
-                        acknowledgingBrowser,
-                        acknowledgingCefBrowser,
-                        acknowledgingGeneration,
-                        readyEpoch),
-                () -> {
-                    LOG.info("[WebviewSurface] Queuing native surface refresh after history DOM commit");
-                    requestSurfaceRefresh(
-                            acknowledgingBrowser,
-                            readyEpoch,
-                            Math.max(1L, commitEpoch),
-                            "history_dom_committed");
-                    tryConsumePendingSurfaceRefresh("history_dom_committed");
-                }
-        ));
-    }
-
-    private boolean isHistoryRenderOwnerCurrent(
-            JBCefBrowser acknowledgingBrowser,
-            CefBrowser acknowledgingCefBrowser,
-            int acknowledgingGeneration,
-            long readyEpoch
-    ) {
-        if (disposed || !frontendReadyTransitions.isCurrentReady(readyEpoch)) {
-            return false;
-        }
-        JBCefBrowser currentBrowser = browser;
-        CefBrowser currentCefBrowser;
-        try {
-            currentCefBrowser = currentBrowser == null ? null : currentBrowser.getCefBrowser();
-        } catch (Exception | LinkageError e) {
-            return false;
-        }
-        return historyRenderOwnerMatches(
-                acknowledgingBrowser,
-                acknowledgingCefBrowser,
-                acknowledgingGeneration,
-                currentBrowser,
-                currentCefBrowser,
-                activePageGeneration);
+        ApplicationManager.getApplication().invokeLater(this::loadRestoredHistoryIfNeeded);
     }
 
     /** Verifies browser, native browser and page-generation ownership of a queued history ack. */
@@ -1229,22 +1136,6 @@ public class ClaudeChatWindow {
 
             Runnable previousTask() {
                 return previousTask;
-            }
-        }
-    }
-
-    /** Timeout runnable that must atomically claim ownership before releasing its attempt. */
-    private final class SurfaceTimeoutTask implements Runnable {
-        private final SurfaceFrameFence.Attempt attempt;
-
-        private SurfaceTimeoutTask(SurfaceFrameFence.Attempt attempt) {
-            this.attempt = attempt;
-        }
-
-        @Override
-        public void run() {
-            if (surfaceAttemptTimeoutOwner.claim(attempt, this)) {
-                releaseTimedOutOsrAttempt(attempt);
             }
         }
     }
@@ -2117,7 +2008,9 @@ public class ClaudeChatWindow {
 
             @Override
             public void setFrontendReady(boolean ready) {
-                frontendReady = ready;
+                // Route through updateFrontendReadyState so buffered external
+                // snippets / file references flush on the ready transition.
+                updateFrontendReadyState(ready);
             }
 
             @Override
@@ -2258,7 +2151,9 @@ public class ClaudeChatWindow {
 
             @Override
             public void setFrontendReady(boolean ready) {
-                frontendReady = ready;
+                // Route through updateFrontendReadyState so buffered external
+                // snippets / file references flush on the ready transition.
+                updateFrontendReadyState(ready);
             }
 
             @Override

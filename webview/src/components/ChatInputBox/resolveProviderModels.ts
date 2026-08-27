@@ -1,11 +1,11 @@
 import type { ModelInfo } from './types';
-import {
-  CLAUDE_MODELS,
-  CODEX_MODELS,
-  GROK_MODELS,
-  OMP_MODELS,
-  OMP_ROLE_MODELS,
-} from './types';
+// A1(2026-06-23):CLAUDE_MODELS/CODEX_MODELS/GROK_MODELS/OMP_MODELS/OMP_ROLE_MODELS 本地静态表
+// 已删除(registry 为权威来源)。此 fallback 层仅在 registry 未加载时兜底,静态部分置空。
+const CLAUDE_MODELS: ModelInfo[] = [];
+const CODEX_MODELS: ModelInfo[] = [];
+const GROK_MODELS: ModelInfo[] = [];
+const OMP_MODELS: ModelInfo[] = [];
+const OMP_ROLE_MODELS: ModelInfo[] = [];
 import { buildCodexModelList } from './codexModelList';
 import {
   applyClaudeModelMapping,

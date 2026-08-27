@@ -30,7 +30,8 @@ public class ClaudePlanUsageActionHandler implements FrontendActionHandler<Strin
 
     @Override
     public void handle(String payload, FrontendActionContext context) {
-        JsonObject snapshot = ClaudePlanUsageService.resolvePlanUsagePayload();
+        JsonObject snapshot = ClaudePlanUsageService.resolvePlanUsagePayload(
+                context.handlerContext().getSettingsService());
         context.handlerContext().callJavaScript("updateClaudePlanUsage",
                 context.handlerContext().escapeJs(GsonHolder.GSON.toJson(snapshot)));
     }

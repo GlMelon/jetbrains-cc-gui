@@ -15,21 +15,18 @@ import { log } from './logger.js';
  * @typedef {{ mcpServers: Record<string, any>, disabledServers: Set<string> }} ParsedConfig
  */
 
-/**
- * 解析结果缓存条目。
- * @typedef {{ parsed: ParsedConfig | null, mtimeMs: number, cachedAt: number }} CacheEntry
- */
-
-/**
- * 全量 server 信息聚合结果。
- * @typedef {{ name: string, config: Record<string, any> }} ServerEntry
- */
+/** @typedef {{ name: string, config: Record<string, any> }} ServerEntry */
 /**
  * @typedef {{
  *   enabled: ServerEntry[],
  *   disabled: string[],
  *   invalid: Array<{ name: string, reason: string }>
  * }} AllServersInfo
+ */
+
+/**
+ * 解析结果缓存条目。
+ * @typedef {{ parsed: ParsedConfig | null, mtimeMs: number, cachedAt: number }} CacheEntry
  */
 
 // =============================================================================
@@ -90,22 +87,10 @@ function setCachedParsed(cwd, parsed) {
 }
 
 /**
- * Expand ${VAR} placeholders in an MCP server env value
- *
- * Claude Code resolves these from the `env` section of
- * `.claude/settings.local.json` (project) and `.claude/settings.json`
- * (user), falling back to the process environment. The plugin passed the
- * literal placeholder through to the spawned MCP server, so containers
- * received e.g. DATABASE_URI=${NEXUS_MCP_DB_URI} verbatim (#1722).
- *
- * Lookup order (first hit wins): project settings.local env -> user
- * settings env -> process.env. Unresolvable placeholders are left as-is so
- * misconfiguration stays visible in logs instead of becoming empty strings.
- *
- * @param {string} value - Raw env value that may contain ${VAR} placeholders
- * @param {Object} projectEnv - env map from .claude/settings.local.json
- * @param {Object} userEnv - env map from .claude/settings.json
- * @returns {string} Value with all resolvable ${VAR} placeholders expanded
+ * @param {string} value
+ * @param {Record<string, unknown>} projectEnv
+ * @param {Record<string, unknown>} userEnv
+ * @returns {string}
  */
 function expandEnvPlaceholders(value, projectEnv, userEnv) {
   if (typeof value !== 'string' || !value.includes('${')) return value;
@@ -118,7 +103,7 @@ function expandEnvPlaceholders(value, projectEnv, userEnv) {
       return String(userEnv[name]);
     }
     if (Object.prototype.hasOwnProperty.call(process.env, name)) {
-      return process.env[name];
+      return String(process.env[name]);
     }
     log('warn', `[MCP Config] Unresolved \${${name}} placeholder left as-is in MCP env`);
     return match;
@@ -126,20 +111,16 @@ function expandEnvPlaceholders(value, projectEnv, userEnv) {
 }
 
 /**
- * Load the env override maps used for ${VAR} expansion
- *
- * Reads the `env` section of .claude/settings.local.json (project-local,
- * git-ignored, where secrets live) and .claude/settings.json (user-level),
- * matching the resolution order Claude Code uses for .mcp.json placeholders.
- * Files that are missing, unparseable, or have no env section produce {}.
- *
- * @param {string} cwd - Current working directory (project root)
- * @returns {Promise<{projectEnv: Object, userEnv: Object}>} env maps
+ * @param {string | null} cwd
+ * @returns {Promise<{projectEnv: Record<string, unknown>, userEnv: Record<string, unknown>}>}
  */
 async function loadEnvExpansionSources(cwd) {
+  /** @type {Record<string, unknown>} */
   const projectEnv = {};
+  /** @type {Record<string, unknown>} */
   const userEnv = {};
 
+  /** @type {Array<{label: string, file: string | null, into: Record<string, unknown>}>} */
   const sources = [
     { label: 'project settings.local.json', file: cwd ? join(cwd, '.claude', 'settings.local.json') : null, into: projectEnv },
     { label: 'user settings.json', file: join(getRealHomeDir(), '.claude', 'settings.json'), into: userEnv }
@@ -153,7 +134,7 @@ async function loadEnvExpansionSources(cwd) {
         Object.assign(source.into, parsed.env);
       }
     } catch (e) {
-      log('warn', `[MCP Config] Failed to read ${source.label} for env expansion:`, e.message);
+      log('warn', `[MCP Config] Failed to read ${source.label} for env expansion:`, e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -161,16 +142,17 @@ async function loadEnvExpansionSources(cwd) {
 }
 
 /**
- * Apply ${VAR} expansion to every env value of every server config
- * @param {Object} mcpServers - Server name -> config map
- * @param {Object} projectEnv - env map from .claude/settings.local.json
- * @param {Object} userEnv - env map from .claude/settings.json
- * @returns {Object} New map with expanded env values (input is not mutated)
+ * @param {Record<string, any>} mcpServers
+ * @param {Record<string, unknown>} projectEnv
+ * @param {Record<string, unknown>} userEnv
+ * @returns {Record<string, any>}
  */
 function expandMcpServersEnv(mcpServers, projectEnv, userEnv) {
+  /** @type {Record<string, any>} */
   const expanded = {};
   for (const [name, config] of Object.entries(mcpServers)) {
     if (config && typeof config === 'object' && config.env && typeof config.env === 'object') {
+      /** @type {Record<string, any>} */
       const env = {};
       for (const [key, value] of Object.entries(config.env)) {
         env[key] = expandEnvPlaceholders(value, projectEnv, userEnv);
@@ -330,7 +312,7 @@ async function parseMcpConfig(cwd = null) {
   // Expand ${VAR} placeholders in server env values (e.g. from
   // .claude/settings.local.json) so spawned servers receive real values,
   // matching Claude Code's behaviour for the same config (#1722).
-  const { projectEnv, userEnv } = await loadEnvExpansionSources(cwd);
+  const { projectEnv, userEnv } = await loadEnvExpansionSources(cwd || null);
   mcpServers = expandMcpServersEnv(mcpServers, projectEnv, userEnv);
 
   const result = { mcpServers, disabledServers };

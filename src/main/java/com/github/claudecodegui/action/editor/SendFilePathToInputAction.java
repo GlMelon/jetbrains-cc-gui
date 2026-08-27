@@ -136,7 +136,7 @@ public class SendFilePathToInputAction extends AnAction implements DumbAware {
                                 try {
                                     if (project.isDisposed()) { return; }
 
-                                    ClaudeChatToolWindow.addSelectionFromExternal(project, filePaths);
+                                    ClaudeChatToolWindow.addFileReferencesFromExternal(project, filePaths);
 
 
                                     LOG.info("Window activated and sent file paths to project: " + project.getName());
@@ -149,7 +149,7 @@ public class SendFilePathToInputAction extends AnAction implements DumbAware {
                 } else {
                     // Window is already visible, send content directly
 
-                    ClaudeChatToolWindow.addSelectionFromExternal(project, filePaths);
+                    ClaudeChatToolWindow.addFileReferencesFromExternal(project, filePaths);
 
 
                     // Ensure window gets focus

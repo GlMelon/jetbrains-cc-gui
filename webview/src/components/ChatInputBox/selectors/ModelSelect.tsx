@@ -1,11 +1,8 @@
-import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  CLAUDE_ROLE_MODEL_IDS,
-  strip1MContextSuffix,
-} from '../types';
+import { strip1MContextSuffix } from '../types';
 import type { ModelInfo } from '../types';
-import { readClaudeModelMapping, resolveMappedModelName } from '../../../utils/claudeModelMapping';
+import { readClaudeModelMapping } from '../../../utils/claudeModelMapping';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import Switch from 'antd/es/switch';
@@ -33,17 +30,20 @@ const DROPDOWN_STYLE: React.CSSProperties = {
   zIndex: 10000,
   maxWidth: 'calc(100vw - 16px)',
   overflowX: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
 };
 const MODEL_OPTION_INFO_STYLE: React.CSSProperties = { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' };
 const MODEL_TEXT_STYLE: React.CSSProperties = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
-const MAX_VISIBLE_MODEL_OPTIONS = 100;
+const LONG_CONTEXT_OPTION_STYLE: React.CSSProperties = { justifyContent: 'space-between', cursor: 'default' };
+const LONG_CONTEXT_LABEL_STYLE: React.CSSProperties = { fontSize: '12px' };
+const DROPDOWN_LIST_STYLE: React.CSSProperties = { overflowY: 'auto', flex: 1, minHeight: 0 };
+/** Cap model dropdown height so long lists scroll instead of filling the panel. */
+const DROPDOWN_MAX_HEIGHT_PX = 300;
 
 interface ModelSelectProps {
   value: string;
-  selectedIdentifier?: string;
-  /** Imperative open signal: increment to open the dropdown (used by the /model command) */
-  openSignal?: number;
-  onChange: (model: ModelInfo) => void;
+  onChange: (modelId: string) => void;
   models?: ModelInfo[];
   currentProvider?: string;
   /** True while CLI providers (OpenCode / Kimi) are still fetching model catalogs. */
@@ -77,7 +77,7 @@ const LOADING_OPTION_STYLE: React.CSSProperties = {
 export const ModelSelect = ({
   value,
   onChange,
-  models = AVAILABLE_MODELS,
+  models = [], // A1:registry 为权威来源,调用方传入;不回退静态表。
   currentProvider = 'claude',
   loading = false,
   error = null,
@@ -93,13 +93,13 @@ export const ModelSelect = ({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() => readPinnedModelIds(currentProvider));
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { positionedStyle, maxHeight, maxWidth, recalculate } = useDropdownPosition({
     buttonRef: (embedded ? triggerRef : buttonRef) as React.RefObject<HTMLElement | null>,
     dropdownRef,
-    isOpen,
     preferredAlignment: 'right',
     submenu: embedded,
     minWidth: embedded ? 220 : 200,
@@ -109,20 +109,29 @@ export const ModelSelect = ({
 
   // Strip [1m] suffix for finding the model in the list
   const strippedValue = strip1MContextSuffix(value);
-  const hasModels = models.length > 0;
-  const exactSelectedModel = selectedIdentifier
-    ? models.find((model) => model.identifier === selectedIdentifier)
-    : models.find((model) => model.id === strippedValue);
-  // Guard against empty models (e.g. Codex provider before config.toml is set):
-  // models[0] would be undefined and crash on .id access. Fall back to a null placeholder.
-  const resolvedModel: ModelInfo | null = hasModels
-    ? (exactSelectedModel || models[0])
-    : null;
+  // A3:前端不再做 id→role 离线归一化,仅剥 [1m] 后缀。
+  const normalizedValue = strippedValue;
+  // Prefer the user's selection even when the catalog is still loading / only a
+  // static fallback is available. Falling back to models[0] made OpenCode (and
+  // other dynamic providers) visually snap back to the first entry after leaving
+  // history and remounting ChatScreen.
+  const currentModel = models.find(m => m.id === normalizedValue)
+    || models.find(m => m.id === strippedValue)
+    || (strippedValue
+      ? { id: strippedValue, label: strippedValue } as ModelInfo
+      : models[0]);
   const modelMapping = readClaudeModelMapping();
 
-  const isSelectedModel = (model: ModelInfo): boolean => selectedIdentifier
-    ? model.identifier === selectedIdentifier
-    : model === exactSelectedModel;
+  useEffect(() => {
+    setPinnedIds(readPinnedModelIds(currentProvider));
+  }, [currentProvider]);
+
+  const isSelectedModel = (modelId: string): boolean => {
+    if (currentProvider !== 'claude') {
+      return modelId === strippedValue;
+    }
+    return modelId === normalizedValue;
+  };
 
   const getModelLabel = (model: ModelInfo, show1MContext = false): string => {
     return resolveModelDisplayLabel(model, {
@@ -143,12 +152,16 @@ export const ModelSelect = ({
     ? models.filter((model) => {
         const label = getModelLabel(model, false);
         const description = getModelDescription(model) ?? '';
-        return [model.id, label, description].some((value) => value.toLowerCase().includes(normalizedSearchQuery));
+        return [model.id, label, description].some((text) => text.toLowerCase().includes(normalizedSearchQuery));
       })
     : models;
-  const visibleModels = filteredModels.slice(0, MAX_VISIBLE_MODEL_OPTIONS);
-  const hiddenModelCount = Math.max(0, filteredModels.length - visibleModels.length);
-  const showSearch = models.length > MAX_VISIBLE_MODEL_OPTIONS || searchQuery.length > 0;
+
+  const { sections, hiddenCount: hiddenModelCount } = buildModelDropdownSections(filteredModels, pinnedIds, {
+    visibleLimit: MAX_VISIBLE_MODEL_OPTIONS,
+  });
+  const visibleModelCount = sections.reduce((n, s) => n + s.models.length, 0);
+  const showSearch = shouldShowModelSearch(models.length, searchQuery);
+  const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
 
   /**
    * Toggle dropdown
@@ -165,23 +178,21 @@ export const ModelSelect = ({
     }
   }, [isOpen, recalculate]);
 
-  // Imperative open (e.g. /model slash command): open whenever the signal increments.
-  useEffect(() => {
-    if (openSignal) {
-      setIsOpen(true);
-      recalculate();
-    }
-  }, [openSignal, recalculate]);
-
   /**
    * Select model
    */
-  const handleSelect = useCallback((model: ModelInfo) => {
-    onChange(model);
+  const handleSelect = useCallback((modelId: string) => {
+    onChange(modelId);
     setIsOpen(false);
     setSearchQuery('');
     onClose?.();
   }, [onChange, onClose]);
+
+  const handleTogglePin = useCallback((e: React.MouseEvent, modelId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setPinnedIds(togglePinnedModelId(currentProvider, modelId));
+  }, [currentProvider]);
 
   /**
    * Close on outside click
@@ -253,7 +264,7 @@ export const ModelSelect = ({
           onMouseEnter={(e) => e.stopPropagation()}
         >
           {showSearch && (
-            <div className="selector-search-row">
+            <div className="selector-search-row selector-search-row--sticky">
               <input
                 className="selector-search-input"
                 data-testid="model-search-input"
@@ -261,26 +272,20 @@ export const ModelSelect = ({
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={t('models.searchPlaceholder', { defaultValue: 'Search models' })}
                 autoFocus
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
               />
             </div>
           )}
-          {visibleModels.map((model) => (
-            <div
-              key={model.identifier}
-              className={`selector-option ${isSelectedModel(model) ? 'selected' : ''}`}
-              onClick={() => handleSelect(model)}
-            >
-              <ProviderModelIcon
-                providerId={currentProvider}
-                modelId={resolveModelIdForIcon(model.id, modelMapping)}
-                size={16}
-                colored
-              />
-              <div style={MODEL_OPTION_INFO_STYLE}>
-                <span style={MODEL_TEXT_STYLE}>{getModelLabel(model, false)}</span>
-                {getModelDescription(model) && (
-                  <span className="model-description" style={MODEL_TEXT_STYLE}>{getModelDescription(model)}</span>
-                )}
+          <div className="model-selector-list" style={DROPDOWN_LIST_STYLE}>
+            {loading && (
+              <div
+                className="selector-option selector-option-status"
+                data-testid="model-loading"
+                style={LOADING_OPTION_STYLE}
+              >
+                <span className="codicon codicon-loading codicon-modifier-spin" />
+                <span>{t('chat.loadingDropdown')}</span>
               </div>
             )}
             {!loading && error && (
@@ -373,8 +378,8 @@ export const ModelSelect = ({
                   <span style={LONG_CONTEXT_LABEL_STYLE}>{t('models.longContext.shortLabel')}</span>
                   <Switch
                     size="small"
-                    checked={modelSupports1MContext(value) ? longContextEnabled : false}
-                    disabled={!modelSupports1MContext(value)}
+                    checked={currentModel?.supports1MContext ? longContextEnabled : false}
+                    disabled={!currentModel?.supports1MContext}
                     onChange={onLongContextChange}
                   />
                 </div>
@@ -427,3 +432,5 @@ export const ModelSelect = ({
     </div>
   );
 };
+
+export default ModelSelect;

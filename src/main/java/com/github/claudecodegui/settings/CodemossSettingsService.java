@@ -336,7 +336,7 @@ public class CodemossSettingsService {
      * values. See {@link ProviderManager#repairActiveProviderToClaudeSettings()}.
      */
     public boolean repairActiveProviderToClaudeSettings() throws IOException {
-        return providerManager.repairActiveProviderToClaudeSettings();
+        return providerSettingsService.repairActiveProviderToClaudeSettings();
     }
 
     // ==================== Working Directory Management ====================

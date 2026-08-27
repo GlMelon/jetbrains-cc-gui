@@ -6,7 +6,7 @@ import { ConfigSelect, ModeSelect, ModelConfigSelect, ProviderSelect } from './s
 import { STORAGE_KEYS, validateCodexCustomModels } from '../../types/provider';
 import type { CodexCustomModel } from '../../types/provider';
 import { readClaudeModelMapping, resolveMappedModelName } from '../../utils/claudeModelMapping';
-import { getModelsForProvider, getModelRegistrySnapshot, requestModelRegistry, subscribeModelRegistry } from '../../utils/modelRegistry';
+import { getModelsForProvider, requestModelRegistry, subscribeModelRegistry } from '../../utils/modelRegistry';
 import { useCliModels, useOmpRoles } from '../../hooks/providers/useCliModels';
 import { useToolbarSelectorCompact } from './hooks/useToolbarSelectorCompact';
 import { resolveProviderModels } from './resolveProviderModels';
@@ -29,6 +29,7 @@ function getCustomCodexModels(): ModelInfo[] {
     const validModels = validateCodexCustomModels(parsed);
     return validModels.map(m => ({
       id: m.id,
+      identifier: m.id,
       label: m.label || m.id,
       description: m.description,
     }));
@@ -58,6 +59,7 @@ function getCustomClaudeModels(): ModelInfo[] {
       .filter((m): m is CodexCustomModel => !!m && typeof m === 'object' && typeof m.id === 'string' && m.id.trim().length > 0)
       .map(m => ({
         id: m.id,
+        identifier: m.id,
         label: m.label || m.id,
         description: m.description,
       }));
@@ -66,107 +68,160 @@ function getCustomClaudeModels(): ModelInfo[] {
   }
 }
 
+
+/** 从 registry 模型条目读取 role 字段(内置模型标识);无 role 视为自定义模型。 */
+function getModelRegistrySnapshotRole(model: { id: string; role?: string }): string | undefined {
+  return model.role;
+}
+
 /**
  * ButtonArea - Bottom toolbar component
  * Contains mode selector, model selector, attachment button, prompt enhancer button, send/stop button
  */
-export const ButtonArea = memo(function ButtonArea({
+export const ButtonArea = ({
   disabled = false,
   hasInputContent = false,
   isLoading = false,
   isEnhancing = false,
-  selectedModel = CLAUDE_ROLE_MODEL_IDS.sonnet,
-  selectedModelIdentifier,
-  modelSelectOpenSignal,
+  showThinkingEnabled = true,
+  onShowThinkingEnabledChange,
+  selectedModel = DEFAULT_CLAUDE_MODEL_ID,
   permissionMode = 'default',
   currentProvider = 'claude',
   reasoningEffort = 'high',
+  dshPreset = '',
+  codexFastMode = 'normal',
   onSubmit,
   onStop,
   onModeSelect,
   onModelSelect,
   onProviderSelect,
   onReasoningChange,
+  onCodexFastModeChange,
+  onDshPresetChange,
   onEnhancePrompt,
-  showThinkingEnabled = true,
-  onShowThinkingEnabledChange,
   streamingEnabled = true,
   onStreamingEnabledChange,
   selectedAgent,
   onAgentSelect,
   onOpenAgentSettings,
-  dshPreset,
-  onDshPresetChange,
-}: ButtonAreaProps) {
+  onAddModel,
+  longContextEnabled = true,
+  onLongContextChange,
+}: ButtonAreaProps) => {
   const { t } = useTranslation();
   // const fileInputRef = useRef<HTMLInputElement>(null);
+  const { cliModels, cliModelsLoading, cliModelsError, cliDefaultModel, cliCatalogHasEntries, refreshCliModels } = useCliModels(currentProvider);
+  // Dynamic omp roles (static smol/slow/plan fallback until loaded).
+  const ompRoles = useOmpRoles();
 
+  // Track changes to custom models in localStorage
+  // When localStorage changes, updating this version number triggers useMemo recalculation
+  const [customModelsVersion, setCustomModelsVersion] = useState(0);
+
+  // Listen for localStorage changes (cross-tab sync + same-tab custom events)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.CODEX_CUSTOM_MODELS || e.key === STORAGE_KEYS.CLAUDE_MODEL_MAPPING || e.key === STORAGE_KEYS.CLAUDE_CUSTOM_MODELS) {
+        setCustomModelsVersion(v => v + 1);
+      }
+    };
+
+    // Listen for custom events (localStorage changes within the same tab)
+    const handleCustomStorageChange = (e: CustomEvent<{ key: string }>) => {
+      if (e.detail.key === STORAGE_KEYS.CODEX_CUSTOM_MODELS || e.detail.key === STORAGE_KEYS.CLAUDE_MODEL_MAPPING || e.detail.key === STORAGE_KEYS.CLAUDE_CUSTOM_MODELS) {
+        setCustomModelsVersion(v => v + 1);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('localStorageChange', handleCustomStorageChange as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('localStorageChange', handleCustomStorageChange as EventListener);
+    };
+  }, []);
+
+  // A1:modelRegistry 是权威来源(后端 SSOT 下发)。订阅变更以刷新本地缓存视图。
   const [modelRegistryVersion, setModelRegistryVersion] = useState(0);
-
   useEffect(() => {
     requestModelRegistry();
     return subscribeModelRegistry(() => setModelRegistryVersion(v => v + 1));
   }, []);
 
-  /**
-   * Apply model name mapping
-   * Maps base model IDs to actual model names (e.g., versions with capacity suffixes)
-   * Only applies to built-in Claude models, not custom models
-   *
-   * When a mapping is configured:
-   * - The display label is changed to the mapped name
-   * - The model ID remains the Claude role model
-   *   (so the backend can resolve the actual request model from settings.json)
-   *
-   * Example: claude-role-sonnet → mimo-v2.5
-   *   label: "mimo-v2.5" (display)
-   *   id: "claude-role-sonnet" (sent to backend for role mapping)
-   */
-  const applyModelMapping = useCallback((model: ModelInfo, mapping: { main?: string; fable?: string; haiku?: string; sonnet?: string; opus?: string }): ModelInfo => {
-    const registryModel = getModelRegistrySnapshot().items.find((item) => item.provider === 'claude' && item.id === model.id);
-    if (registryModel?.actualModel) {
-      return model;
-    }
-
-    // A3:用 registry 的 role 字段判定是否内置模型(后端权威下发),不再从 id 离线推导。
-    const key = registryModel?.role;
-    // Only apply mapping to built-in Claude models, keep custom model labels unchanged
-    if (!key) {
-      return model;
-    }
-
-    // D5:映射解析收口到 claudeModelMapping.resolveMappedModelName(与 ModelSelect 共用单一入口)
-    const resolvedMapping = resolveMappedModelName(key, mapping);
-    if (resolvedMapping) {
-      return { ...model, label: resolvedMapping };
-    }
-    return model;
-  }, []);
-
-  // Select model list based on current provider.
+  // Select model list based on current provider — shared with Prompt Enhancer /
+  // Commit AI settings so the three surfaces never diverge.
+  // customModelsVersion triggers recalculation when localStorage changes.
   const availableModels = useMemo(() => {
+    // A1:registry 优先(后端权威下发,含 actualModel/role);空时回退静态/localStorage 路径。
     const registryModels = getModelsForProvider(currentProvider);
-    if (currentProvider === 'codex') {
-      return registryModels;
-    }
-    if (typeof window === 'undefined' || !window.localStorage) {
-      // A1:不再回退本地表;registry 空时返回空(SSR/localStorage 不可用场景罕见)。
-      return registryModels;
-    }
-
-    // Apply model mapping to built-in models
-    // A1:不再回退本地表 CLAUDE_MODELS;registry 为权威来源(空态由后端下发填补)。
-    let builtInModels = registryModels;
-    try {
-      const mapping = readClaudeModelMapping();
-      if (Object.keys(mapping).length > 0) {
-        builtInModels = builtInModels.map((m) => applyModelMapping(m, mapping));
+    if (registryModels.length > 0) {
+      if (currentProvider === 'claude') {
+        try {
+          const registryMapping = readClaudeModelMapping();
+          if (Object.keys(registryMapping).length > 0) {
+            return registryModels.map((m) => {
+              // 内置模型(role 存在)才应用映射;映射解析收口 resolveMappedModelName(D5)。
+              const key = getModelRegistrySnapshotRole(m);
+              if (!key) return m;
+              const mapped = resolveMappedModelName(key, registryMapping);
+              return mapped ? { ...m, label: mapped } : m;
+            });
+          }
+        } catch { /* ignore */ }
       }
-    } catch {
-      // ignore
+      return registryModels;
     }
-    return builtInModels;
-  }, [currentProvider, applyModelMapping, modelRegistryVersion]);
+    let claudeMapping = null;
+    try {
+      claudeMapping = readClaudeModelMapping();
+    } catch {
+      claudeMapping = null;
+    }
+    return resolveProviderModels({
+      provider: currentProvider,
+      cliModels,
+      cliCatalogHasEntries,
+      cliRoles: ompRoles,
+      claudeCustomModels: getCustomClaudeModels(),
+      codexCustomModels: getCustomCodexModels(),
+      claudeMapping,
+    });
+    // customModelsVersion intentionally forces re-read of localStorage customs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProvider, customModelsVersion, cliModels, cliCatalogHasEntries, ompRoles, modelRegistryVersion]);
+
+  // When a dynamic model catalog arrives, ensure selection is a real entry.
+  useEffect(() => {
+    const isDynamicProvider = currentProvider === 'kimi' || currentProvider === 'opencode'
+      || currentProvider === 'pi' || currentProvider === 'codex'
+      || currentProvider === 'grok' || currentProvider === 'omp'
+      || currentProvider === 'dsh';
+    if (!isDynamicProvider) return;
+    // Only correct once a *real* catalog arrived. Static fallback lists
+    // (OPENCODE_MODELS = just "opencode-default", CODEX built-ins, …) must not
+    // clobber the user's choice — especially when ChatScreen remounts after
+    // leaving history and briefly shows the fallback before the cache/fetch
+    // lands.
+    if (!cliCatalogHasEntries) return;
+    if (cliModelsLoading) return;
+    if (!availableModels.length || !onModelSelect) return;
+    const exists = availableModels.some((model) => model.id === selectedModel);
+    if (!exists) {
+      const fallbackId = cliDefaultModel ?? availableModels[0].id;
+      const fallbackModel = availableModels.find((model) => model.id === fallbackId) ?? availableModels[0];
+      onModelSelect(fallbackModel);
+    }
+  }, [
+    availableModels,
+    currentProvider,
+    onModelSelect,
+    selectedModel,
+    cliDefaultModel,
+    cliCatalogHasEntries,
+    cliModelsLoading,
+  ]);
 
   /**
    * Handle submit button click
@@ -194,9 +249,13 @@ export const ButtonArea = memo(function ButtonArea({
   /**
    * Handle model selection
    */
-  const handleModelSelect = useCallback((model: ModelInfo) => {
-    onModelSelect?.(model);
-  }, [onModelSelect]);
+  /** ModelConfigSelect 以 modelId 回调;包装为 ModelInfo(与本地 onModelSelect 签名一致)。 */
+  const handleModelSelectById = useCallback((modelId: string) => {
+    const model = availableModels.find((m) => m.id === modelId);
+    if (model) {
+      onModelSelect?.(model);
+    }
+  }, [availableModels, onModelSelect]);
 
   /**
    * Handle provider selection
@@ -213,6 +272,17 @@ export const ButtonArea = memo(function ButtonArea({
   }, [onReasoningChange]);
 
   /**
+   * Handle Codex speed mode selection
+   */
+  const handleCodexFastModeChange = useCallback((mode: CodexFastMode) => {
+    onCodexFastModeChange?.(mode);
+  }, [onCodexFastModeChange]);
+
+  const handleDshPresetChange = useCallback((preset: string) => {
+    onDshPresetChange?.(preset);
+  }, [onDshPresetChange]);
+
+  /**
    * Handle enhance prompt button click
    */
   const handleEnhanceClick = useCallback((e: React.MouseEvent) => {
@@ -220,12 +290,37 @@ export const ButtonArea = memo(function ButtonArea({
     onEnhancePrompt?.();
   }, [onEnhancePrompt]);
 
+  // Collapse selector labels for every CLI when left cluster is about to hit the send cluster (10px).
+  const buttonAreaRef = useRef<HTMLDivElement>(null);
+  const buttonAreaLeftRef = useRef<HTMLDivElement>(null);
+  const buttonAreaRightRef = useRef<HTMLDivElement>(null);
+  const selectorContentKey = [
+    currentProvider,
+    selectedModel,
+    permissionMode,
+    reasoningEffort,
+    codexFastMode,
+    dshPreset,
+    selectedAgent?.id ?? '',
+    cliModelsLoading ? 'loading' : 'ready',
+  ].join('|');
+  const selectorsCompact = useToolbarSelectorCompact(
+    buttonAreaRef,
+    buttonAreaLeftRef,
+    buttonAreaRightRef,
+    selectorContentKey,
+  );
+
   return (
-    <div className="button-area" data-provider={currentProvider}>
+    <div
+      ref={buttonAreaRef}
+      className={`button-area${selectorsCompact ? ' button-area--compact' : ''}`}
+      data-provider={currentProvider}
+    >
       {/* Left side: selectors */}
-      <div className="button-area-left">
+      <div ref={buttonAreaLeftRef} className="button-area-left">
         <ConfigSelect
-          showThinkingEnabled={showThinkingEnabled}
+          showThinkingEnabled={showThinkingEnabled ?? true}
           onShowThinkingEnabledChange={onShowThinkingEnabledChange}
           streamingEnabled={streamingEnabled}
           onStreamingEnabledChange={onStreamingEnabledChange}
@@ -234,7 +329,6 @@ export const ButtonArea = memo(function ButtonArea({
           onOpenAgentSettings={onOpenAgentSettings}
           currentProvider={currentProvider}
         />
-        <span className="selector-separator" />
         <ProviderSelect
           value={currentProvider}
           onChange={handleProviderSelect}
@@ -243,7 +337,7 @@ export const ButtonArea = memo(function ButtonArea({
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
         <ModelConfigSelect
           selectedModel={selectedModel}
-          onModelSelect={handleModelSelect}
+          onModelSelect={handleModelSelectById}
           models={availableModels}
           currentProvider={currentProvider}
           loading={cliModelsLoading}
@@ -262,7 +356,7 @@ export const ButtonArea = memo(function ButtonArea({
       </div>
 
       {/* Right side: tool buttons */}
-      <div className="button-area-right">
+      <div ref={buttonAreaRightRef} className="button-area-right">
         <div className="button-divider" />
 
         {/* Enhance prompt button */}
@@ -272,11 +366,7 @@ export const ButtonArea = memo(function ButtonArea({
           disabled={disabled || !hasInputContent || isLoading || isEnhancing}
           data-tooltip={`${t('promptEnhancer.tooltip')} (${t('promptEnhancer.shortcut')})`}
         >
-          {isEnhancing ? (
-            <SpinLoader variant="ring" size={16} strokeWidth={2} />
-          ) : (
-            <SparklesIcon size={16} />
-          )}
+          <span className={`codicon ${isEnhancing ? 'codicon-loading codicon-modifier-spin' : 'codicon-sparkle'}`} />
         </button>
 
         {/* Send/Stop button */}
@@ -286,25 +376,21 @@ export const ButtonArea = memo(function ButtonArea({
             onClick={handleStopClick}
             title={t('chat.stopGeneration')}
           >
-            <StopIcon size={14} />
+            <span className="codicon codicon-debug-stop" />
           </button>
         ) : (
-          <ClickSpark
+          <button
+            className="submit-button"
             onClick={handleSubmitClick}
-            enabled={!disabled && hasInputContent}
-            className="submit-spark"
-            style={{display: 'inline-flex', flexShrink: 0}}
+            disabled={disabled || !hasInputContent}
+            title={t('chat.sendMessageEnter')}
           >
-            <button
-              className="submit-button"
-              disabled={disabled || !hasInputContent}
-              title={t('chat.sendMessageEnter')}
-            >
-              <SendIcon size={16} />
-            </button>
-          </ClickSpark>
+            <span className="codicon codicon-send" />
+          </button>
         )}
       </div>
     </div>
   );
-});
+};
+
+export default ButtonArea;

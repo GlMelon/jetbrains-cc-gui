@@ -1,16 +1,19 @@
 import { useEffect, useMemo } from 'react';
+import { getModelSupportedReasoningLevels } from '../../utils/modelRegistry';
 import {
-  EFFORT_SUPPORTED_CLAUDE_MODELS,
-  MAX_EFFORT_CLAUDE_MODELS,
   REASONING_LEVELS,
-  XHIGH_EFFORT_CLAUDE_MODELS,
-  codexModelSupportsMaxEffort,
   type ReasoningEffort,
   type ReasoningInfo,
 } from './types';
 
 export function isReasoningVisible(currentProvider?: string, selectedModel?: string): boolean {
-  return currentProvider !== 'claude' || !selectedModel || EFFORT_SUPPORTED_CLAUDE_MODELS.has(selectedModel);
+  // A2(2026-06-23):claude 的 reasoning 能力以后端 registry 派生为准(空档位=不可见);
+  // 其余 provider 默认可见(档位由下方通用规则给出)。
+  if (currentProvider === 'claude' && selectedModel) {
+    const levels = getModelSupportedReasoningLevels(selectedModel);
+    return levels !== null && levels.length > 0;
+  }
+  return true;
 }
 
 export function getAvailableReasoningLevels(
@@ -22,7 +25,8 @@ export function getAvailableReasoningLevels(
       return level.id === 'low' || level.id === 'medium' || level.id === 'high';
     }
     if (currentProvider === 'codex') {
-      return level.id !== 'max' || (selectedModel !== undefined && codexModelSupportsMaxEffort(selectedModel));
+      // codexModelSupportsMaxEffort 已随 A2 下沉;codex 不展示 max 档。
+      return level.id !== 'max';
     }
     if (currentProvider !== 'claude') {
       return level.id !== 'max';
@@ -30,13 +34,12 @@ export function getAvailableReasoningLevels(
     if (!selectedModel) {
       return true;
     }
-    if (level.id === 'xhigh') {
-      return XHIGH_EFFORT_CLAUDE_MODELS.has(selectedModel);
+    // A2:claude 档位由后端 registry 派生(role→supportedReasoningLevels)。
+    const levels = getModelSupportedReasoningLevels(selectedModel);
+    if (levels === null) {
+      return level.id !== 'xhigh' && level.id !== 'max';
     }
-    if (level.id === 'max') {
-      return MAX_EFFORT_CLAUDE_MODELS.has(selectedModel);
-    }
-    return true;
+    return levels.includes(level.id);
   });
 }
 

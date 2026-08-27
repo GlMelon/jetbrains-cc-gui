@@ -83,7 +83,7 @@ function normalizeModels(raw: unknown): ModelInfo[] {
       ? row.label.trim()
       : id;
     const description = typeof row.description === 'string' ? row.description : undefined;
-    out.push({ id, label, description });
+    out.push({ id, identifier: id, label, description });
   }
   return out;
 }

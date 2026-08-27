@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../../i18n/config';
 import { AVAILABLE_MODES, type PermissionMode } from '../types';
-import { ChatIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon, CompassIcon, RobotIcon, ZapIcon } from '../../Icons';
+import { ChatIcon, CheckIcon, CompassIcon, RobotIcon, ZapIcon } from '../../Icons';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };

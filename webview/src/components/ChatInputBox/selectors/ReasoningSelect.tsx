@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { REASONING_LEVELS, type ReasoningEffort } from '../types';
 import { useReasoningEffortGuard } from '../reasoningUtils';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon, ReasoningGaugeIcon } from '../../Icons';
+import { CheckIcon, ReasoningGaugeIcon } from '../../Icons';
 
 /** ReasoningEffort → 油表档位(0-4),与 REASONING_LEVELS 顺序一致(low/medium/high/xhigh/max) */
 const REASONING_GAUGE_LEVEL: Record<ReasoningEffort, 0 | 1 | 2 | 3 | 4> = {

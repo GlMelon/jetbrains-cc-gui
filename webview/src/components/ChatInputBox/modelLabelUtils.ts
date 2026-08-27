@@ -1,15 +1,6 @@
-import { AVAILABLE_MODELS, modelSupports1MContext } from './types';
 import type { ModelInfo } from './types';
 
 type Translate = (key: string, options?: { defaultValue?: string } & Record<string, unknown>) => string;
-
-const DEFAULT_MODEL_MAP: Record<string, ModelInfo> = AVAILABLE_MODELS.reduce(
-  (acc, model) => {
-    acc[model.id] = model;
-    return acc;
-  },
-  {} as Record<string, ModelInfo>,
-);
 
 export const MODEL_LABEL_KEYS: Record<string, string> = {
   'claude-opus-5': 'models.claude.opus5.label',
@@ -103,13 +94,14 @@ export const resolveModelIdForIcon = (
 
 const append1MContextSuffix = (
   label: string,
-  modelId: string,
   currentProvider: string,
   show1MContext: boolean,
   longContextEnabled: boolean,
   t: Translate,
+  supports1M?: boolean,
 ): string => {
-  if (currentProvider === 'claude' && show1MContext && modelSupports1MContext(modelId) && longContextEnabled) {
+  // A4(2026-06-23):静态 modelSupports1MContext 已删除,1M 能力读 registry 下发的 supports1MContext 字段。
+  if (currentProvider === 'claude' && show1MContext && supports1M && longContextEnabled) {
     return `${label} (${t('models.longContext.shortLabel')})`;
   }
   return label;
@@ -136,11 +128,11 @@ export function resolveModelDisplayLabel(
   if (currentProvider !== 'claude') {
     return append1MContextSuffix(
       model.label ?? '',
-      model.id,
       currentProvider,
       show1MContext,
       longContextEnabled,
       t,
+      model.supports1MContext,
     );
   }
 
@@ -150,48 +142,48 @@ export function resolveModelDisplayLabel(
     if (mappedName) {
       return append1MContextSuffix(
         mappedName,
-        model.id,
         currentProvider,
         show1MContext,
         longContextEnabled,
         t,
+      model.supports1MContext,
       );
     }
   }
 
-  const defaultModel = DEFAULT_MODEL_MAP[model.id];
   const labelKey = MODEL_LABEL_KEYS[model.id];
-  const hasCustomLabel = defaultModel && model.label && model.label !== defaultModel.label;
+  // A3:内置模型判定读 registry 的 role 字段;无 role 视为自定义模型(用自身 label)。
+  const hasCustomLabel = !model.role && !!model.label;
 
   if (hasCustomLabel) {
     return append1MContextSuffix(
       model.label ?? '',
-      model.id,
       currentProvider,
       show1MContext,
       longContextEnabled,
       t,
+      model.supports1MContext,
     );
   }
 
   if (labelKey) {
     return append1MContextSuffix(
       t(labelKey),
-      model.id,
       currentProvider,
       show1MContext,
       longContextEnabled,
       t,
+      model.supports1MContext,
     );
   }
 
   return append1MContextSuffix(
     model.label ?? '',
-    model.id,
     currentProvider,
     show1MContext,
     longContextEnabled,
     t,
+      model.supports1MContext,
   );
 }
 

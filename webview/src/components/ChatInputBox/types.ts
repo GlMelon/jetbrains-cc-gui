@@ -238,6 +238,8 @@ export interface ModelInfo {
   id: string;
   /** Backend-issued opaque identifier used only for exact UI selection. */
   identifier: string;
+  /** Registry role of a built-in model (claude provider); absent = custom model. */
+  role?: 'sonnet' | 'opus' | 'fable' | 'haiku';
   label: string;
   description?: string;
     /** Base context window size in tokens; undefined = use backend default (200K) */
@@ -272,6 +274,9 @@ export const CLAUDE_ROLE_MODEL_IDS = {
   fable: 'claude-role-fable',
   haiku: 'claude-role-haiku',
 } as const;
+
+/** 默认 Claude 模型:本地走 role 模型体系(后端由 role 解析实际请求模型)。 */
+export const DEFAULT_CLAUDE_MODEL_ID = CLAUDE_ROLE_MODEL_IDS.sonnet;
 
 // A3(2026-06-23):getClaudeRoleFromModelId / normalizeClaudeModelId 已删除。
 // 前端不再做「id→role 离线推导」与「未知 id 归一为 sonnet」的业务归一化——
@@ -314,6 +319,16 @@ export const OPENCODE_DEFAULT_MODEL_ID = 'opencode-default';
 export const PI_DEFAULT_MODEL_ID = 'auto';
 
 // A1(2026-06-23):CLAUDE_MODELS / CODEX_MODELS / AVAILABLE_MODELS 本地表已删除。
+// 下述空表仅为 upstream useCliModels 等 fallback 层提供占位;registry 为权威来源,
+// fallback 在 registry 未加载时返回空,与 A1「不回退本地表」语义一致。
+export const CODEX_MODELS: ModelInfo[] = [];
+export const DSH_MODELS: ModelInfo[] = [];
+export const GROK_MODELS: ModelInfo[] = [];
+export const KIMI_MODELS: ModelInfo[] = [];
+export const OMP_MODELS: ModelInfo[] = [];
+export const OMP_ROLE_MODELS: ModelInfo[] = [];
+export const OPENCODE_MODELS: ModelInfo[] = [];
+export const PI_MODELS: ModelInfo[] = [];
 // 模型真相源唯一为后端 MODEL_REGISTRY 下发(ReadOnlyDefaultModels → ModelRegistryService.serialize);
 // 前端经 utils/modelRegistry 订阅,空 registry 时显示 loading,不回退本地表。
 // 能力(supports1MContext)/归一化(normalizeClaudeModelId 等)随 A2/A3 切片进一步下沉。
@@ -404,7 +419,7 @@ export type { ReasoningEffort };
 /**
  * Reasoning level information
  */
-interface ReasoningInfo {
+export interface ReasoningInfo {
   id: ReasoningEffort;
   label: string;
   icon: string;
@@ -625,6 +640,20 @@ export interface ButtonAreaProps {
   dshPreset?: string;
   /** DSH preset change callback */
   onDshPresetChange?: (preset: string) => void;
+  /** Codex speed mode */
+  codexFastMode?: CodexFastMode;
+  /** Switch Codex speed mode callback */
+  onCodexFastModeChange?: (mode: CodexFastMode) => void;
+  /** Whether always thinking enabled */
+  alwaysThinkingEnabled?: boolean;
+  /** Toggle thinking mode */
+  onToggleThinking?: (enabled: boolean) => void;
+  /** Navigate to model management to add models */
+  onAddModel?: () => void;
+  /** Whether long context (1M) is enabled */
+  longContextEnabled?: boolean;
+  /** Toggle long context callback */
+  onLongContextChange?: (enabled: boolean) => void;
 
   // Event callbacks
   onSubmit?: () => void;

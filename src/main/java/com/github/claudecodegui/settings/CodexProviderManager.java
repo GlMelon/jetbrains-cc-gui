@@ -508,6 +508,29 @@ public class CodexProviderManager {
     }
 
     /**
+     * Re-apply the active managed provider's config/auth to ~/.codex.
+     * Settings-UI entry point (via ProviderSettingsService): the active provider
+     * is applied transactionally; CLI-login and empty selections are no-ops.
+     */
+    public void applyActiveProviderToCodexSettings() throws IOException {
+        JsonObject activeProvider = getActiveCodexProvider();
+        if (activeProvider == null) {
+            LOG.info("[CodexProviderManager] No managed Codex provider active, skipping apply");
+            return;
+        }
+        JsonObject config = configReader.apply(null);
+        JsonObject codex = config.has("codex") && config.get("codex").isJsonObject()
+                ? config.getAsJsonObject("codex") : null;
+        if (codex != null && CODEX_CLI_LOGIN_PROVIDER_ID.equals(getCurrentId(codex))) {
+            LOG.info("[CodexProviderManager] CLI login provider active, skipping apply");
+            return;
+        }
+        String id = activeProvider.has("id") ? activeProvider.get("id").getAsString() : "";
+        JsonObject providerToApply = providerWithId(activeProvider, id);
+        codexSettingsManager.transitionProvider(null, providerToApply, false, () -> { });
+    }
+
+    /**
      * A managed provider is ready only after its exact saved revision reached ~/.codex.
      * Legacy installations without markers are accepted only after file-content verification.
      */

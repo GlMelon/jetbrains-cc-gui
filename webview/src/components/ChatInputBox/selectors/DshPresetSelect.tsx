@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DSH_PRESETS, getUserDshPresetOptions } from '../types';
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon, RobotIcon } from '../../Icons';
+import { CheckIcon, RobotIcon } from '../../Icons';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
-const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
+/** 内置 preset id 集合(DSH_PRESETS 常量),用于区分 i18n 内置文案与用户 preset。 */
+const BUILT_IN_PRESETS = new Set<string>(DSH_PRESETS);
 const CHEVRON_ICON_STYLE: React.CSSProperties = { marginLeft: '2px' };
 const DROPDOWN_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -66,6 +67,15 @@ export const DshPresetSelect = ({
     return t('dshPresets.user.description', { defaultValue: '' });
   }, [t]);
 
+  const allOptions = useMemo(
+    () => presetOptions.map((opt) => ({
+      ...opt,
+      label: getPresetLabel(opt.id),
+      description: getPresetDescription(opt.id),
+    })),
+    [presetOptions, getPresetLabel, getPresetDescription],
+  );
+
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     const nextOpen = !isOpen;
@@ -76,7 +86,7 @@ export const DshPresetSelect = ({
   }, [isOpen, recalculate]);
 
   const handleSelect = useCallback((preset: string) => {
-    onDshPresetChange(preset);
+    onChange(preset);
     setIsOpen(false);
     onClose?.();
   }, [onChange, onClose]);
@@ -133,7 +143,7 @@ export const DshPresetSelect = ({
           {allOptions.map((opt) => (
             <div
               key={opt.id || 'none'}
-              className={`selector-option ${opt.id === dshPreset ? 'selected' : ''}`}
+              className={`selector-option ${opt.id === value ? 'selected' : ''}`}
               onClick={() => handleSelect(opt.id)}
               title={opt.description}
             >
@@ -144,7 +154,7 @@ export const DshPresetSelect = ({
                   <span className="mode-description" style={PRESET_TEXT_STYLE}>{opt.description}</span>
                 )}
               </div>
-              {opt.id === dshPreset && (
+              {opt.id === value && (
                 <CheckIcon size={14} className="check-mark" />
               )}
             </div>
@@ -162,10 +172,10 @@ export const DshPresetSelect = ({
         ref={buttonRef}
         className="selector-button"
         onClick={handleToggle}
-        title={t('dshPresets.title', { defaultValue: getPresetText(currentPreset.id, 'description') })}
+        title={getPresetDescription(value)}
       >
         <span className="codicon codicon-robot" />
-        <span className="selector-button-text">{getPresetText(currentPreset.id, 'label')}</span>
+        <span className="selector-button-text">{getPresetLabel(value)}</span>
         <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
       </button>
 

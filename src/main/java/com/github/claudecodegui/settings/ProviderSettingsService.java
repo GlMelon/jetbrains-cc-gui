@@ -42,7 +42,6 @@ public final class ProviderSettingsService {
                 claudeSettingsManager
         );
         this.codexProviderManager = new CodexProviderManager(
-                gson,
                 reader(configStore),
                 writer(configStore),
                 pathManager,
@@ -134,6 +133,10 @@ public final class ProviderSettingsService {
 
     public boolean setAlwaysThinkingEnabledInActiveProvider(boolean enabled) throws IOException {
         return providerManager.setAlwaysThinkingEnabledInActiveProvider(enabled);
+    }
+
+    public boolean repairActiveProviderToClaudeSettings() throws IOException {
+        return providerManager.repairActiveProviderToClaudeSettings();
     }
 
     public void applyActiveProviderToClaudeSettings() throws IOException {
