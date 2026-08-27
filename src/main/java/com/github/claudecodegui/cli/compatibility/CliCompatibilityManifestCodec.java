@@ -87,12 +87,39 @@ public final class CliCompatibilityManifestCodec {
                 blocked.add(validateBoundary(provider, "blockedVersions", version));
             }
         }
+
+        // Optional per-feature version gates: absent (null) is valid (legacy/feature-ungated
+        // providers). When present, each FeatureRule must have valid boundaries and min<=max.
+        Map<String, CliCompatibilityManifest.FeatureRule> features = null;
+        if (rule.features() != null) {
+            Map<String, CliCompatibilityManifest.FeatureRule> validatedFeatures = new LinkedHashMap<>();
+            for (Map.Entry<String, CliCompatibilityManifest.FeatureRule> entry : rule.features().entrySet()) {
+                String featureId = entry.getKey();
+                if (featureId == null || featureId.isBlank()) {
+                    throw new IllegalArgumentException("Empty feature id for " + provider.value());
+                }
+                CliCompatibilityManifest.FeatureRule fr = entry.getValue();
+                if (fr == null) {
+                    throw new IllegalArgumentException("Null feature rule for " + provider.value() + "/" + featureId);
+                }
+                String fMin = validateBoundary(provider, "features." + featureId + ".minimumSupported", fr.minimumSupported());
+                String fMax = validateBoundary(provider, "features." + featureId + ".maximumTested", fr.maximumTested());
+                if (VersionComparator.compareVersions(fMin, fMax) > 0) {
+                    throw new IllegalArgumentException(
+                            "features." + featureId + " minimumSupported exceeds maximumTested for " + provider.value());
+                }
+                validatedFeatures.put(featureId, new CliCompatibilityManifest.FeatureRule(fMin, fMax));
+            }
+            features = Collections.unmodifiableMap(validatedFeatures);
+        }
+
         return new CliCompatibilityManifest.ProviderRule(
                 minimum,
                 maximum,
                 Collections.unmodifiableList(blocked),
                 rule.unknownVersionPolicy(),
-                rule.higherVersionPolicy());
+                rule.higherVersionPolicy(),
+                features);
     }
 
     private static String validateBoundary(ProviderType provider, String field, String version) {

@@ -186,6 +186,13 @@ public class CodexMessageHandler implements MessageCallback {
             case CliConstants.MSG_RESPONSE_PHASE:
                 handleResponsePhase(content);
                 break;
+            case CliConstants.MSG_SESSION_TITLE:
+                // kimi ACP 通道原生标题(session_info_update.title,见 KimiAcpCliSession.finalizeTurn)。
+                // payload 形状 {sessionId, title} 与 CliSessionTitleService 下发的 SESSION_TITLE 一致,
+                // 前端按 DownstreamEvent.SESSION_TITLE 渲染,零改动。
+                callbackHandler.notifyProtocolEvent(
+                        com.github.claudecodegui.protocol.DownstreamEvent.SESSION_TITLE.value(), content);
+                break;
             default:
                 LOG.debug("CodexMessageHandler: Unhandled message type: " + type);
                 break;
@@ -229,7 +236,6 @@ public class CodexMessageHandler implements MessageCallback {
             LOG.debug("Ignoring stale Codex onError (runtime session switched)");
             return;
         }
-        boolean wasStreaming = isStreaming;
         isStreaming = false;
         streamEndedThisTurn = false;
         resetThinkingStatus();
@@ -243,9 +249,11 @@ public class CodexMessageHandler implements MessageCallback {
         appendProviderErrorToAssistantMessage(error);
         persistProviderError(error);
         callbackHandler.notifyMessageUpdate(state.getMessages());
-        if (wasStreaming) {
-            callbackHandler.notifyStreamEnd();
-        }
+        // 无条件补发 stream_end(与 ClaudeMessageHandler.onError 同因):前端
+        // streamingActive 在 RESPONSE_PHASE(active) 即置位,turn 若死在
+        // stream_start 之前,wasStreaming=false 会悬挂前端流式 footer;
+        // 前端 minimal/skip 幂等兜底使未开流时的多发无害。
+        callbackHandler.notifyStreamEnd();
         // 项4:删除 notifyStreamEnd 之后冗余的第二次 notifyMessageUpdate(上方已通知,与 Claude onError 对称)。
         resetStreamingAccumulator();
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());

@@ -16,6 +16,21 @@ public record CliCompatibilityManifest(
             String maximumTested,
             List<String> blockedVersions,
             CliVersionPolicy unknownVersionPolicy,
-            CliVersionPolicy higherVersionPolicy) {
+            CliVersionPolicy higherVersionPolicy,
+            /** Optional per-feature version gates (nullable when absent = feature not gated).
+             * Key = feature id (e.g. {@code "acp"}); presence declares the feature is available
+             * and the version bounds within which it is supported. Absent map = no feature gates. */
+            Map<String, FeatureRule> features) {
+
+        /** Convenience accessor tolerating a null map (legacy manifests without features). */
+        public FeatureRule feature(String id) {
+            return features == null ? null : features.get(id);
+        }
+    }
+
+    /** Version gate for a single optional feature (e.g. ACP channel support). */
+    public record FeatureRule(
+            String minimumSupported,
+            String maximumTested) {
     }
 }

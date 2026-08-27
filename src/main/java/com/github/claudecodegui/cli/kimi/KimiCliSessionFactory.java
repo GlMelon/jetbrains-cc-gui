@@ -3,6 +3,8 @@ package com.github.claudecodegui.cli.kimi;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionFactory;
+import com.github.claudecodegui.cli.kimi.acp.KimiAcpChannelGate;
+import com.github.claudecodegui.cli.kimi.acp.KimiAcpCliSession;
 import com.github.claudecodegui.mcp.McpGatewayService;
 
 /**
@@ -10,7 +12,10 @@ import com.github.claudecodegui.mcp.McpGatewayService;
  * <p>
  * 声明 provider 路由键 {@link CommonConstants#PROVIDER_KIMI},
  * 由 {@link com.github.claudecodegui.cli.CliSessionManager} 注册表查表调用。
- * 会话实现为 {@link KimiRunOnceCliSession}(stream-json 方言,直 spawn 原生 CLI)。
+ * <p>
+ * 双通道路由:启用条件满足时走 {@link KimiAcpCliSession}({@code kimi acp} 通道,
+ * 思考区一等公民透出 agent_thought_chunk),否则回退 {@link KimiRunOnceCliSession}
+ * (legacy stream-json 通道,无思考区)。门禁见 {@link KimiAcpChannelGate}。
  */
 public class KimiCliSessionFactory implements CliSessionFactory {
     private final McpGatewayService gatewayService;
@@ -30,6 +35,9 @@ public class KimiCliSessionFactory implements CliSessionFactory {
 
     @Override
     public CliSession create(String tabId) {
+        if (KimiAcpChannelGate.isAcpEligible()) {
+            return new KimiAcpCliSession(tabId, gatewayService);
+        }
         return new KimiRunOnceCliSession(tabId, gatewayService);
     }
 }

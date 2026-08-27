@@ -73,12 +73,15 @@ public record ProviderDescriptor(
     }
 
     /**
-     * Kimi Provider 描述符(stream-json 流式 + 历史读取)。
-     * 无 REASONING_THINKING:官方 stream-json 不写 thinking(2026-08 官方文档),
-     * 有意不声明(总则一:能力判定下沉后端 SSOT)。
+     * Kimi Provider 描述符(stream-json 流式 + 思考区(ACP 通道)+ 历史读取)。
+     * <p>
+     * 思考区经 {@code kimi acp} 通道(ACP server over stdio)透出 {@code agent_thought_chunk}
+     * 一等公民(2026-08-27 实测 0.38.0 确认);legacy stream-json 通道仍不透出 thinking
+     * (见 {@code KimiCliStreamParser} 注释)。能力声明按通道最优承诺(ACP 通道可用时)。
      */
     public static ProviderDescriptor kimi() {
-        return cliBuiltin(ProviderType.KIMI, ProviderCapability.HISTORY);
+        return cliBuiltin(ProviderType.KIMI,
+                ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY);
     }
 
     /** Pi Provider 描述符(JSON 事件流 + 思考区(thinking_delta 一等公民)+ 历史(session JSONL 公开规范))。 */

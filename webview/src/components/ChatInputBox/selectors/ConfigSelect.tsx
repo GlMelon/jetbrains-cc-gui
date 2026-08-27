@@ -532,8 +532,10 @@ export const ConfigSelect = ({
           <div style={FAINT_DIVIDER_STYLE} />
 
           {/* Show-thinking Switch Item - 显示思考区开关。
-              所有 provider/调用模式均可生效:Claude/Codex/OpenCode CLI 均推送 reasoning,
-              OpenCode CLI 由 --thinking flag 驱动(见 OpenCodeCliSession.buildRunCommand)。 */}
+              Claude/Codex/OpenCode/Grok/Pi/Kimi CLI 均推送 reasoning。
+              Kimi 经 ACP 通道(kimi acp)透出 agent_thought_chunk 一等公民
+              (见 KimiAcpCliSession);legacy stream-json 通道仍不透出,
+              但门禁会自动回退 ACP 通道,故开关放开。 */}
           <div
             className="selector-option"
             onClick={(e) => {

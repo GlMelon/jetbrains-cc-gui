@@ -150,13 +150,15 @@ public class KimiCliStreamParserTest {
     }
 
     @Test
-    public void noThinkingIsEverEmitted() {
-        // 官方限制:stream-json 不写 thinking。此测试固定该契约——若未来官方输出 thinking,
-        // 应显式加分支并撤销 capability 侧的「暂不支持」注记。
+    public void reasoningContentFieldRemainsIgnoredOnLegacyChannel() {
+        // legacy stream-json 通道契约:即便 assistant 行带 reasoning_content 字段,
+        // KimiCliStreamParser 也不解析 thinking(stream-json 官方不写 thinking,见类注释)。
+        // 思考区已由 ACP 通道(KimiAcpStreamParser 的 agent_thought_chunk)提供;
+        // 此测试固定 legacy 通道不越权产出 thinking,避免两条通道行为混淆。
         RecordingCallback cb = new RecordingCallback();
         KimiCliStreamParser parser = new KimiCliStreamParser(cb);
         parser.parseLine("{\"role\":\"assistant\",\"content\":\"plain answer\","
-                + "\"reasoning_content\":\"should be ignored\"}");
+                + "\"reasoning_content\":\"should be ignored on legacy channel\"}");
         assertFalse(cb.messages.stream()
                 .anyMatch(m -> CommonConstants.MSG_TYPE_THINKING.equals(m[0])));
         assertFalse(cb.messages.stream()

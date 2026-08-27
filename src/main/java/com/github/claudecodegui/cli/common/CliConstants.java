@@ -82,6 +82,12 @@ public final class CliConstants {
     public static final String MSG_CONTENT = "content";
     /** 可用斜杠命令列表事件。 */
     public static final String MSG_SLASH_COMMANDS = "slash_commands";
+    /**
+     * 会话标题事件:kimi ACP 等通道从 {@code session_info_update.title} 捕获的原生标题,
+     * 经 {@link com.github.claudecodegui.session.CliSessionTitleService} 接入。
+     * content 形如 {@code {"sessionId":"...","title":"..."}}。
+     */
+    public static final String MSG_SESSION_TITLE = "session_title";
     /** Node.js 进程日志转发事件。 */
     public static final String MSG_NODE_LOG = "node_log";
     /**

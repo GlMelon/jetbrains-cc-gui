@@ -56,7 +56,17 @@ public final class CliCompatibilityService {
         } catch (RuntimeException ignored) {
             // ApplicationManager unavailable (isolated tests / plugin bootstrap).
         }
-        return Holder.INSTANCE;
+        try {
+            return Holder.INSTANCE;
+        } catch (LinkageError e) {
+            // Holder 的静态初始化只跑一次:失败(如 manifest 缺 provider 规则)后,后续
+            // 每次访问都抛 NoClassDefFoundError —— 是 Error,穿透调用方 catch(Exception)
+            // 造成无日志死亡。这里转成带根因的 RuntimeException,让 CLI 解析层能以
+            // 「版本门禁不可用」的可见错误处理,而不是整条 send 链静默失败。
+            throw new IllegalStateException(
+                    "CLI compatibility service failed to initialize (bundled manifest invalid?): "
+                            + e.getMessage(), e);
+        }
     }
 
     public CliCompatibilityDecision evaluate(ProviderType provider, String rawVersion) {
@@ -105,6 +115,53 @@ public final class CliCompatibilityService {
                     + ", manifestSource=" + result.manifestSource());
         }
         return result.allowed();
+    }
+
+    /**
+     * Evaluate an optional per-feature version gate (e.g. ACP channel support).
+     * <p>
+     * Unlike {@link #evaluate}, this is <b>fail-safe conservative</b>: when the feature rule is
+     * absent (null) or the version cannot be parsed, it returns {@code false} (caller falls back
+     * to the legacy path) <em>without throwing</em>. This is the deliberate inverse of
+     * {@link #evaluate}'s rule-missing behavior — a missing feature gate must never crash the
+     * caller (Holder clinit / NoClassDefFoundError lesson), it must silently disable the feature.
+     * <p>
+     * Only returns {@code true} when the provider's overall version is acceptable AND the feature
+     * rule exists AND the version falls within [minimumSupported, maximumTested].
+     */
+    public boolean evaluateFeature(ProviderType provider, String rawVersion, String featureId) {
+        if (provider == null || featureId == null || featureId.isBlank()) {
+            return false;
+        }
+        try {
+            CliCompatibilityManifestSnapshot current = snapshot.get();
+            CliCompatibilityManifest.ProviderRule rule =
+                    current.manifest().providers().get(provider.value());
+            if (rule == null) {
+                return false;
+            }
+            CliCompatibilityManifest.FeatureRule feature = rule.feature(featureId);
+            if (feature == null) {
+                return false;
+            }
+            Optional<String> normalized = parserRegistry.parse(provider, rawVersion);
+            if (normalized.isEmpty()) {
+                return false;
+            }
+            String version = normalized.get();
+            if (VersionComparator.compareVersions(version, feature.minimumSupported()) < 0) {
+                return false;
+            }
+            // upper bound: ACP is "tested up to" max; higher versions are cautiously allowed
+            // (the CLI is backward-compatible within a major line; hard-block only below floor).
+            return VersionComparator.compareVersions(version, feature.maximumTested()) <= 0
+                    || rule.higherVersionPolicy() == CliVersionPolicy.WARN_ALLOW
+                    || rule.higherVersionPolicy() == CliVersionPolicy.ALLOW;
+        } catch (Exception e) {
+            LOG.warn("evaluateFeature failed (feature=" + featureId
+                    + ", provider=" + provider.value() + ", version=" + rawVersion + "): " + e.getMessage());
+            return false;
+        }
     }
 
     public CliCompatibilityManifestSnapshot refreshManifest() {

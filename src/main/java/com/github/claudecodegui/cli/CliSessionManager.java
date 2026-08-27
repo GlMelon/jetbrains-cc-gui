@@ -93,7 +93,7 @@ public class CliSessionManager {
                 new CodexCliSessionFactory(McpGatewayService.getInstance(project)),
                 new OpenCodeCliSessionFactory(McpGatewayService.getInstance(project)),
                 new GrokCliSessionFactory(),
-                new KimiCliSessionFactory(),
+                new KimiCliSessionFactory(McpGatewayService.getInstance(project)),
                 new PiCliSessionFactory(),
                 new com.github.claudecodegui.cli.omp.OmpCliSessionFactory(),
                 new com.github.claudecodegui.cli.dsh.DshCliSessionFactory()
@@ -326,7 +326,8 @@ public class CliSessionManager {
             CliConstants.MSG_RESULT,
             CliConstants.MSG_SLASH_COMMANDS,
             CliConstants.MSG_NODE_LOG,
-            CliConstants.MSG_STREAM_EVENT
+            CliConstants.MSG_STREAM_EVENT,
+            CliConstants.MSG_SESSION_TITLE
     );
 
     /**

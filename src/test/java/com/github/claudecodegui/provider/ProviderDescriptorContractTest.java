@@ -35,12 +35,12 @@ public class ProviderDescriptorContractTest {
                 EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
                         ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
                 ProviderDescriptor.grok().capabilities());
-        // kimi:HISTORY 有;无 REASONING_THINKING(官方 stream-json 不写 thinking,有意不承诺)
+        // kimi:CLI_SESSION + STREAMING + REASONING_THINKING(ACP 通道 agent_thought_chunk)+ HISTORY
         assertEquals("expected kimi capabilities",
                 EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
-                        ProviderCapability.HISTORY),
+                        ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
                 ProviderDescriptor.kimi().capabilities());
-        assertFalse("kimi must not declare thinking until official stream-json emits it",
+        assertTrue("kimi declares thinking via ACP channel (agent_thought_chunk)",
                 ProviderDescriptor.kimi().supports(ProviderCapability.REASONING_THINKING));
         // pi:CLI_SESSION + STREAMING + REASONING_THINKING + HISTORY(session JSONL 公开规范)
         assertEquals("expected pi capabilities",

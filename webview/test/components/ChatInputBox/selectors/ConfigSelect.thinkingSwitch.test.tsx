@@ -29,13 +29,13 @@ const openThinkingSwitch = async (): Promise<HTMLElement> => {
   return within(thinkingOption).getByRole('switch');
 };
 
-describe('ConfigSelect thinking switch — available across all providers', () => {
+describe('ConfigSelect thinking switch — enabled for all CLI providers (incl. kimi ACP channel)', () => {
   beforeEach(() => {
     window.sendToJava = vi.fn();
   });
 
   // OpenCode CLI 现带 --thinking flag(opencode run --format json 输出 type:"reasoning" 文本事件,
-  // parser EVENT_REASONING 分支消费),思考区开关对所有 provider 均可用。早期 opencode+cli 灰显已移除。
+  // parser EVENT_REASONING 分支消费),思考区开关对多数 provider 可用。早期 opencode+cli 灰显已移除。
   it('keeps thinking switch enabled for provider=opencode (CLI now emits thinking via --thinking)', async () => {
     render(<ConfigSelect currentProvider="opencode" />);
     const thinkingSwitch = await openThinkingSwitch();
@@ -50,6 +50,14 @@ describe('ConfigSelect thinking switch — available across all providers', () =
 
   it('keeps thinking switch enabled for provider=claude', async () => {
     render(<ConfigSelect currentProvider="claude" />);
+    const thinkingSwitch = await openThinkingSwitch();
+    expect(thinkingSwitch.hasAttribute('disabled')).toBe(false);
+  });
+
+  // Kimi 经 ACP 通道(kimi acp)透出 agent_thought_chunk 一等公民(2026-08-27 实测 0.38.0 确认),
+  // 思考开关放开;门禁不满足(版本/未登录)时自动回退 legacy stream-json(无思考区,但开关不再硬禁用)。
+  it('keeps thinking switch enabled for provider=kimi (ACP channel emits agent_thought_chunk)', async () => {
+    render(<ConfigSelect currentProvider="kimi" />);
     const thinkingSwitch = await openThinkingSwitch();
     expect(thinkingSwitch.hasAttribute('disabled')).toBe(false);
   });

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "revision": 2026080701,
-  "generatedAt": "2026-08-07",
+  "revision": 2026082801,
+  "generatedAt": "2026-08-28",
   "providers": {
     "claude": {
       "minimumSupported": "0.0.0",
@@ -33,12 +33,32 @@
     },
     "kimi": {
       "minimumSupported": "0.0.0",
+      "maximumTested": "0.38.0",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW",
+      "features": {
+        "acp": {
+          "minimumSupported": "0.9.0",
+          "maximumTested": "0.38.0"
+        }
+      }
+    },
+    "pi": {
+      "minimumSupported": "0.0.0",
       "maximumTested": "0.0.0",
       "blockedVersions": [],
       "unknownVersionPolicy": "WARN_ALLOW",
       "higherVersionPolicy": "WARN_ALLOW"
     },
-    "pi": {
+    "omp": {
+      "minimumSupported": "0.0.0",
+      "maximumTested": "0.0.0",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW"
+    },
+    "dsh": {
       "minimumSupported": "0.0.0",
       "maximumTested": "0.0.0",
       "blockedVersions": [],

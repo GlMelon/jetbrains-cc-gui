@@ -122,6 +122,38 @@ public class CliAttachmentHandler {
         return files;
     }
 
+    /**
+     * 处理附件列表为 ACP content blocks 的图片部分(base64 直传,无需磁盘文件物化)。
+     * 用于 {@code kimi acp} 等 ACP 通道(session/prompt 的 prompt blocks 接受
+     * {type:image, data:base64, mimeType})。仅处理图片;非图片附件调用方自行以 text 块注入。
+     * <p>
+     * 复用 {@link #resolveBase64}(data 优先,否则读 localPath 字节),失败项 LOG.warn 跳过。
+     */
+    public List<AcpImagePart> processForAcp(List<ClaudeSession.Attachment> attachments) {
+        List<AcpImagePart> parts = new ArrayList<>();
+        if (attachments == null || attachments.isEmpty()) {
+            return parts;
+        }
+        for (ClaudeSession.Attachment att : attachments) {
+            if (att == null || !isImage(att)) {
+                continue;
+            }
+            try {
+                String base64 = resolveBase64(att);
+                if (base64 == null || base64.isBlank()) {
+                    LOG.warn(LOG_PREFIX + "acp image attachment has no base64 data: " + att.fileName);
+                    continue;
+                }
+                String mimeType = att.mediaType != null && !att.mediaType.isBlank()
+                        ? att.mediaType : "image/png";
+                parts.add(new AcpImagePart(base64, mimeType));
+            } catch (Exception e) {
+                LOG.warn("[CliAttachmentHandler] Failed to process ACP image attachment: " + att.fileName, e);
+            }
+        }
+        return parts;
+    }
+
     // ── private helpers ──────────────────────────────────────────────────────
 
     /** 备份图片到持久化存储并返回该磁盘文件；失败返回 null。 */
@@ -250,5 +282,9 @@ public class CliAttachmentHandler {
      */
     public record ContentBlock(Kind kind, String mediaType, File file, String text) {
         public enum Kind { IMAGE, TEXT }
+    }
+
+    /** ACP image content block 原料(base64 + mimeType),由调用方组装为 {type:image,data,mimeType}。 */
+    public record AcpImagePart(String base64, String mimeType) {
     }
 }
