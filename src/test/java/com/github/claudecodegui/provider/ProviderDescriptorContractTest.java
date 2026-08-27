@@ -30,14 +30,23 @@ public class ProviderDescriptorContractTest {
             assertTrue(d.providerId() + " should support CLI session",
                     d.supports(ProviderCapability.CLI_SESSION));
         }
-        // grok/kimi/pi:纯 CLI provider,仅 CLI_SESSION + STREAMING(上游 CliToolId)
-        for (ProviderDescriptor d : List.of(
-                ProviderDescriptor.grok(), ProviderDescriptor.kimi(), ProviderDescriptor.pi())) {
-            assertEquals("expected CLI-only capabilities for " + d.providerId(),
-                    EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING), d.capabilities());
-            assertTrue(d.providerId() + " should support CLI session",
-                    d.supports(ProviderCapability.CLI_SESSION));
-        }
+        // grok:CLI_SESSION + STREAMING + REASONING_THINKING(thought 事件)+ HISTORY
+        assertEquals("expected grok capabilities",
+                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
+                        ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
+                ProviderDescriptor.grok().capabilities());
+        // kimi:HISTORY 有;无 REASONING_THINKING(官方 stream-json 不写 thinking,有意不承诺)
+        assertEquals("expected kimi capabilities",
+                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
+                        ProviderCapability.HISTORY),
+                ProviderDescriptor.kimi().capabilities());
+        assertFalse("kimi must not declare thinking until official stream-json emits it",
+                ProviderDescriptor.kimi().supports(ProviderCapability.REASONING_THINKING));
+        // pi:CLI_SESSION + STREAMING + REASONING_THINKING;无 HISTORY(暂无归档外置读取面)
+        assertEquals("expected pi capabilities",
+                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
+                        ProviderCapability.REASONING_THINKING),
+                ProviderDescriptor.pi().capabilities());
     }
 
     @Test

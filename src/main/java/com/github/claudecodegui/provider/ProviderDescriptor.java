@@ -66,19 +66,24 @@ public record ProviderDescriptor(
         return builtin(ProviderType.OPENCODE);
     }
 
-    /** Grok Provider 描述符(marker 协议流式)。 */
+    /** Grok Provider 描述符(streaming-json 流式 + 思考区(thought 事件)+ 历史读取)。 */
     public static ProviderDescriptor grok() {
-        return cliBuiltin(ProviderType.GROK);
+        return cliBuiltin(ProviderType.GROK,
+                ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY);
     }
 
-    /** Kimi Provider 描述符(marker 协议流式)。 */
+    /**
+     * Kimi Provider 描述符(stream-json 流式 + 历史读取)。
+     * 无 REASONING_THINKING:官方 stream-json 不写 thinking(2026-08 官方文档),
+     * 有意不声明(总则一:能力判定下沉后端 SSOT)。
+     */
     public static ProviderDescriptor kimi() {
-        return cliBuiltin(ProviderType.KIMI);
+        return cliBuiltin(ProviderType.KIMI, ProviderCapability.HISTORY);
     }
 
-    /** Pi Provider 描述符(marker 协议流式)。 */
+    /** Pi Provider 描述符(JSON 事件流 + 思考区(thinking_delta 一等公民))。pi 无历史归档外置面暂不声明。 */
     public static ProviderDescriptor pi() {
-        return cliBuiltin(ProviderType.PI);
+        return cliBuiltin(ProviderType.PI, ProviderCapability.REASONING_THINKING);
     }
 
     private static ProviderDescriptor builtin(ProviderType type) {
@@ -92,17 +97,21 @@ public record ProviderDescriptor(
     }
 
     /**
-     * 纯 CLI 内置 Provider 描述符:仅声明 CLI_SESSION + STREAMING(marker 协议提供流式增量)。
-     * reasoning/history/skills/mcp 等能力按 Stage 3 各 provider 实际接入再补充,
-     * 此处保守声明避免过度承诺。
+     * 纯 CLI 内置 Provider 描述符基座:CLI_SESSION + STREAMING,按 provider 追加已落地的能力。
+     * 未在此声明的能力(skills/mcp 等)保持不承诺——capability 是后端 SSOT,前端只消费不下发判断。
      */
-    private static ProviderDescriptor cliBuiltin(ProviderType type) {
+    private static ProviderDescriptor cliBuiltin(ProviderType type, ProviderCapability... extras) {
+        EnumSet<ProviderCapability> capabilities =
+                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING);
+        for (ProviderCapability extra : extras == null ? new ProviderCapability[0] : extras) {
+            capabilities.add(extra);
+        }
         return new ProviderDescriptor(
                 type.value(),
                 type.displayLabel(),
                 type.cliCommand(),
                 type.cliCommandWindows(),
-                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING)
+                capabilities
         );
     }
 

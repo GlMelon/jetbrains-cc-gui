@@ -23,7 +23,9 @@ final class HistoryProviderRegistry {
         return new HistoryProviderRegistry(List.of(
                 new ClaudeHistoryProviderAdapter(),
                 new CodexHistoryProviderAdapter(),
-                new OpenCodeHistoryProviderAdapter()
+                new OpenCodeHistoryProviderAdapter(),
+                new GrokHistoryProviderAdapter(),
+                new KimiHistoryProviderAdapter()
         ));
     }
 
