@@ -1,9 +1,11 @@
 // @ts-check
 /**
  * Grok channel command handler – keeps Grok-specific logic separated.
- * Grok has no official SDK; this channel shells out to the local CLI.
+ *
+ * 会话发送已走 GrokRunOnceCliSession(直 spawn 原生 CLI headless streaming-json),
+ * 此处仅保留 listModels,供 channel-manager.js dispatch。
+ * 沿用 opencode-channel 同一清理范式(send 分支随直 spawn 化移除)。
  */
-import { sendMessage as grokSendMessage } from '../services/grok/message-service.js';
 import { listModels as grokListModels } from '../services/grok/models-service.js';
 
 /**
@@ -14,28 +16,6 @@ import { listModels as grokListModels } from '../services/grok/models-service.js
  */
 export async function handleGrokCommand(command, args, stdinData) {
   switch (command) {
-    case 'send': {
-      if (stdinData && stdinData.message !== undefined) {
-        const {
-          message,
-          sessionId,
-          cwd,
-          model,
-          reasoningEffort,
-        } = stdinData;
-        await grokSendMessage(
-          message,
-          sessionId || '',
-          cwd || '',
-          model || '',
-          reasoningEffort || 'medium'
-        );
-      } else {
-        await grokSendMessage(args[0], args[1], args[2], args[3], args[4]);
-      }
-      break;
-    }
-
     case 'listModels':
       grokListModels();
       break;
@@ -46,7 +26,7 @@ export async function handleGrokCommand(command, args, stdinData) {
 }
 
 export function getGrokCommandList() {
-  return ['send', 'listModels'];
+  return ['listModels'];
 }
 
 export const grokChannelDescriptor = {

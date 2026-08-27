@@ -1,9 +1,10 @@
 // @ts-check
 /**
  * PI channel command handler – keeps PI-specific logic separated.
- * PI has no official SDK; this channel shells out to the local CLI.
+ *
+ * 会话发送已走 PiRunOnceCliSession(直 spawn 原生 CLI --print --mode json),
+ * 此处仅保留 listModels,供 channel-manager.js dispatch。
  */
-import { sendMessage as piSendMessage } from '../services/pi/message-service.js';
 import { listModels as piListModels } from '../services/pi/models-service.js';
 
 /**
@@ -14,30 +15,6 @@ import { listModels as piListModels } from '../services/pi/models-service.js';
  */
 export async function handlePiCommand(command, args, stdinData) {
   switch (command) {
-    case 'send': {
-      if (stdinData && stdinData.message !== undefined) {
-        const {
-          message,
-          sessionId,
-          cwd,
-          model,
-          reasoningEffort,
-          attachments,
-        } = stdinData;
-        await piSendMessage(
-          message,
-          sessionId || '',
-          cwd || '',
-          model || '',
-          reasoningEffort || '',
-          attachments || []
-        );
-      } else {
-        await piSendMessage(args[0], args[1], args[2], args[3], args[4]);
-      }
-      break;
-    }
-
     case 'listModels':
       piListModels();
       break;
@@ -48,7 +25,7 @@ export async function handlePiCommand(command, args, stdinData) {
 }
 
 export function getPiCommandList() {
-  return ['send', 'listModels'];
+  return ['listModels'];
 }
 
 export const piChannelDescriptor = {

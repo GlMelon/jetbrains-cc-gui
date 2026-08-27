@@ -1,9 +1,10 @@
 // @ts-check
 /**
  * Kimi channel command handler – keeps Kimi-specific logic separated.
- * Kimi has no official SDK; this channel shells out to the local CLI.
+ *
+ * 会话发送已走 KimiRunOnceCliSession(直 spawn 原生 CLI stream-json),
+ * 此处仅保留 listModels,供 channel-manager.js dispatch。
  */
-import { sendMessage as kimiSendMessage } from '../services/kimi/message-service.js';
 import { listModels as kimiListModels } from '../services/kimi/models-service.js';
 
 /**
@@ -14,30 +15,6 @@ import { listModels as kimiListModels } from '../services/kimi/models-service.js
  */
 export async function handleKimiCommand(command, args, stdinData) {
   switch (command) {
-    case 'send': {
-      if (stdinData && stdinData.message !== undefined) {
-        const {
-          message,
-          sessionId,
-          cwd,
-          model,
-          reasoningEffort,
-          attachments,
-        } = stdinData;
-        await kimiSendMessage(
-          message,
-          sessionId || '',
-          cwd || '',
-          model || '',
-          reasoningEffort || '',
-          attachments || []
-        );
-      } else {
-        await kimiSendMessage(args[0], args[1], args[2], args[3], args[4]);
-      }
-      break;
-    }
-
     case 'listModels':
       kimiListModels();
       break;
@@ -48,7 +25,7 @@ export async function handleKimiCommand(command, args, stdinData) {
 }
 
 export function getKimiCommandList() {
-  return ['send', 'listModels'];
+  return ['listModels'];
 }
 
 export const kimiChannelDescriptor = {
