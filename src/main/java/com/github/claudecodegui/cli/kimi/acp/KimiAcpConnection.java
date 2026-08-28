@@ -34,8 +34,9 @@ import java.util.function.Consumer;
  *       响应(id+result/error)complete pending future、通知(method 无 id)转 lineSink(即 parser)。</li>
  * </ol>
  *
- * <p>不需要 Content-Length 分帧(ACP 用 NDJSON,非 LSP)。协议逻辑参照 upstream
- * {@code ai-bridge/services/grok/grok-acp-client.js} 的 {@code GrokAcpClient}。
+ * <p>不需要 Content-Length 分帧(ACP 用 NDJSON,非 LSP)。协议逻辑参照 upstream 历史上的
+ * {@code ai-bridge/services/grok/grok-acp-client.js}({@code git show upstream/main} 可取;
+ * 本地 ACP 链已按「能原生尽原生」决策删除,仅 kimi 保留 Java ACP)。
  */
 final class KimiAcpConnection {
 

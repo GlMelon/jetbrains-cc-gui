@@ -546,7 +546,7 @@ public class KimiAcpCliSession implements CliSession {
         return mapThinkingEffort(request.reasoningEffort());
     }
 
-    /** 权限兜底响应:cancelled(拒绝,与 cli-ask.js deny-all 安全立场一致)。 */
+    /** 权限兜底响应:cancelled(拒绝;无 UI 渲染权限弹窗时一律拒绝的安全立场)。 */
     static JsonObject buildPermissionFallbackResponse() {
         JsonObject outcome = new JsonObject();
         JsonObject inner = new JsonObject();

@@ -29,7 +29,14 @@
 1. **架构落点 = Java direct ACP**:新建 Java 侧 ACP 客户端直 spawn `kimi acp`,延续
    324d2e24 direct-spawn 架构与「按本地架构迁移适配」总则;协议逻辑以 upstream
    `grok-acp-client.js`(1145 行,`git show upstream/main:...` 可取)为参照。
-   将来 grok 切 ACP 走同一模式保持三家对称。
+   ~~将来 grok 切 ACP 走同一模式保持三家对称。~~
+   **⚠️ 2026-08-28 决策反转(能原生尽原生)**:经官方文档核实,grok streaming-json 官方带
+   thinking(`{"type":"thought"}` 事件,本地 `GrokCliStreamParser` 已接通)、pi/opencode/claude/
+   codex 结构化 JSON 通道全部官方支持 thinking 且已接通——「stream-json 不支持思考」实际只有
+   kimi 一家,ACP 仅保留给 kimi。同日删除 ai-bridge ACP 链与死代码:`grok-acp-client.js`/
+   `acp-terminal-host.js`/`cli-ask.js`(全仓库零调用的死代码,0670d06d 恢复它实为给死代码
+   修断链)/`grok-utils.js` 及其 3 个测试文件;omp/dsh 思考区走原生 marker 通道补
+   `[THINKING_DELTA]` 解析接通(MarkerCliStreamParser + marker-protocol.js)。
 2. **范围全选**:思考区/工具卡/续接/前端开关放开/descriptor 反转 + 图片 ACP blocks +
    effort 档位映射 + 会话标题 + MCP 注入(后经 S0-2 证伪,见 §五)。
 3. **cli-ask.js 断链顺带修**(独立 commit):`grok-acp-client.js` 在 merge 重构中丢失

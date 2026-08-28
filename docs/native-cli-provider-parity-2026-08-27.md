@@ -50,7 +50,7 @@
 | grok | ❌ headless flags 无 mcp 覆盖;配置在 ~/.grok/config.toml(TOML) | 改用户文件需 turn 级备份恢复,崩溃残留风险不可接受 → 暂缓 |
 | kimi | 部分:项目级 .kimi-code/mcp.json 同名覆盖用户级(可写 melon_gateway+同名禁真实 server) | 但会污染仓库工作区(git status 噪声)/并发会话互相踩 → 暂缓待产品决策 |
 | pi | ❌ 官方故意不内置 MCP(设计原则,靠扩展) | N/A |
-| **长期正解** | 两家均支持 ACP 模式且原生支持 mcpServers:`grok agent stdio` 的 session/new、`kimi acp` | ACP 集成专项时一并解决,顺带补齐 grok 图片附件(ACP content blocks)。注:ai-bridge 已有 `services/grok/grok-acp-client.js`(cli-ask 在用),为 ACP 路线提供现成起点 |
+| **长期正解** | 两家均支持 ACP 模式且原生支持 mcpServers:`grok agent stdio` 的 session/new、`kimi acp` | ~~ACP 集成专项时一并解决~~ **⚠️ 2026-08-28 决策反转**:kimi 已走 Java ACP(kimi-acp-channel-2026-08-28.md);grok MCP 注入仍暂缓但**不再规划切 ACP**——「能原生尽原生」总则(见 kimi 文档追记),且 ai-bridge `grok-acp-client.js` 已随死代码链删除 |
 
 McpGatewayConfigWriter 维持 default→disabled 三家现状(reason string 不变)。
 

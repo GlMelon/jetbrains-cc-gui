@@ -10,12 +10,10 @@ import {
   buildKimiPromptWithImages,
   buildReadPathPromptWithImages,
   estimateBase64DecodedBytes,
-  GROK_IMAGE_ONLY_FALLBACK_TEXT,
   KIMI_IMAGE_INJECTION_MARKER,
   normalizeImageMimeType,
   parseAttachmentData,
 } from './cli-image-input.js';
-import { buildPromptBlocks } from '../services/grok/grok-acp-client.js';
 
 // 1x1 PNG
 const TINY_PNG_B64 =
@@ -61,46 +59,6 @@ describe('buildGrokImageBlocks', () => {
     ]);
     assert.equal(loaded, 0);
     assert.equal(blocks.length, 0);
-  });
-});
-
-describe('buildPromptBlocks multimodal', () => {
-  it('embeds image blocks alongside text', () => {
-    const blocks = buildPromptBlocks({
-      message: 'What is in this image?',
-      attachments: [
-        { fileName: 'dot.png', mediaType: 'image/png', data: TINY_PNG_B64 },
-      ],
-    });
-    assert.ok(blocks.some((b) => b.type === 'text' && b.text.includes('What is in this image?')));
-    const images = blocks.filter((b) => b.type === 'image');
-    assert.equal(images.length, 1);
-    assert.equal(images[0].mimeType, 'image/png');
-  });
-
-  it('injects fallback text for image-only turns', () => {
-    const blocks = buildPromptBlocks({
-      message: '',
-      attachments: [
-        { fileName: 'dot.png', mediaType: 'image/png', data: TINY_PNG_B64 },
-      ],
-    });
-    const text = blocks.find((b) => b.type === 'text');
-    assert.ok(text);
-    assert.equal(text.text, GROK_IMAGE_ONLY_FALLBACK_TEXT);
-    assert.equal(blocks.filter((b) => b.type === 'image').length, 1);
-  });
-
-  it('does not only list attachment names when image data is present', () => {
-    const blocks = buildPromptBlocks({
-      message: 'see',
-      attachments: [
-        { fileName: 'secret.png', mediaType: 'image/png', data: TINY_PNG_B64 },
-      ],
-    });
-    const text = blocks.find((b) => b.type === 'text')?.text || '';
-    assert.equal(text.includes('## Attachments'), false);
-    assert.ok(blocks.some((b) => b.type === 'image'));
   });
 });
 

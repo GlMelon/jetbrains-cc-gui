@@ -20,7 +20,9 @@ import com.intellij.openapi.diagnostic.Logger;
  *   <li>{@code {"role":"tool","tool_call_id":..,"content":..}} → tool_result;</li>
  *   <li>{@code {"role":"meta","type":"session.resume_hint","session_id":"session_.."}} → SESSION_ID。</li>
  * </ul>
- * 官方限制:thinking 不写入 JSONL(走 stderr transcript 文本)——思考区暂不支持(有意差异,总则六记录);
+ * 官方限制(2026-08 核实 @moonshot-ai/kimi-code 官方 kimi-command 参考 + 0.38.0 实测):
+ * stream-json 模式 thinking 不写入 JSONL,亦不落 stderr(仅 text 模式走 stderr transcript)——
+ * 思考区通道层面不可支持(有意差异,总则六记录);该 CLI 亦无 --thinking flag。
  * usage 无独立事件。流结束标记由 CLI EOF 隐含,基类对「有事件缺收尾」补发 STREAM_END。
  */
 public class KimiCliStreamParser implements CliStreamParser {
