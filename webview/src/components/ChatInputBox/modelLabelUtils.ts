@@ -1,4 +1,7 @@
 import type { ModelInfo } from './types';
+import { CLAUDE_ROLE_MODEL_IDS, strip1MContextSuffix } from './types';
+import { resolveMappedModelName as resolveRoleMappedName } from '../../utils/claudeModelMapping';
+import { getModelRegistrySnapshot } from '../../utils/modelRegistry';
 
 type Translate = (key: string, options?: { defaultValue?: string } & Record<string, unknown>) => string;
 
@@ -73,6 +76,21 @@ export const resolveMappedModelName = (
 };
 
 /**
+ * D5 收口(v0.5.4 合并后还原):用 registry 的 role 字段(后端权威下发)判定内置
+ * Claude 模型并取角色,替代离线 id 表;映射名解析复用
+ * utils/claudeModelMapping.resolveMappedModelName 单一入口。
+ */
+function getRoleForModelId(modelId: string): string | undefined {
+  return getModelRegistrySnapshot().items.find(
+    (it) => it.provider === 'claude' && it.id === modelId,
+  )?.role;
+}
+
+/** 内置 Claude role 模型(claude-role-*);自定义模型(含用户自选 role)不算。 */
+const isBuiltinClaudeRoleModel = (modelId: string): boolean =>
+  (Object.values(CLAUDE_ROLE_MODEL_IDS) as readonly string[]).includes(modelId);
+
+/**
  * Resolve the display model name for icon matching.
  * For mapped Claude models, returns the mapped name; otherwise the original ID.
  */
@@ -81,6 +99,16 @@ export const resolveModelIdForIcon = (
   modelMapping: Record<string, string | undefined>,
   mappingKeyMap: Record<string, string> = MODEL_ID_TO_MAPPING_KEY,
 ): string => {
+  // 内置 role 模型:用映射后的真实模型名匹配 vendor 图标(如 glm-* → zhipu),
+  // 图标跟随真实模型供应商;其余走 legacy 静态 id 映射表。
+  if (isBuiltinClaudeRoleModel(modelId)) {
+    const role = getRoleForModelId(modelId);
+    const mapped = role ? resolveRoleMappedName(role, modelMapping) : undefined;
+    if (mapped) {
+      return mapped;
+    }
+    return modelId;
+  }
   const mappingKey = mappingKeyMap[modelId];
   if (!mappingKey) {
     return modelId;
@@ -134,6 +162,28 @@ export function resolveModelDisplayLabel(
       t,
       model.supports1MContext,
     );
+  }
+
+  // 仅内置 Claude role 模型(claude-role-*)套用全局 role→实际模型名映射,显示用户
+  // 配置的真实模型名(如 glm-5.3);自定义 Claude 模型(可带 role 但有自身 label)
+  // 不被映射覆盖,保留自身 label(与合并前 ModelSelect 语义一致)。
+  if (isBuiltinClaudeRoleModel(model.id)) {
+    const role = model.role ?? getRoleForModelId(model.id);
+    if (role) {
+      const mappedName = resolveRoleMappedName(role, modelMapping);
+      if (mappedName) {
+        // 剥离映射名里的 [1m]/[1M] 容量后缀,展示干净的真实模型名;
+        // 1M 标记由 append1MContextSuffix 按开关统一追加。
+        return append1MContextSuffix(
+          strip1MContextSuffix(mappedName),
+          currentProvider,
+          show1MContext,
+          longContextEnabled,
+          t,
+          model.supports1MContext,
+        );
+      }
+    }
   }
 
   const mappingKey = MODEL_ID_TO_MAPPING_KEY[model.id];
