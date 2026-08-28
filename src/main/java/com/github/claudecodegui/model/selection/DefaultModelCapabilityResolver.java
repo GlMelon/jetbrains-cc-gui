@@ -3,7 +3,9 @@ package com.github.claudecodegui.model.selection;
 import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
+import com.github.claudecodegui.session.SessionState;
 
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -124,13 +126,25 @@ public class DefaultModelCapabilityResolver implements ModelCapabilityResolver {
         return lower.startsWith("claude-") || lower.startsWith("claude_");
     }
 
+    /**
+     * 归一化 provider。白名单(SessionState.VALID_PROVIDERS)原样返回(小写归一);
+     * 白名单外抛 {@link IllegalArgumentException}——拒绝历史上"未知即兜底 claude"
+     * 的静默降级:那曾把 kimi/grok/pi/omp/dsh 的 ModelSelectionResult.provider 全部
+     * 错标为 claude,MODEL_SELECTION 广播/回灌带着错误 provider 把跨供应商模型写进
+     * 前端 claude 槽位,表现为切换供应商选中态错乱、欢迎页 logo 与输入区 provider
+     * 不一致。新 provider 接入时必须同步扩展 SessionState.VALID_PROVIDERS(编译期
+     * 无关,遗漏只能靠这里 fail-fast 暴露)。
+     */
     private String normalizeProvider(String provider) {
-        if (CommonConstants.PROVIDER_CODEX.equalsIgnoreCase(provider)) {
-            return CommonConstants.PROVIDER_CODEX;
+        if (provider == null || provider.trim().isEmpty()) {
+            throw new IllegalArgumentException("Model selection requires a non-blank provider");
         }
-        if (CommonConstants.PROVIDER_OPENCODE.equalsIgnoreCase(provider)) {
-            return CommonConstants.PROVIDER_OPENCODE;
+        String trimmed = provider.trim().toLowerCase(Locale.ROOT);
+        if (!SessionState.VALID_PROVIDERS.contains(trimmed)) {
+            throw new IllegalArgumentException(
+                    "Unknown provider for model selection: '" + trimmed
+                            + "'. Valid providers: " + SessionState.VALID_PROVIDERS);
         }
-        return CommonConstants.PROVIDER_CLAUDE;
+        return trimmed;
     }
 }

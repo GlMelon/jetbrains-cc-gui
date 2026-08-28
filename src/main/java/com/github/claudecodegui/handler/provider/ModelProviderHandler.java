@@ -11,6 +11,7 @@ import com.github.claudecodegui.model.selection.ModelSelectionResult;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.notifications.StatusBarModelResolver;
 import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.session.SessionRuntimeDefaults;
 import com.github.claudecodegui.session.SessionSendService;
 import com.github.claudecodegui.skill.SlashCommandRegistry;
@@ -47,6 +48,7 @@ public class ModelProviderHandler {
             applyModelChange(req.model(), req.identifier(), req.contextWindowOverride(), req.longContextEnabled(), false);
         } catch (Exception e) {
             LOG.error("[ModelProviderHandler] Failed to set model: " + e.getMessage(), e);
+            notifyModelChangeFailure(e);
         }
     }
 
@@ -56,6 +58,23 @@ public class ModelProviderHandler {
             applyModelChange(req.model(), req.identifier(), req.contextWindowOverride(), req.longContextEnabled(), true);
         } catch (Exception e) {
             LOG.error("[ModelProviderHandler] Failed to set session model: " + e.getMessage(), e);
+            notifyModelChangeFailure(e);
+        }
+    }
+
+    /**
+     * 模型切换失败的用户可见提示。此前 catch 仅记日志:resolver 对未知 provider
+     * fail-fast(拒绝静默兜底 claude)后,坏数据只能无声失败——用户视角"选了没反应"。
+     * 未知 provider 属接入缺陷(VALID_PROVIDERS 白名单漏同步),提示信息须可直接定位。
+     */
+    private void notifyModelChangeFailure(Exception e) {
+        try {
+            if (context.getProject() != null) {
+                ClaudeNotifier.showWarning(context.getProject(),
+                        "模型切换失败: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+            }
+        } catch (Exception ignored) {
+            // 通知通道不可用时不吞原始日志(已 LOG.error)。
         }
     }
 
@@ -274,7 +293,7 @@ public class ModelProviderHandler {
                 if (providerChanged) {
                     TokenUsageUtils.clearContextUsageFromSessionMessages(context.getSession().getMessages());
                 }
-                SessionRuntimeDefaults.rememberModel(context.getProject(), provider, context.getSession().getModel());
+                alignSessionModelToProvider(context.getSession(), provider);
             }
 
             if (providerChanged) {
@@ -299,7 +318,7 @@ public class ModelProviderHandler {
             SessionRuntimeDefaults.rememberProvider(context.getProject(), provider);
             if (context.getSession() != null) {
                 context.getSession().setProvider(provider);
-                SessionRuntimeDefaults.rememberModel(context.getProject(), provider, context.getSession().getModel());
+                alignSessionModelToProvider(context.getSession(), provider);
             }
 
             refreshSlashCommandsForProvider(provider);
@@ -307,6 +326,23 @@ public class ModelProviderHandler {
         } catch (Exception e) {
             LOG.error("[ModelProviderHandler] Failed to set session provider: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 供应商切换后的会话模型对齐。旧实现直接把 session.getModel()(此刻仍属旧 provider)
+     * 记到新 provider 名下,污染 SessionRuntimeDefaults 粘性默认:重启后以
+     * provider/model 错配对回灌前端(MODEL_SELECTION),输入区显示新 provider 而欢迎页
+     * logo 按 modelId 误判显示旧供应商图标。改为解析新 provider 自己的粘性模型
+     * (含 registry 归属校验与首启用回退)写入 session;无可解析默认时保持现状,
+     * 交由紧随其后的 set_model 决定并正确记忆。
+     */
+    private void alignSessionModelToProvider(ClaudeSession session, String provider) {
+        String model = SessionRuntimeDefaults.resolveProviderModel(
+                context.getProject(), provider, context.getSettingsService().getModelRegistry());
+        if (model == null || model.isBlank()) {
+            return;
+        }
+        session.setModel(model);
     }
 
     public void handleSetReasoningEffort(String content) {

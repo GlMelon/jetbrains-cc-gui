@@ -118,7 +118,9 @@ export function useModelStatePersistence(options: {
       if (saved) {
         const state = JSON.parse(saved);
 
-        if (['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'].includes(state.provider)) {
+        // 白名单与 SessionState.VALID_PROVIDERS / utils/modelRegistry.normalizeProvider 对齐;
+        // 漏 omp/dsh 曾导致其切换后重启恢复失败、静默回退 claude。
+        if (['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi', 'omp', 'dsh'].includes(state.provider)) {
           restoredProvider = state.provider;
           setCurrentProvider(state.provider);
         }

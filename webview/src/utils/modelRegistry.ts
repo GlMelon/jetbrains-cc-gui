@@ -118,6 +118,11 @@ export function normalizeProvider(raw: string | null | undefined): ProviderType 
   if (raw === 'grok') return 'grok';
   if (raw === 'kimi') return 'kimi';
   if (raw === 'pi') return 'pi';
+  // omp/dsh:v0.5.4 合并新增的 CLI-only provider,漏白名单会被错标 claude——
+  // MODEL_SELECTION 载荷带 omp 模型回灌时前端 setCurrentProvider('claude') 把
+  // 跨供应商模型写进 claude 槽位(与后端 DefaultModelCapabilityResolver 同类缺陷)。
+  if (raw === 'omp') return 'omp';
+  if (raw === 'dsh') return 'dsh';
   return 'claude';
 }
 
