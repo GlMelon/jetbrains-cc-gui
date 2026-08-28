@@ -1,10 +1,12 @@
 package com.github.claudecodegui.startup;
 
 import com.github.claudecodegui.bridge.BridgeDirectoryResolver;
+import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.cli.opencode.OpenCodeCliResolver;
 import com.github.claudecodegui.mcp.McpGatewayFeatureFlags;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.CodexCliResolver;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
@@ -127,17 +129,24 @@ public class BridgePreloader implements ProjectActivity {
     }
 
     /**
-     * 项目打开时后台并行预热 codex/opencode CLI resolver 缓存。两者 {@code findExecutable()} 首次会
-     * spawn {@code <cli> --version} 子进程验证可执行性 + 取版本(经 .cmd 包装冷启动 ~3s),未预热时
-     * 这段时间落在用户首条消息的同步 send 路径。预热后首条消息命中 {@code cachedExecutable} 秒回。
-     * <p>只预热 codex/opencode:claude detector 冷启动仅 ~227ms(已够快),且其 {@code detectionAttempted}
+     * 项目打开时后台并行预热 codex/opencode/kimi/grok/pi CLI resolver 缓存。各家 {@code findExecutable()}
+     * 首次会 spawn {@code <cli> --version} 子进程验证可执行性 + 取版本(经 .cmd 包装冷启动 ~3s,
+     * ProviderCliResolver 还会 shim 探测 + 候选验证各 spawn 一次 ≈ 2~6s),未预热时这段时间落在
+     * 用户首条消息的同步 send 路径。预热后首条消息命中 {@code cachedExecutable} 秒回。
+     * <p>kimi 额外依赖版本缓存做 ACP 通道门禁({@code KimiAcpChannelGate}:版本未缓存即回退
+     * legacy stream-json,无思考区/非流式),预热使其首条消息即可正确进入 ACP 通道。
+     * <p>claude 不预热:detector 冷启动仅 ~227ms(已够快),且其 {@code detectionAttempted}
      * 失败永久置位有"预热失败致永久不可用"风险,收益不足风险故不预热。
-     * <p>两 resolver 只缓存成功路径(不缓存失败),故预热失败无副作用——首条消息时正常重试检测。
+     * <p>resolver 只缓存成功路径(不缓存失败),故预热失败无副作用——首条消息时正常重试检测;
+     * 未安装的 provider 探测失败即静默跳过(仅一次后台子进程开销)。
      */
     private static void prewarmCliResolvers() {
         CompletableFuture.allOf(
                 CompletableFuture.runAsync(BridgePreloader::prewarmCodexCli),
-                CompletableFuture.runAsync(BridgePreloader::prewarmOpenCodeCli)
+                CompletableFuture.runAsync(BridgePreloader::prewarmOpenCodeCli),
+                CompletableFuture.runAsync(BridgePreloader::prewarmKimiCli),
+                CompletableFuture.runAsync(BridgePreloader::prewarmGrokCli),
+                CompletableFuture.runAsync(BridgePreloader::prewarmPiCli)
         ).join();
     }
 
@@ -156,6 +165,36 @@ public class BridgePreloader implements ProjectActivity {
             LOG.info("[BridgePreloader] OpenCode CLI resolver prewarmed: " + (path != null ? path : "(not found)"));
         } catch (Exception e) {
             LOG.warn("[BridgePreloader] OpenCode CLI resolver prewarm failed: " + e.getMessage(), e);
+        }
+    }
+
+    /** kimi 预热:findExecutable 顺带填充版本缓存(KimiAcpChannelGate 门禁依赖,见 prewarmCliResolvers)。 */
+    private static void prewarmKimiCli() {
+        try {
+            String path = new ProviderCliResolver(ProviderType.KIMI, "kimi").findExecutable();
+            LOG.info("[BridgePreloader] Kimi CLI resolver prewarmed: " + (path != null ? path : "(not found)"));
+        } catch (Exception e) {
+            LOG.warn("[BridgePreloader] Kimi CLI resolver prewarm failed: " + e.getMessage(), e);
+        }
+    }
+
+    /** grok 预热:npmDir 裸名(见 AbstractRunOnceCliSession.npmDir 默认值),见 prewarmCliResolvers。 */
+    private static void prewarmGrokCli() {
+        try {
+            String path = new ProviderCliResolver(ProviderType.GROK, "grok").findExecutable();
+            LOG.info("[BridgePreloader] Grok CLI resolver prewarmed: " + (path != null ? path : "(not found)"));
+        } catch (Exception e) {
+            LOG.warn("[BridgePreloader] Grok CLI resolver prewarm failed: " + e.getMessage(), e);
+        }
+    }
+
+    /** pi 预热:npmDir 裸名(见 AbstractRunOnceCliSession.npmDir 默认值),见 prewarmCliResolvers。 */
+    private static void prewarmPiCli() {
+        try {
+            String path = new ProviderCliResolver(ProviderType.PI, "pi").findExecutable();
+            LOG.info("[BridgePreloader] Pi CLI resolver prewarmed: " + (path != null ? path : "(not found)"));
+        } catch (Exception e) {
+            LOG.warn("[BridgePreloader] Pi CLI resolver prewarm failed: " + e.getMessage(), e);
         }
     }
 }

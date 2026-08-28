@@ -4,6 +4,7 @@ import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.model.NodeDetectionResult;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.session.ClaudeSession;
@@ -199,6 +200,26 @@ public class WebviewInitializer {
                 showVersionErrorPanel(nodeResult.getNodeVersion());
                 return;
             }
+        }
+
+        // 兜底预热 MCP Gateway:BridgePreloader 在项目打开时已做主预热(isGatewayActive 守卫,
+        // 见 BridgePreloader.prewarmMcpGateway),此处是打开工具窗口时的二次保险——若用户在
+        // BridgePreloader 的 gateway 预热(冷启动 + 各 MCP server initialize 可达 10~60s)完成前
+        // 就发首条消息,会在 McpGatewayService 全局锁上同步等待整段预热,表现为首条消息卡几十秒。
+        // 本兜底把预热起点提前到工具窗口打开;applySnapshot 的 configHash 幂等保证与主预热
+        // 不会重复 postSnapshot,已 ready 时 ensureStarted 复用秒回。
+        // refreshConfig 内部 isCliEnabled 守卫:gateway 禁用时 no-op 无副作用。
+        // 2026-08-28 恢复:原块在 faabe2862 合并 upstream feature/v0.5 时被上游版整文件覆盖丢失
+        // (上游无此 fork 专属预热),当时三方修复只恢复了 bootstrap 未恢复此处。
+        Project prewarmProject = host.getProject();
+        if (!prewarmProject.isDisposed() && !isLifecycleDisposed()) {
+            ApplicationManager.getApplication().executeOnPooledThread(() -> {
+                try {
+                    McpGatewayService.getInstance(prewarmProject).refreshConfig(prewarmProject.getBasePath());
+                } catch (Exception e) {
+                    LOG.warn("[WebviewInitializer] MCP Gateway prewarm failed: " + e.getMessage(), e);
+                }
+            });
         }
 
         // Check JCEF support before creating browser. Keep the precise status
