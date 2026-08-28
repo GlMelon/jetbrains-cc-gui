@@ -26,6 +26,21 @@
     "optional": "Optional"
   },
   "chat": {
+    "responsePhase": {
+      "queued": { "title": "Demande en file d'attente", "description": "Préparation de l'envoi de votre message" },
+      "mcp_syncing": { "title": "Connexion à MCP", "description": "Démarrage de la passerelle MCP et chargement des outils" },
+      "connecting": { "title": "Démarrage du runtime", "description": "Lancement du processus CLI d'IA" },
+      "understanding": { "title": "En attente du modèle", "description": "En attente de la réponse du modèle" },
+      "thinking": { "title": "Réflexion", "description": "Analyse du contexte et planification de la réponse" },
+      "tooling": { "title": "Utilisation des outils", "description": "Exécution de l'opération demandée et attente des résultats" },
+      "responding": { "title": "Réponse", "description": "Diffusion de la réponse vers le chat" },
+      "done": { "title": "Réponse terminée", "description": "Finalisation de la réponse" },
+      "error": { "title": "Réponse interrompue", "description": "La demande n'a pas pu être complétée" },
+      "apiRetry": { "description": "Service temporairement indisponible — nouvelle tentative automatique ({{attempt}}/{{max}}), patientez" },
+      "cancelled": { "description": "Demande annulée par l'utilisateur" },
+      "elapsed": "{{seconds}}s",
+      "retryHint": "Réessayer"
+    },
     "sendMessage": "Envoyer un message à {{provider}}",
     "createNewSession": "Créer une nouvelle session",
     "confirmNewSession": "La session actuelle contient des messages, êtes-vous sûr de vouloir créer une nouvelle session ?",

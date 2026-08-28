@@ -176,7 +176,10 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                         runOnce(request, callback, null, attachFiles, diagnostic, sendStartNanos);
                     }
                 }
-            } catch (Exception e) {
+            } catch (Exception | LinkageError e) {
+                // LinkageError(如 NoClassDefFoundError)同样按 turn 失败收尾:静态初始化
+                // 失败的类(见 CliCompatibilityService.getInstance 防御)抛出的是 Error,
+                // 仅 catch Exception 会静默穿透,前端流式 footer 永久悬挂、无任何日志。
                 LOG.warn("[" + sessionTag() + "][" + tabId + "] send failed", e);
                 if (wasInterrupted()) {
                     callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);

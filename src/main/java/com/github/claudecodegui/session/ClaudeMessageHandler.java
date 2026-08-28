@@ -267,7 +267,6 @@ public class ClaudeMessageHandler implements MessageCallback {
             return;
         }
 
-        boolean wasStreaming = isStreaming;
         isStreaming = false;
         streamEndedThisTurn = false;
 
@@ -290,9 +289,11 @@ public class ClaudeMessageHandler implements MessageCallback {
         appendProviderErrorToAssistantMessage(error);
         persistProviderError(error);
         callbackHandler.notifyMessageUpdate(state.getMessages());
-        if (wasStreaming) {
-            callbackHandler.notifyStreamEnd();
-        }
+        // 无条件补发 stream_end:前端 streamingActive 在 RESPONSE_PHASE(active) 即置位
+        // (早于后端 stream_start),若本 turn 死在 stream_start 之前(如 resolver 抛错),
+        // wasStreaming=false 会让前端「正在流式输出」footer 永久悬挂。前端
+        // getStreamEndHandlingMode 对未开流到达有 minimal/skip 幂等兜底,多发无害。
+        callbackHandler.notifyStreamEnd();
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
         // Sync status bar: error also means the turn is over, clear stale status.

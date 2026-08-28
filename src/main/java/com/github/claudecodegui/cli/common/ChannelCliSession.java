@@ -70,7 +70,8 @@ public class ChannelCliSession implements CliSession {
             StringBuilder diagnostic = new StringBuilder();
             try {
                 runOnce(request, callback, diagnostic);
-            } catch (Exception e) {
+            } catch (Exception | LinkageError e) {
+                // 同 AbstractRunOnceCliSession:LinkageError 须按 turn 失败收尾,防静默穿透。
                 LOG.warn("[" + providerType.value() + "CliSession][" + tabId + "] send failed", e);
                 if (wasInterrupted()) {
                     callback.onInterrupted(null, CliConstants.I18N_REQUEST_INTERRUPTED);

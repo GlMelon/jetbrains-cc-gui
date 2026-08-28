@@ -1,4 +1,5 @@
 import { type ReactElement, useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AssistantResponseStatusPayload } from '../../types';
 import { SpinLoader, WaveLoader, ProgressRing, GradientText } from '../react-bits';
 
@@ -7,21 +8,25 @@ interface AssistantResponseStatusProps {
 }
 
 /**
- * 连接状态指示器（扁平风格 + 换行布局）
- * - 标题+计时器同行显示
- * - 额外信息（如重试提示）独立成行
- * - 保持原有扁平按钮风格，无渐变背景
+ * 连接状态指示器(扁平单行风格)
+ * - 标题 · 描述 · 计时同行显示(用户要求:Starting runtime / Launching the AI CLI process 同行)
+ * - 保持扁平按钮风格,无渐变背景
+ *
+ * 文案 i18n:按 phase/descriptionKey 查 webview locale(与 webview 语言设置一致)。
+ * 后端下发的 title/description 来自 IDE Bundle(跟随 IDE 界面语言,英文 IDE 下恒为
+ * 英文),仅作缺 key/未初始化环境的 fallback。
  *
  * 各阶段图标:
  * - waiting类(queued/connecting/understanding): SpinLoader ring
  * - active类(thinking/tooling/responding): WaveLoader 音浪
- * - api_retry: ProgressRing 不确定旋转 + 重试信息行
+ * - api_retry: ProgressRing 不确定旋转 + 重试信息(琥珀色)
  * - done: ✓
  * - error: ✕
  */
 const WAITING_PHASES = new Set(['queued', 'mcp_syncing', 'connecting', 'understanding', 'api_retry']);
 
 export function AssistantResponseStatus({ payload }: AssistantResponseStatusProps): ReactElement | null {
+  const { t } = useTranslation();
   const [waitedSeconds, setWaitedSeconds] = useState(0);
   const waitStartRef = useRef<number | null>(null);
 
@@ -58,13 +63,45 @@ export function AssistantResponseStatus({ payload }: AssistantResponseStatusProp
   // 等待静默期显示计时(>0s 才显示)
   const showWaitTimer = shouldTimer && waitedSeconds > 0;
 
+  // i18n 解析:缺 key(含 react-i18next 未初始化返回 key 本身)时回退后端下发文本
+  const resolveText = (
+    key: string,
+    fallback: string | undefined,
+    options?: Record<string, unknown>,
+  ): string => {
+    if (!fallback) return '';
+    const translated = options
+      ? t(key, { defaultValue: fallback, ...options })
+      : t(key, { defaultValue: fallback });
+    return translated === key ? fallback : translated;
+  };
+
+  // 标题:按 phase 查(api_retry 复用 understanding 标题,与后端语义一致)
+  const titleText = resolveText(
+    isApiRetry ? 'chat.responsePhase.understanding.title' : `chat.responsePhase.${payload.phase}.title`,
+    payload.title,
+  );
+
+  // 描述:apiRetry 带重试计数参数;其余按 descriptionKey(缺省=phase)查
+  let descriptionText: string;
+  if (payload.descriptionKey === 'apiRetry') {
+    const attempt = payload.attempt && payload.attempt > 0 ? String(payload.attempt) : '?';
+    const max = payload.maxRetries && payload.maxRetries > 0 ? String(payload.maxRetries) : '?';
+    descriptionText = resolveText('chat.responsePhase.apiRetry.description', payload.description, { attempt, max });
+  } else {
+    descriptionText = resolveText(
+      `chat.responsePhase.${payload.descriptionKey ?? payload.phase}.description`,
+      payload.description,
+    );
+  }
+
   // 标题节点：等待阶段用 GradientText 流光
   const titleNode = isWaitingPhase ? (
     <GradientText animated animationDuration={3} colors={['#7c5cff', '#2dd4bf']}>
-      {payload.title}
+      {titleText}
     </GradientText>
   ) : (
-    payload.title
+    titleText
   );
 
   // 图标节点
@@ -88,20 +125,17 @@ export function AssistantResponseStatus({ payload }: AssistantResponseStatusProp
 
   // 计时/用时文本
   const getTimerText = () => {
-    if (isDone) return `用时 ${Math.round((payload.elapsedMs || 0) / 1000)}s`;
-    if (isError) return '请重试';
+    if (isDone) {
+      return resolveText('chat.responsePhase.elapsed', `用时 ${Math.round((payload.elapsedMs || 0) / 1000)}s`, {
+        seconds: Math.round((payload.elapsedMs || 0) / 1000),
+      });
+    }
+    if (isError) return resolveText('chat.responsePhase.retryHint', '请重试');
     if (showWaitTimer) return `${waitedSeconds}s`;
     return null;
   };
 
   const timerText = getTimerText();
-
-  // api_retry 额外信息行
-  const extraRow = isApiRetry && payload.description ? (
-    <div className="ars-extra">
-      {payload.description}
-    </div>
-  ) : null;
 
   return (
     <div
@@ -113,6 +147,12 @@ export function AssistantResponseStatus({ payload }: AssistantResponseStatusProp
       <div className="ars-body">
         <div className="ars-title-row">
           <span className="ars-text">{titleNode}</span>
+          {descriptionText && (
+            <>
+              <span className="ars-sep">·</span>
+              <span className="ars-desc">{descriptionText}</span>
+            </>
+          )}
           {timerText && (
             <>
               <span className="ars-sep">·</span>
@@ -120,7 +160,6 @@ export function AssistantResponseStatus({ payload }: AssistantResponseStatusProp
             </>
           )}
         </div>
-        {extraRow}
       </div>
     </div>
   );

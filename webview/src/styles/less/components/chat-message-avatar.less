@@ -1275,15 +1275,10 @@
     font-size: 12px;
 }
 
-/* 额外信息行（如重试提示） */
-.assistant-response-status .ars-extra {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 2px;
+/* 描述文本(与标题、计时同行,如 "Starting runtime · Launching the AI CLI process · 3s") */
+.assistant-response-status .ars-desc {
     font-size: 11px;
-    color: var(--color-warning, #f59e0b);
-    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary, #858585);
 }
 
 /* 状态颜色 */
@@ -1300,7 +1295,7 @@
     border-color: rgba(245, 158, 11, 0.34);
     background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03));
 }
-.assistant-response-status.phase-api_retry .ars-extra {
+.assistant-response-status.phase-api_retry .ars-desc {
     color: #f59e0b;
     font-weight: 500;
 }

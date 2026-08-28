@@ -160,6 +160,12 @@ export interface AssistantResponseStatusPayload {
   providerLabel: string;
   title: string;
   description?: string;
+  /** 前端 i18n 语义 key(常规=phase value;特殊:apiRetry/cancelled);缺省时按 phase 查 */
+  descriptionKey?: string;
+  /** api_retry 重试次序(1-based);缺省/<=0 显示 "?" */
+  attempt?: number;
+  /** api_retry 最大重试次数;缺省/<=0 显示 "?" */
+  maxRetries?: number;
   elapsedMs?: number;
   active: boolean;
 }

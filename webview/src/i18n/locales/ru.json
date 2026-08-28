@@ -26,6 +26,21 @@
     "optional": "Необязательно"
   },
   "chat": {
+    "responsePhase": {
+      "queued": { "title": "Запрос в очереди", "description": "Подготовка к отправке вашего сообщения" },
+      "mcp_syncing": { "title": "Подключение к MCP", "description": "Запуск шлюза MCP и загрузка инструментов" },
+      "connecting": { "title": "Запуск среды выполнения", "description": "Запуск процесса AI CLI" },
+      "understanding": { "title": "Ожидание ответа модели", "description": "Ожидание начала ответа модели" },
+      "thinking": { "title": "Размышление", "description": "Анализ контекста и планирование ответа" },
+      "tooling": { "title": "Использование инструментов", "description": "Выполнение запрошенной операции и ожидание результатов" },
+      "responding": { "title": "Ответ", "description": "Потоковая передача ответа в чат" },
+      "done": { "title": "Ответ завершен", "description": "Финализация ответа" },
+      "error": { "title": "Ответ прерван", "description": "Запрос не удалось выполнить" },
+      "apiRetry": { "description": "Сервис временно недоступен — выполняется автоматический повтор ({{attempt}}/{{max}}), подождите" },
+      "cancelled": { "description": "Запрос отменен пользователем" },
+      "elapsed": "{{seconds}}с",
+      "retryHint": "Повторить"
+    },
     "sendMessage": "Отправить сообщение в {{provider}}",
     "createNewSession": "Начать новый чат",
     "confirmNewSession": "В текущем чате есть сообщения. Начать новый?",

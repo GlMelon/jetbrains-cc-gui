@@ -29,6 +29,21 @@
     "optional": "可选"
   },
   "chat": {
+    "responsePhase": {
+      "queued": { "title": "请求已提交", "description": "正在准备发送你的消息" },
+      "mcp_syncing": { "title": "正在连接 MCP", "description": "正在启动 MCP 网关并加载工具" },
+      "connecting": { "title": "正在启动运行时", "description": "正在启动 AI CLI 进程" },
+      "understanding": { "title": "正在等待模型响应", "description": "正在等待模型开始回复" },
+      "thinking": { "title": "正在思考", "description": "正在分析上下文并规划回答" },
+      "tooling": { "title": "正在调用工具", "description": "正在执行请求的操作并等待结果" },
+      "responding": { "title": "正在响应", "description": "正在将回答流式返回到对话" },
+      "done": { "title": "响应完成", "description": "正在整理最终回答" },
+      "error": { "title": "响应已中断", "description": "本次请求未能完成" },
+      "apiRetry": { "description": "服务暂时不可用，正在自动重试（{{attempt}}/{{max}}），请稍候" },
+      "cancelled": { "description": "用户已取消请求" },
+      "elapsed": "用时 {{seconds}}s",
+      "retryHint": "请重试"
+    },
     "sendMessage": "给 {{provider}} 发送消息",
     "createNewSession": "创建新会话",
     "confirmNewSession": "当前会话已有消息，确定要创建新会话吗？",

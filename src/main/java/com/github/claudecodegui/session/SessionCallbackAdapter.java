@@ -260,6 +260,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
                 : payload.elapsedMs();
         AssistantResponseStatusPayload normalized = new AssistantResponseStatusPayload(
                 payload.phase(), payload.providerLabel(), payload.title(), payload.description(),
+                payload.descriptionKey(), payload.attempt(), payload.maxRetries(),
                 elapsedMs, payload.active());
         sendResponsePhase(normalized);
     }

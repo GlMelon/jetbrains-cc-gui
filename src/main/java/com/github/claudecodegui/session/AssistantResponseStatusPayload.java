@@ -7,13 +7,21 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 /**
  * UI-ready assistant response status payload.
  *
- * <p>The backend owns phase semantics and display text; the frontend only renders these fields.</p>
+ * <p>The backend owns phase semantics; the frontend renders these fields. 显示文案的 i18n
+ * 由前端按 {@code descriptionKey}(语义 key)查 webview locale——后端 Bundle 跟随 IDE 界面
+ * 语言,与 webview 语言设置可能不一致,故 title/description 仅作 fallback。</p>
  */
 public record AssistantResponseStatusPayload(
         String phase,
         String providerLabel,
         String title,
         String description,
+        /** 前端 i18n 语义 key(常规=phase value;特殊:apiRetry/cancelled);null 表示无语义 key,前端直接用 description。 */
+        String descriptionKey,
+        /** api_retry 重试次序(1-based);null/<=0 表示未知(前端显示 "?")。 */
+        Integer attempt,
+        /** api_retry 最大重试次数;null/<=0 表示未知。 */
+        Integer maxRetries,
         long elapsedMs,
         boolean active
 ) {
@@ -41,14 +49,18 @@ public record AssistantResponseStatusPayload(
                 safeProviderLabel(providerLabel),
                 ClaudeCodeGuiBundle.message(safePhase.titleKey()),
                 ClaudeCodeGuiBundle.message(safePhase.descriptionKey()),
+                safePhase.value(),
+                null,
+                null,
                 elapsedMs,
                 safePhase.active()
         );
     }
 
     /**
-     * 带 description 覆盖的工厂:用于 api_retry 等需要动态文案的场景。phase 的 title 仍取
+     * 带 description 覆盖的工厂:用于需要动态文案的场景。phase 的 title 仍取
      * Bundle,description 用 {@code descriptionOverride}(为 null 时回退 Bundle 默认)。
+     * descriptionKey 仍为 phase value(覆盖文案不走前端 i18n)。
      */
     public static AssistantResponseStatusPayload forProviderWithDescription(
             AssistantResponsePhase phase,
@@ -68,6 +80,9 @@ public record AssistantResponseStatusPayload(
                 safeProviderLabel(providerLabel(provider)),
                 ClaudeCodeGuiBundle.message(safePhase.titleKey()),
                 description,
+                null,
+                null,
+                null,
                 elapsedMs,
                 safePhase.active()
         );
@@ -97,6 +112,9 @@ public record AssistantResponseStatusPayload(
                 safeProviderLabel(providerLabel(provider)),
                 ClaudeCodeGuiBundle.message(AssistantResponsePhase.API_RETRY.titleKey()),
                 description,
+                "apiRetry",
+                attempt,
+                maxRetries,
                 elapsedMs,
                 AssistantResponsePhase.API_RETRY.active()
         );
@@ -152,8 +170,8 @@ public record AssistantResponseStatusPayload(
     }
 
     /**
-     * 用户取消时的工厂:phase 为 {@link AssistantResponsePhase#ERROR},description 为"用户已取消"。
-     * 用于 interrupt 后向前端展示友好的取消提示,避免卡片空白。
+     * 用户取消时的工厂:phase 为 {@link AssistantResponsePhase#ERROR},descriptionKey 为
+     * "cancelled"(前端 i18n 覆盖"用户已取消")。用于 interrupt 后向前端展示友好的取消提示。
      */
     public static AssistantResponseStatusPayload forCancelled(String provider) {
         return new AssistantResponseStatusPayload(
@@ -161,6 +179,9 @@ public record AssistantResponseStatusPayload(
                 safeProviderLabel(providerLabel(provider)),
                 ClaudeCodeGuiBundle.message(AssistantResponsePhase.ERROR.titleKey()),
                 ClaudeCodeGuiBundle.message("assistant.response.cancelled"),
+                "cancelled",
+                null,
+                null,
                 0L,
                 AssistantResponsePhase.ERROR.active()
         );

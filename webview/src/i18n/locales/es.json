@@ -26,6 +26,21 @@
     "optional": "Optional"
   },
   "chat": {
+    "responsePhase": {
+      "queued": { "title": "Solicitud en cola", "description": "Preparando para enviar su mensaje" },
+      "mcp_syncing": { "title": "Conectando MCP", "description": "Iniciando la puerta de enlace MCP y cargando herramientas" },
+      "connecting": { "title": "Iniciando el runtime", "description": "Iniciando el proceso CLI de IA" },
+      "understanding": { "title": "Esperando al modelo", "description": "Esperando la respuesta del modelo" },
+      "thinking": { "title": "Pensando", "description": "Analizando el contexto y planificando la respuesta" },
+      "tooling": { "title": "Usando herramientas", "description": "Ejecutando la operación solicitada y esperando resultados" },
+      "responding": { "title": "Respondiendo", "description": "Transmitiendo la respuesta al chat" },
+      "done": { "title": "Respuesta completa", "description": "Finalizando la respuesta" },
+      "error": { "title": "Respuesta interrumpida", "description": "La solicitud no se pudo completar" },
+      "apiRetry": { "description": "Servicio temporalmente no disponible — reintentando automáticamente ({{attempt}}/{{max}}), espere" },
+      "cancelled": { "description": "Solicitud cancelada por el usuario" },
+      "elapsed": "{{seconds}}s",
+      "retryHint": "Reintentar"
+    },
     "sendMessage": "Enviar mensaje a {{provider}}",
     "createNewSession": "Crear nueva sesión",
     "confirmNewSession": "La sesión actual tiene mensajes, ¿estás seguro de que quieres crear una nueva sesión?",

@@ -26,6 +26,21 @@
     "optional": "Optional"
   },
   "chat": {
+    "responsePhase": {
+      "queued": { "title": "अनुरोध कतार में", "description": "आपका संदेश भेजने की तैयारी हो रही है" },
+      "mcp_syncing": { "title": "MCP से कनेक्ट हो रहा है", "description": "MCP गेटवे शुरू कर रहा है और टूल लोड कर रहा है" },
+      "connecting": { "title": "रनटाइम शुरू हो रहा है", "description": "AI CLI प्रक्रिया शुरू की जा रही है" },
+      "understanding": { "title": "मॉडल की प्रतिक्रिया की प्रतीक्षा में", "description": "प्रतिक्रिया शुरू होने की प्रतीक्षा" },
+      "thinking": { "title": "सोच रहा है", "description": "संदर्भ का विश्लेषण कर रहा है और उत्तर की योजना बना रहा है" },
+      "tooling": { "title": "उपकरण उपयोग कर रहा है", "description": "अनुरोधित ऑपरेशन चला रहा है और परिणामों की प्रतीक्षा कर रहा है" },
+      "responding": { "title": "उत्तर दे रहा है", "description": "चैट में उत्तर स्ट्रीमिंग कर रहा है" },
+      "done": { "title": "उत्तर पूर्ण", "description": "अंतिम उत्तर को अंतिम रूप दे रहा है" },
+      "error": { "title": "उत्तर बाधित", "description": "अनुरोध पूरा नहीं हो सका" },
+      "apiRetry": { "description": "सेवा अस्थायी रूप से अनुपलब्ध — स्वतः पुनः प्रयास जारी ({{attempt}}/{{max}}), कृपया प्रतीक्षा करें" },
+      "cancelled": { "description": "उपयोगकर्ता द्वारा अनुरोध रद्द किया गया" },
+      "elapsed": "{{seconds}}s",
+      "retryHint": "पुनः प्रयास करें"
+    },
     "sendMessage": "{{provider}} को संदेश भेजें",
     "createNewSession": "नया सत्र बनाएं",
     "confirmNewSession": "वर्तमान सत्र में संदेश हैं, क्या आप नया सत्र बनाना चाहते हैं?",

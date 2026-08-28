@@ -26,6 +26,21 @@
     "optional": "선택사항"
   },
   "chat": {
+    "responsePhase": {
+      "queued": { "title": "요청 대기 중", "description": "메시지 전송 준비 중" },
+      "mcp_syncing": { "title": "MCP 연결 중", "description": "MCP 게이트웨이 시작 및 도구 로드 중" },
+      "connecting": { "title": "런타임 시작 중", "description": "AI CLI 프로세스 시작 중" },
+      "understanding": { "title": "모델 응답 대기 중", "description": "응답 시작 대기 중" },
+      "thinking": { "title": "생각 중", "description": "컨텍스트 분석 및 응답 계획 중" },
+      "tooling": { "title": "도구 사용 중", "description": "요청된 작업 실행 및 결과 대기 중" },
+      "responding": { "title": "응답 중", "description": "채팅으로 답변 스트리밍 중" },
+      "done": { "title": "응답 완료", "description": "최종 답변 정리 중" },
+      "error": { "title": "응답 중단됨", "description": "요청을 완료하지 못했습니다" },
+      "apiRetry": { "description": "서비스 일시적으로 사용 불가 — 자동 재시도 중({{attempt}}/{{max}}), 잠시만 기다려 주세요" },
+      "cancelled": { "description": "사용자가 요청을 취소했습니다" },
+      "elapsed": "{{seconds}}초",
+      "retryHint": "다시 시도"
+    },
     "sendMessage": "{{provider}}에게 메시지 보내기",
     "createNewSession": "새 세션 만들기",
     "confirmNewSession": "현재 세션에 메시지가 있습니다. 새 세션을 만드시겠습니까?",

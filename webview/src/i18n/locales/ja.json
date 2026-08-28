@@ -26,6 +26,21 @@
     "optional": "Optional"
   },
   "chat": {
+    "responsePhase": {
+      "queued": { "title": "リクエスト待機中", "description": "メッセージの送信を準備中" },
+      "mcp_syncing": { "title": "MCP に接続中", "description": "MCP ゲートウェイを起動しツールを読み込み中" },
+      "connecting": { "title": "ランタイムを起動中", "description": "AI CLI プロセスを起動中" },
+      "understanding": { "title": "モデルの応答を待っています", "description": "応答の開始を待っています" },
+      "thinking": { "title": "思考中", "description": "コンテキストを分析し、応答を計画中" },
+      "tooling": { "title": "ツールを使用中", "description": "リクエストされた操作を実行し、結果を待機中" },
+      "responding": { "title": "応答中", "description": "チャットに回答をストリーミング中" },
+      "done": { "title": "応答完了", "description": "最終回答を整理中" },
+      "error": { "title": "応答が中断されました", "description": "リクエストを完了できませんでした" },
+      "apiRetry": { "description": "サービスが一時的に利用不可、自動リトライ中（{{attempt}}/{{max}}）です。お待ちください" },
+      "cancelled": { "description": "ユーザーがリクエストをキャンセルしました" },
+      "elapsed": "{{seconds}}秒",
+      "retryHint": "再試行"
+    },
     "sendMessage": "{{provider}}にメッセージを送信",
     "createNewSession": "新規セッションを作成",
     "confirmNewSession": "現在のセッションにメッセージがあります。新規セッションを作成してもよろしいですか?",

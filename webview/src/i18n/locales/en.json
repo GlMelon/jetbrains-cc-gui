@@ -27,6 +27,21 @@
     "optional": "Optional"
   },
   "chat": {
+    "responsePhase": {
+      "queued": { "title": "Request queued", "description": "Preparing to send your message" },
+      "mcp_syncing": { "title": "Connecting MCP", "description": "Starting MCP gateway and loading tools" },
+      "connecting": { "title": "Starting runtime", "description": "Launching the AI CLI process" },
+      "understanding": { "title": "Waiting for model", "description": "Waiting for the model to respond" },
+      "thinking": { "title": "Thinking", "description": "Analyzing context and planning the response" },
+      "tooling": { "title": "Using tools", "description": "Running the requested operation and waiting for results" },
+      "responding": { "title": "Responding", "description": "Streaming the answer back to the chat" },
+      "done": { "title": "Response complete", "description": "Finalizing the answer" },
+      "error": { "title": "Response interrupted", "description": "The request could not be completed" },
+      "apiRetry": { "description": "Service temporarily unavailable — retrying automatically ({{attempt}}/{{max}}), please wait" },
+      "cancelled": { "description": "Request cancelled by user" },
+      "elapsed": "{{seconds}}s",
+      "retryHint": "Retry"
+    },
     "sendMessage": "Send message to {{provider}}",
     "createNewSession": "Create New Session",
     "confirmNewSession": "Current session has messages. Are you sure you want to create a new session?",
