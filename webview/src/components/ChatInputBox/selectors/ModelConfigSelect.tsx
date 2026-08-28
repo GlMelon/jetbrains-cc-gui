@@ -61,7 +61,9 @@ type ActiveSubmenu = 'none' | 'model' | 'effort' | 'speed' | 'preset';
 
 interface ModelConfigSelectProps {
   selectedModel: string;
-  onModelSelect: (modelId: string) => void;
+  /** 后端下发的选中模型 identifier,透传 ModelSelect 用于同名 id 精确判定。 */
+  selectedModelIdentifier?: string;
+  onModelSelect: (model: ModelInfo) => void;
   models?: ModelInfo[];
   currentProvider?: string;
   loading?: boolean;
@@ -92,6 +94,7 @@ function getReasoningLabel(
  */
 export const ModelConfigSelect = ({
   selectedModel,
+  selectedModelIdentifier,
   onModelSelect,
   models = [], // A1:registry 为权威来源,调用方(ButtonArea)传入;不再回退静态表。
   currentProvider = 'claude',
@@ -464,7 +467,8 @@ export const ModelConfigSelect = ({
             {activeSubmenu === 'model' && (
               <ModelSelect
                 value={selectedModel}
-                onChange={(modelId) => onModelSelect(modelId)}
+                selectedIdentifier={selectedModelIdentifier}
+                onChange={onModelSelect}
                 models={models}
                 currentProvider={currentProvider}
                 loading={loading}

@@ -43,7 +43,10 @@ const DROPDOWN_MAX_HEIGHT_PX = 300;
 
 interface ModelSelectProps {
   value: string;
-  onChange: (modelId: string) => void;
+  /** 后端下发的当前选中模型 identifier;同名 id 跨供应商时靠它精确判定选中(4324bc09)。 */
+  selectedIdentifier?: string;
+  /** 传出完整 ModelInfo(identifier 保真),调用方勿再按裸 id 反查同名歧义。 */
+  onChange: (model: ModelInfo) => void;
   models?: ModelInfo[];
   currentProvider?: string;
   /** True while CLI providers (OpenCode / Kimi) are still fetching model catalogs. */
@@ -76,6 +79,7 @@ const LOADING_OPTION_STYLE: React.CSSProperties = {
  */
 export const ModelSelect = ({
   value,
+  selectedIdentifier,
   onChange,
   models = [], // A1:registry 为权威来源,调用方传入;不回退静态表。
   currentProvider = 'claude',
@@ -111,11 +115,17 @@ export const ModelSelect = ({
   const strippedValue = strip1MContextSuffix(value);
   // A3:前端不再做 id→role 离线归一化,仅剥 [1m] 后缀。
   const normalizedValue = strippedValue;
+  // 选中解析:identifier 优先(后端 opaque key,同名 id 跨供应商可区分,4324bc09);
+  // 无 identifier 时回退裸 id(动态 CLI 目录 identifier=id,与 id 判定等价)。
   // Prefer the user's selection even when the catalog is still loading / only a
   // static fallback is available. Falling back to models[0] made OpenCode (and
   // other dynamic providers) visually snap back to the first entry after leaving
   // history and remounting ChatScreen.
-  const currentModel = models.find(m => m.id === normalizedValue)
+  const exactSelectedModel = selectedIdentifier
+    ? models.find((model) => model.identifier === selectedIdentifier)
+    : undefined;
+  const currentModel = exactSelectedModel
+    || models.find(m => m.id === normalizedValue)
     || models.find(m => m.id === strippedValue)
     || (strippedValue
       ? { id: strippedValue, label: strippedValue } as ModelInfo
@@ -126,11 +136,13 @@ export const ModelSelect = ({
     setPinnedIds(readPinnedModelIds(currentProvider));
   }, [currentProvider]);
 
-  const isSelectedModel = (modelId: string): boolean => {
-    if (currentProvider !== 'claude') {
-      return modelId === strippedValue;
+  const isSelectedModel = (model: ModelInfo): boolean => {
+    if (selectedIdentifier) {
+      return model.identifier === selectedIdentifier;
     }
-    return modelId === normalizedValue;
+    // 无 identifier 供给时回退裸 id:按 find-first 命中项判定(引用相等),
+    // 同名 id 只勾 find 到的第一个,不会全列表命中造成双选中。
+    return model === currentModel;
   };
 
   const getModelLabel = (model: ModelInfo, show1MContext = false): string => {
@@ -181,8 +193,8 @@ export const ModelSelect = ({
   /**
    * Select model
    */
-  const handleSelect = useCallback((modelId: string) => {
-    onChange(modelId);
+  const handleSelect = useCallback((model: ModelInfo) => {
+    onChange(model);
     setIsOpen(false);
     setSearchQuery('');
     onClose?.();
@@ -315,9 +327,9 @@ export const ModelSelect = ({
                   const isPinned = pinnedSet.has(model.id);
                   return (
                     <div
-                      key={model.id}
-                      className={`selector-option ${isSelectedModel(model.id) ? 'selected' : ''}`}
-                      onClick={() => handleSelect(model.id)}
+                      key={model.identifier ?? model.id}
+                      className={`selector-option ${isSelectedModel(model) ? 'selected' : ''}`}
+                      onClick={() => handleSelect(model)}
                       data-testid={`model-option-${model.id}`}
                     >
                       <ProviderModelIcon
@@ -346,7 +358,7 @@ export const ModelSelect = ({
                       >
                         <span className={`codicon ${isPinned ? 'codicon-pinned' : 'codicon-pin'}`} />
                       </button>
-                      {isSelectedModel(model.id) && (
+                      {isSelectedModel(model) && (
                         <span className="codicon codicon-check check-mark" />
                       )}
                     </div>
@@ -416,15 +428,24 @@ export const ModelSelect = ({
         ref={buttonRef}
         className="selector-button"
         onClick={handleToggle}
-        title={t('chat.currentModel', { model: getModelLabel(currentModel, true) })}
+        disabled={!currentModel}
+        title={currentModel
+          ? t('chat.currentModel', { model: getModelLabel(currentModel, true) })
+          : t('chat.noModelConfigured', { defaultValue: 'No model configured' })}
       >
-        <ProviderModelIcon
-          providerId={currentProvider}
-          modelId={resolveModelIdForIcon(currentModel.id, currentProvider === 'claude' ? modelMapping : {}, MODEL_ID_TO_MAPPING_KEY)}
-          size={12}
-          colored
-        />
-        <span className="selector-button-text">{getModelLabel(currentModel, true)}</span>
+        {currentModel ? (
+          <>
+            <ProviderModelIcon
+              providerId={currentProvider}
+              modelId={resolveModelIdForIcon(currentModel.id, currentProvider === 'claude' ? modelMapping : {}, MODEL_ID_TO_MAPPING_KEY)}
+              size={12}
+              colored
+            />
+            <span className="selector-button-text">{getModelLabel(currentModel, true)}</span>
+          </>
+        ) : (
+          <span className="selector-button-text">{t('chat.noModelConfigured', { defaultValue: 'No model configured' })}</span>
+        )}
         <span className={`codicon codicon-chevron-${isOpen ? 'up' : 'down'}`} style={CHEVRON_ICON_STYLE} />
       </button>
 

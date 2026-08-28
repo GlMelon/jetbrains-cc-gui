@@ -33,10 +33,13 @@ vi.mock('../../../src/components/ChatInputBox/selectors', () => ({
   ProviderSelect: () => null,
   ModeSelect: () => null,
   ReasoningSelect: () => null,
-  ModelSelect: (props: {
-    value: string;
-    selectedIdentifier?: string;
-    onChange: (model: ModelInfo) => void;
+  DshPresetSelect: () => null,
+  // ButtonArea 自 c47bc3cb 嵌套下拉重构后渲染 ModelConfigSelect(其内部再嵌 ModelSelect)。
+  // mock 模拟其「转发选中态 + ModelInfo 回调」的契约:记录 props、点击回调首模型。
+  ModelConfigSelect: (props: {
+    selectedModel: string;
+    selectedModelIdentifier?: string;
+    onModelSelect: (model: ModelInfo) => void;
     models: ModelInfo[];
     currentProvider: string;
   }) => {
@@ -46,7 +49,7 @@ vi.mock('../../../src/components/ChatInputBox/selectors', () => ({
       <button
         data-testid="model-select"
         type="button"
-        onClick={() => props.onChange(firstModel)}
+        onClick={() => props.onModelSelect(firstModel)}
       >
         {firstModel.label}
       </button>
@@ -113,6 +116,6 @@ describe('ButtonArea model mapping', () => {
       />,
     );
 
-    expect(mocks.modelSelectProps.at(-1)?.selectedIdentifier).toBe('opencode-openglm-glm-5.2');
+    expect(mocks.modelSelectProps.at(-1)?.selectedModelIdentifier).toBe('opencode-openglm-glm-5.2');
   });
 });

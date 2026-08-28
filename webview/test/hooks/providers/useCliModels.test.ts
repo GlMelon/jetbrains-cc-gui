@@ -1,12 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetCliModelsCacheForTests, useCliModels, useOmpRoles } from './useCliModels';
-import { CODEX_MODELS, KIMI_MODELS, OMP_ROLE_MODELS } from '../../components/ChatInputBox/types';
-import { installRuntimeProviderDispatchers } from '../../utils/runtimeProviderCapabilities';
+import { __resetCliModelsCacheForTests, useCliModels, useOmpRoles } from '../../../src/hooks/providers/useCliModels';
+import { CODEX_MODELS, KIMI_MODELS, OMP_ROLE_MODELS } from '../../../src/components/ChatInputBox/types';
+import { installRuntimeProviderDispatchers } from '../../../src/utils/runtimeProviderCapabilities';
 
 const sendBridgeEventMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../utils/bridge', () => ({
+vi.mock('../../../src/utils/bridge', () => ({
   sendBridgeEvent: (...args: unknown[]) => sendBridgeEventMock(...args),
 }));
 
@@ -59,11 +59,60 @@ describe('useCliModels', () => {
       models: [{ id: 'kimi-k3', label: 'kimi-k3', description: 'kimi-k3' }],
     });
     expect(result.current.cliModels).toEqual([
-      { id: 'kimi-k3', label: 'kimi-k3', description: 'kimi-k3' },
+      // normalizeModels 会为每条补 identifier=id(动态 CLI 模型的 opaque key)。
+      { id: 'kimi-k3', identifier: 'kimi-k3', label: 'kimi-k3', description: 'kimi-k3' },
     ]);
     expect(result.current.cliDefaultModel).toBe('kimi-k3');
     expect(result.current.cliModelsLoading).toBe(false);
     expect(result.current.cliModelsError).toBeNull();
+  });
+
+  it('保留同名 CLI 模型并按序号区分 identifier(防同名双选中,所有 CLI 通用)', () => {
+    // CLI listModels 可能返回同名模型(如不同 source 的 glm-4)。旧逻辑 seen.has(id)
+    // 直接丢弃第二个,用户看不到;且若都保留会因 identifier=id 相同导致 ModelSelect
+    // 勾选串台(选智谱误亮 sensenova)。加固:不丢弃,identifier 加序号后缀区分。
+    const { result } = renderHook(() => useCliModels('grok'));
+    emitCliModels({
+      success: true,
+      provider: 'grok',
+      models: [
+        { id: 'glm-4', label: 'GLM 4', description: 'Zhipu source' },
+        { id: 'glm-4', label: 'GLM 4', description: 'SenseNova source' },
+      ],
+    });
+    const models = result.current.cliModels;
+    // 不丢弃:两条都保留(旧逻辑 seen.has(id) 会丢第二个)
+    expect(models).toHaveLength(2);
+    // 首个保持 identifier=id,兼容已持久化的 selectedIdentifier(localStorage)
+    expect(models[0].identifier).toBe('glm-4');
+    // 第二个 identifier 加序号后缀区分,ModelSelect 据此精精确勾选不串台
+    expect(models[1].identifier).toBe('glm-4#2');
+    // 同名同 label 加序号让下拉两个同名项可辨
+    expect(models[0].label).toBe('GLM 4');
+    expect(models[1].label).toBe('GLM 4 #2');
+    // id 保留原值:CLI 调用层仍按裸 id,identifier 只管 UI 定位
+    expect(models.map((m) => m.id)).toEqual(['glm-4', 'glm-4']);
+    // description 保留 CLI 提供的来源信息,辅助用户区分
+    expect(models.map((m) => m.description)).toEqual(['Zhipu source', 'SenseNova source']);
+  });
+
+  it('同名不同 label 时不给 label 加序号(identifier 仍区分)', () => {
+    const { result } = renderHook(() => useCliModels('grok'));
+    emitCliModels({
+      success: true,
+      provider: 'grok',
+      models: [
+        { id: 'glm-4', label: 'GLM 4 Zhipu', description: 'zhipu' },
+        { id: 'glm-4', label: 'GLM 4 SenseNova', description: 'sensenova' },
+      ],
+    });
+    const models = result.current.cliModels;
+    expect(models).toHaveLength(2);
+    expect(models[0].identifier).toBe('glm-4');
+    expect(models[1].identifier).toBe('glm-4#2');
+    // label 本就不同,不加序号(避免画蛇添足)
+    expect(models[0].label).toBe('GLM 4 Zhipu');
+    expect(models[1].label).toBe('GLM 4 SenseNova');
   });
 
   it('falls back to CODEX_MODELS when the codex payload has no models (official provider)', () => {
@@ -136,6 +185,22 @@ describe('useCliModels', () => {
     });
     expect(sendBridgeEventMock).not.toHaveBeenCalled();
     expect(result.current.modelsByProvider.codex).toBeUndefined();
+  });
+
+  it('does not auto-refetch after an empty catalog response (spawn storm guard)', () => {
+    const { result } = renderHook(() => useCliModels('opencode'));
+    expect(sendBridgeEventMock).toHaveBeenCalledTimes(1);
+    emitCliModels({ success: true, provider: 'opencode', models: [] });
+    // 空 models + 空 fallback(OPENCODE_MODELS=[]):回填已发生,自动 effect 不得再发。
+    // 修复前此处按 length 判定会 ~120ms 循环重发(实测日志 1600+ 次 spawn)。
+    expect(sendBridgeEventMock).toHaveBeenCalledTimes(1);
+    expect(result.current.cliModels).toEqual([]);
+    expect(result.current.cliCatalogHasEntries).toBe(false);
+    // 手动重试不受影响。
+    act(() => {
+      result.current.refreshCliModels('opencode');
+    });
+    expect(sendBridgeEventMock).toHaveBeenCalledTimes(2);
   });
 
   it('times out into an error state and falls back to static models', () => {
@@ -216,8 +281,8 @@ describe('useOmpRoles', () => {
       ],
     });
     expect(result.current).toEqual([
-      { id: 'smol', label: 'Smol', description: 'openai/gpt-5-mini' },
-      { id: 'designer', label: 'Designer', description: 'opencode-go/deepseek-v4-flash' },
+      { id: 'smol', identifier: 'smol', label: 'Smol', description: 'openai/gpt-5-mini' },
+      { id: 'designer', identifier: 'designer', label: 'Designer', description: 'opencode-go/deepseek-v4-flash' },
     ]);
   });
 

@@ -211,6 +211,10 @@ public enum UpstreamAction implements ProtocolValue {
     SAVE_IMPORTED_PROVIDERS("save_imported_providers"),
     // 拉取第三方/代理 OpenAI 兼容 models 列表(RPC:业务逻辑下沉后端,前端只做入口)
     FETCH_PROVIDER_MODELS("fetch_provider_models"),
+    // CLI provider 动态模型目录(kimi/grok/pi/omp/dsh/codex):spawn channel-manager listModels,
+    // 结果经 window.setCliModels 回填前端 useCliModels(CLI-only provider 无 registry 条目,
+    // 本链路是其唯一目录来源 —— 恢复 1c1084b3 handler 体系合并时被删的 CliModelsHandler 语义)
+    GET_CLI_MODELS("get_cli_models"),
     // 拉取 Claude 订阅用量快照(rate_limit_event 缓存,前端 ContextBar plan-usage bar)
     GET_CLAUDE_PLAN_USAGE("get_claude_plan_usage"),
     // DSH host 生命周期(设置卡启停/状态/配置保存 → window.updateDshStatus)

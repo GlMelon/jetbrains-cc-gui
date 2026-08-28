@@ -128,6 +128,7 @@ import com.github.claudecodegui.handler.ProjectConfigHandler;
 import com.github.claudecodegui.handler.UserLanguageHandler;
 import com.github.claudecodegui.handler.settings.GetCodexSubscriptionQuotaActionHandler;
 import com.github.claudecodegui.handler.settings.FetchProviderModelsActionHandler;
+import com.github.claudecodegui.handler.settings.GetCliModelsActionHandler;
 import com.github.claudecodegui.handler.settings.GetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.SetModelRegistryActionHandler;
 import com.github.claudecodegui.handler.settings.GetSmitheryApiKeyActionHandler;
@@ -535,6 +536,8 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new GetCodexSubscriptionQuotaActionHandler());
         // 模型拉取 RPC(第三方/代理预设:baseUrl+key → 动态拉取真实模型列表)
         typedHandlers.add(new FetchProviderModelsActionHandler());
+        // CLI provider 动态模型目录(kimi/grok/pi/omp/dsh/codex → window.setCliModels)
+        typedHandlers.add(new GetCliModelsActionHandler());
         typedHandlers.add(new GetNodePathActionHandler());
         typedHandlers.add(new SetNodePathActionHandler());
         typedHandlers.add(new ReadClipboardActionHandler());

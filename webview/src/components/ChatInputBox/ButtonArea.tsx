@@ -86,6 +86,7 @@ export const ButtonArea = ({
   showThinkingEnabled = true,
   onShowThinkingEnabledChange,
   selectedModel = DEFAULT_CLAUDE_MODEL_ID,
+  selectedModelIdentifier,
   permissionMode = 'default',
   currentProvider = 'claude',
   reasoningEffort = 'high',
@@ -246,16 +247,9 @@ export const ButtonArea = ({
     onModeSelect?.(mode);
   }, [onModeSelect]);
 
-  /**
-   * Handle model selection
-   */
-  /** ModelConfigSelect 以 modelId 回调;包装为 ModelInfo(与本地 onModelSelect 签名一致)。 */
-  const handleModelSelectById = useCallback((modelId: string) => {
-    const model = availableModels.find((m) => m.id === modelId);
-    if (model) {
-      onModelSelect?.(model);
-    }
-  }, [availableModels, onModelSelect]);
+  // ModelSelect 直接回调 ModelInfo(identifier 保真,4324bc09 语义),与本地
+  // onModelSelect 签名一致直传;旧 handleModelSelectById 按裸 id 反查在同名
+  // id 跨供应商时会取错条目,已随 identifier 恢复一并退役。
 
   /**
    * Handle provider selection
@@ -337,7 +331,8 @@ export const ButtonArea = ({
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />
         <ModelConfigSelect
           selectedModel={selectedModel}
-          onModelSelect={handleModelSelectById}
+          selectedModelIdentifier={selectedModelIdentifier}
+          onModelSelect={(model) => onModelSelect?.(model)}
           models={availableModels}
           currentProvider={currentProvider}
           loading={cliModelsLoading}

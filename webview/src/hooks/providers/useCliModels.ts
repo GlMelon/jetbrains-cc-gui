@@ -72,18 +72,30 @@ function supportsDynamicModels(providerId: string): boolean {
 function normalizeModels(raw: unknown): ModelInfo[] {
   if (!Array.isArray(raw)) return [];
   const out: ModelInfo[] = [];
-  const seen = new Set<string>();
+  // 同名模型加固(对所有 CLI 通用):CLI listModels 返回的 item 无 source/endpoint
+  // 字段,同名时不丢弃,改为给 identifier 加序号后缀(id#N)区分,让 ModelSelect
+  // 按 selectedIdentifier 精确勾选、避免同名项互相串台高亮(选智谱误亮 sensenova)。
+  // 首个保持 identifier=id,兼容已持久化的 selectedIdentifier(localStorage)。
+  // label 同名时也加序号,让下拉里两个同名项可辨。注:CLI 调用层仍按裸 id 模型名,
+  // 同名本质无法区分——此为 UI 层防线;真要区分同名需 CLI 自带 source 字段(当前无)。
+  const idOccurrences = new Map<string, number>();
+  const labelOccurrences = new Map<string, number>();
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
     const row = item as Record<string, unknown>;
     const id = typeof row.id === 'string' ? row.id.trim() : '';
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    const label = typeof row.label === 'string' && row.label.trim()
-      ? row.label.trim()
-      : id;
+    if (!id) continue;
+    const occurrence = (idOccurrences.get(id) ?? 0) + 1;
+    idOccurrences.set(id, occurrence);
+    const identifier = occurrence > 1 ? `${id}#${occurrence}` : id;
+    let label = typeof row.label === 'string' && row.label.trim() ? row.label.trim() : id;
+    const labelOcc = (labelOccurrences.get(label) ?? 0) + 1;
+    labelOccurrences.set(label, labelOcc);
+    if (labelOcc > 1) {
+      label = `${label} #${labelOcc}`;
+    }
     const description = typeof row.description === 'string' ? row.description : undefined;
-    out.push({ id, identifier: id, label, description });
+    out.push({ id, identifier, label, description });
   }
   return out;
 }
@@ -114,6 +126,8 @@ export function useCliModels(currentProvider: string) {
   }, []);
 
   const beginLoad = useCallback((providerId: string) => {
+    // 同 provider 已有在途请求时不重复发(防同帧双触发/手动连点叠加 spawn)。
+    if (pendingLoadRef.current?.provider === providerId) return;
     clearPendingLoad();
     setLoadingProvider(providerId);
     setErrorByProvider((prev) => {
@@ -211,7 +225,10 @@ export function useCliModels(currentProvider: string) {
 
   useEffect(() => {
     if (!supportsDynamicModels(currentProvider)) return;
-    if (modelsByProvider[currentProvider]?.length) return;
+    // 收到过一次回填就不再自动重发(空数组也是 truthy):空 models 回填 + 空 fallback
+    // (CLI-only providers 的静态表为空)若按 length 判定会形成 ~120ms 的 spawn 风暴。
+    // 空结果经 cliModelsError / cliCatalogHasEntries 呈现,下拉 onRetry 手动重载。
+    if (modelsByProvider[currentProvider]) return;
 
     beginLoad(currentProvider);
   }, [currentProvider, modelsByProvider, beginLoad]);
