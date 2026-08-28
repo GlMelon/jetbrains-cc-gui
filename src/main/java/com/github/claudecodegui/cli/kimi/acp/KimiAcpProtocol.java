@@ -55,9 +55,25 @@ final class KimiAcpProtocol {
 
     /** configOption id:思考档位(category=thought_level)。默认 off,需显式开启。0.29.0+ 支持。 */
     static final String CONFIG_ID_THINKING = "thinking";
+    /** configOption 分组:思考档位所在 category(set_config_option 校验按模型目录动态定)。 */
+    static final String CONFIG_CATEGORY_THOUGHT_LEVEL = "thought_level";
 
     // ── thinking 取值(thought_level) ─────────────────────────────────────────
 
+    /**
+     * thinking 取值。
+     *
+     * <p><b>协议事实(0.38 dist/main.mjs 源码级确认):合法值是模型动态的</b>——
+     * {@code set_config_option} 校验 {@code ["off", ...当前模型 supportEfforts]}
+     * (模型无 effort 目录时为 {@code ["off","on"]};alwaysThinking 时为 {@code ["on"]})。
+     * {@code "on"} 是万能别名(自动解析为模型 {@code defaultThinkingEffort});具体
+     * effort 字面量("medium" 等)仅当模型 supportEfforts 包含它才合法。
+     * <b>权威合法值列表在 session/new / session/load 响应的 configOptions 里</b>
+     * (type=select、category=thought_level 的项,含 options[].value 与 currentValue),
+     * 客户端应从那里协商而非硬编码字面量(实测 k3 发 "medium" 即被拒)。
+     */
+    static final String THINKING_OFF = "off";
+    static final String THINKING_ON = "on";
     static final String THINKING_LOW = "low";
     static final String THINKING_MEDIUM = "medium";
     static final String THINKING_HIGH = "high";
@@ -79,4 +95,14 @@ final class KimiAcpProtocol {
     static final String FIELD_CONFIG_ID = "configId";
     static final String FIELD_VALUE = "value";
     static final String FIELD_STOP_REASON = "stopReason";
+    /** session/new / session/load 响应字段:configOptions 数组(select 项含合法值目录)。 */
+    static final String FIELD_CONFIG_OPTIONS = "configOptions";
+    /** configOption(select)内字段:当前生效值。 */
+    static final String FIELD_CURRENT_VALUE = "currentValue";
+    /** configOption(select)内字段:合法值列表 [{value,name}](取值复用 {@link #FIELD_VALUE})。 */
+    static final String FIELD_OPTIONS = "options";
+    /** configOption 内字段:选项分组 category。 */
+    static final String FIELD_CATEGORY = "category";
+    /** configOption 内字段:选项 id(thinking)。 */
+    static final String FIELD_ID = "id";
 }

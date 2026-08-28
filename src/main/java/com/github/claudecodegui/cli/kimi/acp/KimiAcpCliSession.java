@@ -9,6 +9,7 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliEnvironmentBuilder;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliProcessHandle;
+import com.github.claudecodegui.cli.common.CliPromptContexts;
 import com.github.claudecodegui.cli.common.CliProcessLifecycle;
 import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
@@ -76,6 +77,8 @@ public class KimiAcpCliSession implements CliSession {
     private volatile KimiAcpConnection persistentConn;
     private volatile String persistentSessionId;
     private volatile CliProcessHandle persistentHandle;
+    /** 当前 session 的思考档位目录(session/new 或 load 的 configOptions 解析),随 clearPersistent 清空。 */
+    private volatile ThinkingOptions thinkingOptions;
 
     public KimiAcpCliSession(String tabId, McpGatewayService gatewayService) {
         this.tabId = tabId;
@@ -88,8 +91,15 @@ public class KimiAcpCliSession implements CliSession {
         return CliSessionExecutor.runAsync(() -> {
             StringBuilder diagnostic = new StringBuilder();
             try {
+                // 续接 id 与 claude/codex(--resume 语义)对齐:优先用 request.sessionId()
+                // (前端/state 持有的会话 id,历史回load、跨通道切换后仍指向用户认可的会话),
+                // 本实例长驻缓存的 sessionId 仅作兜底。此前只看自身字段:插件重启/通道切换后
+                // 直接 session/new 另起炉灶,用户会话上下文静默丢失。
+                String requested = request.sessionId();
+                String effectiveSessionId = requested != null && !requested.isBlank()
+                        ? requested.trim() : sessionId;
                 // B13:续接失败时清空 sessionId 与长驻连接,重试一次首轮流程
-                boolean retry = runTurn(request, callback, sessionId, diagnostic);
+                boolean retry = runTurn(request, callback, effectiveSessionId, diagnostic);
                 if (retry) {
                     LOG.info("[KimiAcpCliSession][" + tabId + "] continuation session invalidated; retrying as fresh turn");
                     sessionId = null;
@@ -138,14 +148,33 @@ public class KimiAcpCliSession implements CliSession {
         try {
             // ── 复用长驻连接 or 新建 ──
             KimiAcpConnection existing = persistentConn;
-            if (existing != null && existing.isAlive() && persistentSessionId != null) {
+            // 复用一致性:请求要续接的会话(id 与长驻缓存不同)时必须重建走 session/load,
+            // 否则会把消息发进另一条会话(历史回load/切换会话场景)。
+            String requestedId = request.sessionId();
+            boolean reuseConsistent = requestedId == null || requestedId.isBlank()
+                    || requestedId.trim().equals(persistentSessionId);
+            if (existing != null && existing.isAlive() && persistentSessionId != null && reuseConsistent) {
                 // 复用:省 spawn(~1-2s node 冷启)+ 握手 initialize/session/new
                 conn = existing;
                 resolvedSessionId = persistentSessionId;
                 currentHandle = persistentHandle;
                 activeHandle = currentHandle;
+                // 关键:通知行换绑到本轮新 parser(构造时绑定的旧 parser 已随上一 turn 结束)。
+                // 另补 attachSessionId:复用分支不走 establishSession,本轮 title payload 需要它。
+                existing.rebindLineSink(parser::parseLine);
+                parser.attachSessionId(resolvedSessionId);
                 LOG.debug("[KimiAcpCliSession][" + tabId + "] reusing persistent ACP connection, session=" + resolvedSessionId);
             } else {
+                if (existing != null) {
+                    // 长驻连接仍在但会话与请求不一致(或已死):优雅关闭,防孤儿进程。
+                    LOG.debug("[KimiAcpCliSession][" + tabId + "] persistent ACP connection replaced (session mismatch or dead)");
+                    clearPersistent();
+                    try {
+                        existing.close();
+                    } catch (Exception ignored) {
+                        // 忽略关闭异常
+                    }
+                }
                 // 新建:spawn + initialize + session/new(或 load 续接)
                 freshSpawn = true;
                 String executable = resolver.findExecutable();
@@ -232,11 +261,18 @@ public class KimiAcpCliSession implements CliSession {
                 this.sessionId = resolvedSessionId;
             }
 
-            // 开启思考(若用户启用)
+            // 开启思考(若用户启用)。档位经 configOptions 协商:合法值是模型动态的
+            // (KimiAcpProtocol.THINKING 取值说明),这里先把通用档位映射成当前 session
+            // 支持的值;setThinkingConfig 内的 "on" 回退仅作协商失手的最后防线。
             try {
-                String thinkingValue = resolveThinkingValue(request);
-                if (thinkingValue != null) {
-                    setThinkingConfig(conn, resolvedSessionId, thinkingValue);
+                String desired = resolveThinkingValue(request);
+                String negotiated = negotiateThinkingValue(desired, thinkingOptions);
+                if (negotiated != null) {
+                    if (!negotiated.equals(desired)) {
+                        LOG.info("[KimiAcpCliSession][" + tabId + "] thinking effort '" + desired
+                                + "' not supported by current model; negotiated to '" + negotiated + "'");
+                    }
+                    setThinkingConfig(conn, resolvedSessionId, negotiated);
                 }
             } catch (Exception e) {
                 LOG.warn("[KimiAcpCliSession][" + tabId + "] set thinking config failed (non-fatal)", e);
@@ -328,14 +364,17 @@ public class KimiAcpCliSession implements CliSession {
             callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
             return false;
         }
-        // 标题接入
+        // 标题接入。kimi 原生 title=lastPrompt 首行,注入段(Opened Files 等)会污染实时展示——
+        // 与历史 reader 同源清理(CliPromptContexts),剥除注入标记 + 60 字符预览截断。
         String title = parser.capturedTitle();
-        if (title != null && !title.isBlank()) {
+        String cleanedTitle = CliPromptContexts.truncatePreview(
+                CliPromptContexts.stripInjectedContext(title));
+        if (cleanedTitle != null && !cleanedTitle.isBlank()) {
             JsonObject titlePayload = new JsonObject();
             if (parser.capturedSessionId() != null) {
                 titlePayload.addProperty("sessionId", parser.capturedSessionId());
             }
-            titlePayload.addProperty("title", title);
+            titlePayload.addProperty("title", cleanedTitle);
             callback.onMessage(CliConstants.MSG_SESSION_TITLE, gson.toJson(titlePayload));
         }
 
@@ -392,14 +431,15 @@ public class KimiAcpCliSession implements CliSession {
                                      KimiAcpStreamParser parser) throws Exception {
         JsonArray mcpServers = buildMcpServers(gatewayConfig);
         String resolved;
+        JsonObject sessionResult;
         if (effectiveSessionId != null && !effectiveSessionId.isBlank()) {
             // 续接:session/load(失败抛出,runTurn 判定 B13)
             JsonObject params = new JsonObject();
             params.addProperty(KimiAcpProtocol.FIELD_SESSION_ID, effectiveSessionId);
             params.addProperty(KimiAcpProtocol.FIELD_CWD, request.cwd());
             params.add(KimiAcpProtocol.FIELD_MCP_SERVERS, mcpServers);
-            JsonObject result = conn.request(KimiAcpProtocol.METHOD_SESSION_LOAD, params, HANDSHAKE_TIMEOUT_MS);
-            resolved = getString(result, KimiAcpProtocol.FIELD_SESSION_ID);
+            sessionResult = conn.request(KimiAcpProtocol.METHOD_SESSION_LOAD, params, HANDSHAKE_TIMEOUT_MS);
+            resolved = getString(sessionResult, KimiAcpProtocol.FIELD_SESSION_ID);
             if (resolved == null || resolved.isBlank()) {
                 resolved = effectiveSessionId;
             }
@@ -408,12 +448,15 @@ public class KimiAcpCliSession implements CliSession {
             JsonObject params = new JsonObject();
             params.addProperty(KimiAcpProtocol.FIELD_CWD, request.cwd());
             params.add(KimiAcpProtocol.FIELD_MCP_SERVERS, mcpServers);
-            JsonObject result = conn.request(KimiAcpProtocol.METHOD_SESSION_NEW, params, HANDSHAKE_TIMEOUT_MS);
-            resolved = getString(result, KimiAcpProtocol.FIELD_SESSION_ID);
+            sessionResult = conn.request(KimiAcpProtocol.METHOD_SESSION_NEW, params, HANDSHAKE_TIMEOUT_MS);
+            resolved = getString(sessionResult, KimiAcpProtocol.FIELD_SESSION_ID);
             if (resolved == null || resolved.isBlank()) {
                 throw new IllegalStateException("session/new 未返回 sessionId");
             }
         }
+        // thinking 档位目录:合法值由当前模型决定(KimiAcpProtocol 取值说明),
+        // 从 configOptions 解析供 set_config_option 前协商,避免发不支持的档位。
+        this.thinkingOptions = parseThinkingOptions(sessionResult);
         this.sessionId = resolved;
         parser.attachSessionId(resolved);
         return resolved;
@@ -424,7 +467,17 @@ public class KimiAcpCliSession implements CliSession {
         params.addProperty(KimiAcpProtocol.FIELD_SESSION_ID, sessionId);
         params.addProperty(KimiAcpProtocol.FIELD_CONFIG_ID, KimiAcpProtocol.CONFIG_ID_THINKING);
         params.addProperty(KimiAcpProtocol.FIELD_VALUE, value);
-        conn.request(KimiAcpProtocol.METHOD_SET_CONFIG_OPTION, params, SET_CONFIG_TIMEOUT_MS);
+        try {
+            conn.request(KimiAcpProtocol.METHOD_SET_CONFIG_OPTION, params, SET_CONFIG_TIMEOUT_MS);
+        } catch (KimiAcpConnection.AcpRpcException e) {
+            // kimi 的合法档位由模型目录动态下发(supportEfforts,服务端刷新),请求档位
+            // 不在当前模型词表时(实测 k3 拒绝 medium)退回 "on"——kimi 侧语义为
+            // 采用模型 defaultThinkingEffort,对所有模型通用,不硬编码词表。
+            LOG.info("[KimiAcpCliSession][" + tabId + "] thinking value '" + value
+                    + "' rejected by model catalog; falling back to 'on'");
+            params.addProperty(KimiAcpProtocol.FIELD_VALUE, "on");
+            conn.request(KimiAcpProtocol.METHOD_SET_CONFIG_OPTION, params, SET_CONFIG_TIMEOUT_MS);
+        }
     }
 
     // ── server 请求处理(权限兜底) ──────────────────────────────────────────────
@@ -538,12 +591,103 @@ public class KimiAcpCliSession implements CliSession {
 
     /**
      * thinking 开启值:showThinking on → mapThinkingEffort(reasoningEffort);off → null(不调 set_config,真省 token)。
+     * <p>返回的是<b>期望档位字面量</b>,发送前还须经 {@link #negotiateThinkingValue} 对当前模型协商。
      */
     static String resolveThinkingValue(CliSendRequest request) {
         if (request == null || !Boolean.TRUE.equals(request.thinkingOutputEnabled())) {
             return null;
         }
         return mapThinkingEffort(request.reasoningEffort());
+    }
+
+    // ── thinking 档位协商(模型动态词表) ────────────────────────────────────────
+
+    /** 当前 session 的思考档位目录(session/new、load 响应 configOptions 中 category=thought_level 项)。 */
+    record ThinkingOptions(List<String> supportedValues, String currentValue) {
+    }
+
+    /**
+     * 从 session/new / session/load 响应解析 thinking 档位目录。
+     * configOptions 缺失(旧版 kimi / 字段可省)时返回 null,协商退回字面量直发。
+     */
+    static ThinkingOptions parseThinkingOptions(JsonObject sessionResult) {
+        if (sessionResult == null || !sessionResult.has(KimiAcpProtocol.FIELD_CONFIG_OPTIONS)
+                || !sessionResult.get(KimiAcpProtocol.FIELD_CONFIG_OPTIONS).isJsonArray()) {
+            return null;
+        }
+        for (var element : sessionResult.getAsJsonArray(KimiAcpProtocol.FIELD_CONFIG_OPTIONS)) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject option = element.getAsJsonObject();
+            boolean isThinking = KimiAcpProtocol.CONFIG_ID_THINKING.equals(getString(option, KimiAcpProtocol.FIELD_ID))
+                    || KimiAcpProtocol.CONFIG_CATEGORY_THOUGHT_LEVEL.equals(getString(option, KimiAcpProtocol.FIELD_CATEGORY));
+            if (!isThinking || !option.has(KimiAcpProtocol.FIELD_OPTIONS)
+                    || !option.get(KimiAcpProtocol.FIELD_OPTIONS).isJsonArray()) {
+                continue;
+            }
+            List<String> values = new ArrayList<>();
+            for (var v : option.getAsJsonArray(KimiAcpProtocol.FIELD_OPTIONS)) {
+                if (v.isJsonObject()) {
+                    String value = getString(v.getAsJsonObject(), KimiAcpProtocol.FIELD_VALUE);
+                    if (value != null && !value.isBlank()) {
+                        values.add(value);
+                    }
+                }
+            }
+            if (!values.isEmpty()) {
+                return new ThinkingOptions(values, getString(option, KimiAcpProtocol.FIELD_CURRENT_VALUE));
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 期望档位 → 当前模型支持的档位(opencode {@code mapReasoningVariant} 同范式:
+     * 支持就直发,不支持就近映射,映射不了用万能别名,再不行省略不发):
+     * <ol>
+     *   <li>目录未知(旧版 kimi)→ 字面量直发(legacy 行为,set_config 失败非致命);</li>
+     *   <li>字面量在目录中 → 直发;</li>
+     *   <li>就近 effort 档位(rank: low&lt;medium&lt;high&lt;max,非 effort 词按 medium 计,跳过 "off";并列取低档);</li>
+     *   <li>目录只有 "on"/无 effort 词 → "on"(kimi 侧解析为模型 defaultThinkingEffort);</li>
+     *   <li>目录为空/只有 "off"(alwaysThinking 等)→ null(不发)。</li>
+     * </ol>
+     */
+    static String negotiateThinkingValue(String desired, ThinkingOptions options) {
+        if (desired == null) {
+            return null;
+        }
+        if (options == null || options.supportedValues() == null || options.supportedValues().isEmpty()) {
+            return desired;
+        }
+        List<String> values = options.supportedValues();
+        if (values.contains(desired)) {
+            return desired;
+        }
+        String best = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (String candidate : values) {
+            if (KimiAcpProtocol.THINKING_OFF.equals(candidate)) {
+                continue;
+            }
+            int dist = Math.abs(effortRank(candidate) - effortRank(desired));
+            if (dist < bestDist || (dist == bestDist && best != null && effortRank(candidate) < effortRank(best))) {
+                best = candidate;
+                bestDist = dist;
+            }
+        }
+        return best != null ? best
+                : (values.contains(KimiAcpProtocol.THINKING_ON) ? KimiAcpProtocol.THINKING_ON : null);
+    }
+
+    /** effort 档位序:low=0,medium=1(非 effort 词同),high=2,xhigh/max=3,"off" 不参与(调用方跳过)。 */
+    private static int effortRank(String value) {
+        return switch (value == null ? "" : value.trim().toLowerCase(Locale.ROOT)) {
+            case KimiAcpProtocol.THINKING_LOW -> 0;
+            case KimiAcpProtocol.THINKING_HIGH -> 2;
+            case KimiAcpProtocol.THINKING_MAX, "xhigh" -> 3;
+            default -> 1;
+        };
     }
 
     /** 权限兜底响应:cancelled(拒绝;无 UI 渲染权限弹窗时一律拒绝的安全立场)。 */
@@ -629,6 +773,7 @@ public class KimiAcpCliSession implements CliSession {
             persistentConn = null;
             persistentSessionId = null;
             persistentHandle = null;
+            thinkingOptions = null;
         }
     }
 
@@ -637,6 +782,7 @@ public class KimiAcpCliSession implements CliSession {
         persistentConn = null;
         persistentSessionId = null;
         persistentHandle = null;
+        thinkingOptions = null;
     }
     private boolean wasInterrupted() {
         CliProcessHandle handle = activeHandle;

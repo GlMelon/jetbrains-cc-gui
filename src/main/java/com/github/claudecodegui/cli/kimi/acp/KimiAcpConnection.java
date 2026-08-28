@@ -54,7 +54,8 @@ final class KimiAcpConnection {
     }
 
     private final Process process;
-    private final Consumer<String> lineSink;
+    /** 通知行转发目标(即当前 turn 的 parser)。长驻复用时每 turn 经 {@link #rebindLineSink} 换新。 */
+    private volatile Consumer<String> lineSink;
     private final ServerRequestResponder responder;
     private final Consumer<String> stderrSink;
 
@@ -83,6 +84,18 @@ final class KimiAcpConnection {
         Thread stderrThread = new Thread(this::drainStderr, "kimi-acp-stderr-" + process.pid());
         stderrThread.setDaemon(true);
         stderrThread.start();
+    }
+
+    /**
+     * 长驻复用:把通知行转发目标换绑到当前 turn 的 parser。
+     * <p>
+     * drain 线程每行读最新 volatile 引用,换绑即时生效。不换绑的后果:第二个 turn 起
+     * 所有 {@code session/update} 仍路由进首 turn 的 parser(其 callback 指向已结束的
+     * turn 的 handler),新 turn 的 parser 收不到任何事件 → {@code receivedAnyEvent}=false
+     * 误报「静默空失败」,且内容经旧 handler 以非流式全量路径错乱渲染。
+     */
+    void rebindLineSink(Consumer<String> sink) {
+        this.lineSink = sink;
     }
 
     /**

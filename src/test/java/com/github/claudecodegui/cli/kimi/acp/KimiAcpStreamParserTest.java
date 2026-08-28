@@ -101,6 +101,11 @@ public class KimiAcpStreamParserTest {
 
         long toolUses = types(cb).stream().filter(t -> CommonConstants.MSG_TYPE_TOOL_USE.equals(t)).count();
         assertEquals("同 toolCallId 重放只发一次 tool_use", 1, toolUses);
+        // 块必须带 type 字段:前端 contentBlockNormalize 按 block.type 分派,缺 type 即静默丢弃
+        String payload = cb.messages.stream()
+                .filter(m -> CommonConstants.MSG_TYPE_TOOL_USE.equals(m[0]))
+                .findFirst().orElseThrow()[1];
+        assertTrue("tool_use 块应含 type 字段", payload.contains("\"type\":\"tool_use\""));
     }
 
     // ── tool_call_update:仅 completed/failed 发 tool_result(REPLACE 全量) ──
@@ -124,6 +129,10 @@ public class KimiAcpStreamParserTest {
 
         long results = types(cb).stream().filter(t -> CommonConstants.MSG_TYPE_TOOL_RESULT.equals(t)).count();
         assertEquals("只有 completed 发 tool_result", 1, results);
+        String resultPayload = cb.messages.stream()
+                .filter(m -> CommonConstants.MSG_TYPE_TOOL_RESULT.equals(m[0]))
+                .findFirst().orElseThrow()[1];
+        assertTrue("tool_result 块应含 type 字段", resultPayload.contains("\"type\":\"tool_result\""));
         // tool_result content 应是 REPLACE 全量("done-output",非"running")
         String resultContent = cb.messages.stream()
                 .filter(m -> CommonConstants.MSG_TYPE_TOOL_RESULT.equals(m[0]))

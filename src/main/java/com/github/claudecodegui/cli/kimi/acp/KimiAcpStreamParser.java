@@ -3,6 +3,7 @@ package com.github.claudecodegui.cli.kimi.acp;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.common.CliSectionEmitter;
 import com.github.claudecodegui.cli.common.CliStreamParser;
+import com.github.claudecodegui.common.CommonConstants;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -229,6 +230,8 @@ public class KimiAcpStreamParser implements CliStreamParser {
         }
 
         JsonObject toolUse = new JsonObject();
+        // 前端 contentBlockNormalize 按 block.type 分派,缺 type 的块会被静默丢弃
+        toolUse.addProperty("type", CommonConstants.BLOCK_TYPE_TOOL_USE);
         toolUse.addProperty("id", tcId);
         toolUse.addProperty("name", name);
         toolUse.add("input", input);
@@ -251,6 +254,7 @@ public class KimiAcpStreamParser implements CliStreamParser {
         }
         String resultText = extractToolResultText(update);
         JsonObject toolResult = new JsonObject();
+        toolResult.addProperty("type", CommonConstants.BLOCK_TYPE_TOOL_RESULT);
         toolResult.addProperty("tool_use_id", tcId);
         toolResult.addProperty("is_error", "failed".equals(status));
         toolResult.addProperty("content", resultText != null ? resultText : "");
