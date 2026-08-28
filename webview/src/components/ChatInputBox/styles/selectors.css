@@ -286,6 +286,48 @@
   stroke-width: 2;
 }
 
+.model-pin-button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.selector-option:hover .model-pin-button,
+.model-pin-button.is-pinned,
+.model-pin-button:focus-visible {
+  opacity: 1;
+}
+
+.model-pin-button:hover {
+  background: var(--button-hover);
+  color: var(--text-primary);
+}
+
+.model-pin-button.is-pinned {
+  color: var(--accent-color, #6c9eff);
+}
+
+.model-pin-button .codicon {
+  font-size: 12px;
+  width: 12px;
+}
+
+.model-selector-dropdown .selector-option .check-mark {
+  margin-left: 0;
+}
+
 .selector-option .model-description {
   font-size: 11px;
   color: var(--text-secondary);
