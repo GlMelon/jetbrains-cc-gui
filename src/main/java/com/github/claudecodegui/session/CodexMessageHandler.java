@@ -542,9 +542,16 @@ public class CodexMessageHandler implements MessageCallback {
         if (threadId != null && !threadId.trim().isEmpty()) {
             String currentSessionId = state.getSessionId();
             if (currentSessionId != null && !currentSessionId.equals(threadId)) {
-                LOG.warn("Codex thread ID changed unexpectedly: " + currentSessionId + " -> " + threadId
-                        + ". Keeping original thread ID to prevent session split.");
-                return;
+                // kimi 的会话语义是「续接即滚动换 id」(legacy resume_hint 链 / ACP session/load
+                // 返回新 id),id 更新是正常链路而非会话分裂:放行。守卫若拦下,state 与前端 id
+                // 会锁死在旧会话——前端 SESSION_TITLE 按 sessionId 精确匹配,标题链整链被丢弃
+                // (实测 2026-08-28:「Codex thread ID changed unexpectedly」两次 → 标题不显示)。
+                if (!CommonConstants.PROVIDER_KIMI.equals(state.getProvider())) {
+                    LOG.warn("Codex thread ID changed unexpectedly: " + currentSessionId + " -> " + threadId
+                            + ". Keeping original thread ID to prevent session split.");
+                    return;
+                }
+                LOG.info("kimi session id rolled forward (resume chain): " + currentSessionId + " -> " + threadId);
             }
             state.setSessionId(threadId);
             callbackHandler.notifySessionIdReceived(threadId);

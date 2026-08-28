@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.cli.CliSessionTitleService;
+import com.github.claudecodegui.cli.common.CliPromptContexts;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelRegistryConfig;
 import com.github.claudecodegui.config.ProviderRuntimePolicy;
@@ -256,6 +257,7 @@ public class SessionSendService {
 
         // provider 无关的统一 post-turn 钩子:仅在 CLI 首轮成功后 fire-and-forget 触发标题生成。
         // 三 provider(Claude/Codex/OpenCode)共用同一 CliSessionTitleService,内部判 CLI+首轮+配置。
+        // 标题输入剥除注入上下文(Opened Files 等),避免注入段稀释 Haiku 对用户真实意图的提取。
         return future.whenComplete((result, ex) -> {
             if (ex != null) {
                 return;
@@ -263,7 +265,7 @@ public class SessionSendService {
             cliTitleService.maybeGenerateTitle(
                     isProviderSendable,
                     sessionIdBeforeSend == null,
-                    input,
+                    CliPromptContexts.stripInjectedContext(input),
                     state.getSessionId(),
                     state.getCwd(),
                     callbackFacade);
