@@ -5,28 +5,43 @@
  * 何时用:每当 src/main/resources/compatibility/cli-compatibility-manifest.json 内容变更,
  *   原 .sig 失效,需用维护者私钥重签(私钥对应 CliCompatibilityManifestRepository.PUBLIC_KEY_BASE64)。
  *
- * 用法(私钥从不落盘、不打印):
- *   # 私钥为 PKCS#8 DER 的 base64(与公钥 X509/SPKI 编码族对称,Java KeyPairGenerator 产出格式):
+ * 用法(私钥从不打印):
+ *   # 方式一(推荐,参考 CLI login state 的本机凭据文件模式):私钥放到本机固定路径,
+ *   # 一次存放,之后直接跑脚本自动读取:
+ *   #   Windows: %USERPROFILE%\.claude-code-gui\cli-compat-signing-key  (PEM 或 base64 PKCS#8 DER)
+ *   #   Unix:    ~/.claude-code-gui/cli-compat-signing-key
+ *   node scripts/sign-cli-compatibility-manifest.mjs
+ *   # 方式二:临时经环境变量传入(优先级高于本机路径):
  *   CLI_COMPAT_PRIVATE_KEY="<base64>" node scripts/sign-cli-compatibility-manifest.mjs
- *   # 或 PEM:
- *   CLI_COMPAT_PRIVATE_KEY="$(cat priv.pem)" node scripts/sign-cli-compatibility-manifest.mjs
  *
  * 安全防呆:脚本从私钥派生公钥,断言其等于内嵌 PUBLIC_KEY_BASE64,不匹配则报错退出(防用错 key)。
  *   签名产物格式 = base64(64 字节 Ed25519 签名)+ 换行,与 Ed25519ManifestSignatureVerifier 解码一致。
  */
 import { createPrivateKey, createPublicKey, sign } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 // 必须与 CliCompatibilityManifestRepository.PUBLIC_KEY_BASE64 一致(改之前先核对 Java 常量)。
-const EMBEDDED_PUBLIC_KEY_BASE64 = 'MCowBQYDK2VwAyEAUEM7BQrevvNE4oPTrlvnWJcNFgxus9INUVLoPxPvzeQ=';
+const EMBEDDED_PUBLIC_KEY_BASE64 = 'MCowBQYDK2VwAyEAmoNuhgtBuDr4Ldy+DCOyCVLmwuLg9hqN70S4RYZq7+E=';
 const MANIFEST_PATH = resolve('src/main/resources/compatibility/cli-compatibility-manifest.json');
 const SIG_PATH = resolve('src/main/resources/compatibility/cli-compatibility-manifest.sig');
+// 本机私钥默认路径(与 CLI login state 同思路:凭据留在用户目录,仓库/脚本不带密)。
+const LOCAL_KEY_PATH = join(homedir(), '.claude-code-gui', 'cli-compat-signing-key');
 
-const keyMaterial = process.env.CLI_COMPAT_PRIVATE_KEY;
+function readKeyMaterial() {
+  const fromEnv = process.env.CLI_COMPAT_PRIVATE_KEY;
+  if (fromEnv && fromEnv.trim() !== '') return fromEnv;
+  if (existsSync(LOCAL_KEY_PATH)) return readFileSync(LOCAL_KEY_PATH, 'utf8');
+  return null;
+}
+
+const keyMaterial = readKeyMaterial();
 if (!keyMaterial || keyMaterial.trim() === '') {
-  console.error('错误:请通过环境变量 CLI_COMPAT_PRIVATE_KEY 提供私钥(base64 PKCS#8 DER 或 PEM)。');
-  console.error('示例:CLI_COMPAT_PRIVATE_KEY="<base64>" node scripts/sign-cli-compatibility-manifest.mjs');
+  console.error('错误:未找到私钥。两种提供方式:');
+  console.error('  1. 本机路径(推荐,一次存放):' + LOCAL_KEY_PATH);
+  console.error('     内容为 PEM 或 base64 PKCS#8 DER(权限建议 600,勿提交任何仓库)。');
+  console.error('  2. 环境变量:CLI_COMPAT_PRIVATE_KEY="<base64>" node scripts/sign-cli-compatibility-manifest.mjs');
   process.exit(1);
 }
 

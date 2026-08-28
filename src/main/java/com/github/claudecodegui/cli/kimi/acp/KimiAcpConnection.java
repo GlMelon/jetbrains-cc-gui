@@ -155,6 +155,26 @@ final class KimiAcpConnection {
      * 关闭连接:先 close stdin(触发优雅 EOF),等待进程退出(最多 {@link #GRACEFUL_CLOSE_TIMEOUT_MS}),
      * 超时走 {@link CliProcessLifecycle#terminate} 兜底。最后 reject 全部 pending。
      */
+    /** 长驻连接是否仍可复用(未关闭且进程存活)。 */
+    boolean isAlive() {
+        return !closed && process != null && process.isAlive();
+    }
+
+    /**
+     * 发送 session/cancel notification(无 id,不要求响应)。
+     * kimi 实测:发此 notification 后进行中的 turn 以 stopReason="cancelled" 结束,
+     * 进程保持(不杀)——用于长驻 interrupt 的优雅取消。
+     */
+    void sendSessionCancel(String sessionId) {
+        JsonObject params = new JsonObject();
+        params.addProperty("sessionId", sessionId);
+        JsonObject envelope = new JsonObject();
+        envelope.addProperty("jsonrpc", "2.0");
+        envelope.addProperty("method", "session/cancel");
+        envelope.add("params", params);
+        writeLine(envelope.toString());
+    }
+
     void close() {
         if (closed) {
             return;

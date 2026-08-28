@@ -68,6 +68,15 @@ public class KimiAcpCliSession implements CliSession {
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
     private volatile String sessionId;
 
+    // ── 长驻(一进程多 turn) ──────────────────────────────────────────────────
+    // ACP 协议设计即为「一次 initialize,多 session/prompt」;run-once 每 turn spawn(~1-2s
+    // node 冷启)是反 ACP 用法。长驻复用进程 + session,省 spawn+握手;interrupt 经
+    // session/cancel notification 优雅取消 turn(实测 0.38:notification 后 stopReason=cancelled,
+    // 不杀进程)。进程死/握手失败 → 清 persistent,下 turn 重建(session/new,上下文重建)。
+    private volatile KimiAcpConnection persistentConn;
+    private volatile String persistentSessionId;
+    private volatile CliProcessHandle persistentHandle;
+
     public KimiAcpCliSession(String tabId, McpGatewayService gatewayService) {
         this.tabId = tabId;
         this.gatewayService = gatewayService;
@@ -79,11 +88,12 @@ public class KimiAcpCliSession implements CliSession {
         return CliSessionExecutor.runAsync(() -> {
             StringBuilder diagnostic = new StringBuilder();
             try {
-                // B13:续接失败时清空 sessionId 重试一次首轮流程
+                // B13:续接失败时清空 sessionId 与长驻连接,重试一次首轮流程
                 boolean retry = runTurn(request, callback, sessionId, diagnostic);
                 if (retry) {
                     LOG.info("[KimiAcpCliSession][" + tabId + "] continuation session invalidated; retrying as fresh turn");
                     sessionId = null;
+                    clearPersistent();
                     diagnostic.setLength(0);
                     if (!userInterrupted.get()) {
                         runTurn(request, callback, null, diagnostic);
@@ -117,90 +127,109 @@ public class KimiAcpCliSession implements CliSession {
         McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
         callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.CONNECTING.value());
 
-        String executable = resolver.findExecutable();
-        if (executable == null || executable.isBlank()) {
-            String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "kimi CLI not found");
-            callback.onError(err);
-            callback.onComplete(false, null, err);
-            return false;
-        }
-
-        List<String> cmd = new ArrayList<>();
-        cmd.add(executable);
-        cmd.add(ACP_SUBCOMMAND);
-
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        // 关键:stderr 与 stdout 分离(ACP stdout 是纯 NDJSON 协议流,不能混入 stderr)
-        pb.redirectErrorStream(false);
-        Map<String, String> cliEnv = pb.environment();
-        cliEnv.clear();
-        cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
-        cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
-        CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
-        CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
-        if (gatewayConfig != null && gatewayConfig.usable()) {
-            cliEnv.putAll(gatewayConfig.environment());
-        }
-        if (request.cwd() != null && !request.cwd().isBlank()) {
-            File cwd = new File(request.cwd());
-            if (cwd.isDirectory()) {
-                pb.directory(cwd);
-            }
-        }
-        // 不 redirectInput(NUL):ACP 需保持 stdin 开着写握手请求
-
-        Process process;
-        try {
-            process = pb.start();
-        } catch (Exception e) {
-            String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "failed to start kimi acp: " + e.getMessage());
-            callback.onError(err);
-            callback.onComplete(false, null, err);
-            return false;
-        }
-        CliProcessHandle currentHandle = new CliProcessHandle(process, "kimi-acp-tab-" + tabId);
-        activeHandle = currentHandle;
-        if (userInterrupted.get()) {
-            currentHandle.interrupt();
-        }
-
         KimiAcpStreamParser parser = new KimiAcpStreamParser(callback);
-        KimiAcpConnection conn = new KimiAcpConnection(process,
-                parser::parseLine,
-                (method, params) -> handleServerRequest(method, params),
-                line -> CliErrorFormatter.appendDiagnosticLine(diagnostic, line));
+        // keepAlive:prompt 正常完成则 true(保持长驻进程);RPC 异常/超时/中断则 false(finally 清理)
+        boolean keepAlive = false;
+        KimiAcpConnection conn = null;
+        String resolvedSessionId = null;
+        CliProcessHandle currentHandle = null;
+        boolean freshSpawn = false;
 
         try {
-            conn.start();
-
-            // ── 握手 ──
-            String resolvedSessionId;
-            try {
-                initialize(conn);
-                resolvedSessionId = establishSession(conn, request, effectiveSessionId, gatewayConfig, parser);
-            } catch (KimiAcpConnection.AcpRpcException e) {
-                if (looksLikeSessionInvalidation(e.getMessage()) && effectiveSessionId != null) {
-                    // B13:续接 session 失效 → 重试首轮
-                    return true;
-                }
-                String err = formatAcpError(e, conn);
-                callback.onError(err);
-                callback.onComplete(false, null, err);
-                return false;
-            } catch (KimiAcpConnection.AcpTimeoutException e) {
-                String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "ACP handshake timed out: " + e.getMessage());
-                callback.onError(err);
-                callback.onComplete(false, null, err);
-                return false;
-            } catch (Exception e) {
-                if (wasInterrupted()) {
-                    callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
+            // ── 复用长驻连接 or 新建 ──
+            KimiAcpConnection existing = persistentConn;
+            if (existing != null && existing.isAlive() && persistentSessionId != null) {
+                // 复用:省 spawn(~1-2s node 冷启)+ 握手 initialize/session/new
+                conn = existing;
+                resolvedSessionId = persistentSessionId;
+                currentHandle = persistentHandle;
+                activeHandle = currentHandle;
+                LOG.debug("[KimiAcpCliSession][" + tabId + "] reusing persistent ACP connection, session=" + resolvedSessionId);
+            } else {
+                // 新建:spawn + initialize + session/new(或 load 续接)
+                freshSpawn = true;
+                String executable = resolver.findExecutable();
+                if (executable == null || executable.isBlank()) {
+                    String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "kimi CLI not found");
+                    callback.onError(err);
+                    callback.onComplete(false, null, err);
                     return false;
                 }
-                String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "ACP handshake failed: " + e.getMessage());
-                callback.onError(err);
-                callback.onComplete(false, null, err);
-                return false;
+                List<String> cmd = new ArrayList<>();
+                cmd.add(executable);
+                cmd.add(ACP_SUBCOMMAND);
+                ProcessBuilder pb = new ProcessBuilder(cmd);
+                // 关键:stderr 与 stdout 分离(ACP stdout 是纯 NDJSON 协议流,不能混入 stderr)
+                pb.redirectErrorStream(false);
+                Map<String, String> cliEnv = pb.environment();
+                cliEnv.clear();
+                cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
+                cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
+                CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
+                CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
+                if (gatewayConfig != null && gatewayConfig.usable()) {
+                    cliEnv.putAll(gatewayConfig.environment());
+                }
+                if (request.cwd() != null && !request.cwd().isBlank()) {
+                    File cwd = new File(request.cwd());
+                    if (cwd.isDirectory()) {
+                        pb.directory(cwd);
+                    }
+                }
+                // 不 redirectInput(NUL):ACP 需保持 stdin 开着写握手请求
+                Process process;
+                try {
+                    process = pb.start();
+                } catch (Exception e) {
+                    String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "failed to start kimi acp: " + e.getMessage());
+                    callback.onError(err);
+                    callback.onComplete(false, null, err);
+                    return false;
+                }
+                currentHandle = new CliProcessHandle(process, "kimi-acp-tab-" + tabId);
+                activeHandle = currentHandle;
+                if (userInterrupted.get()) {
+                    currentHandle.interrupt();
+                }
+                conn = new KimiAcpConnection(process,
+                        parser::parseLine,
+                        (method, params) -> handleServerRequest(method, params),
+                        line -> CliErrorFormatter.appendDiagnosticLine(diagnostic, line));
+                conn.start();
+                // ── 握手 ──
+                try {
+                    initialize(conn);
+                    resolvedSessionId = establishSession(conn, request, effectiveSessionId, gatewayConfig, parser);
+                } catch (KimiAcpConnection.AcpRpcException e) {
+                    if (looksLikeSessionInvalidation(e.getMessage()) && effectiveSessionId != null) {
+                        // B13:续接 session 失效 → 清长驻,重试首轮
+                        clearPersistent();
+                        return true;
+                    }
+                    String err = formatAcpError(e, conn);
+                    callback.onError(err);
+                    callback.onComplete(false, null, err);
+                    return false;
+                } catch (KimiAcpConnection.AcpTimeoutException e) {
+                    String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "ACP handshake timed out: " + e.getMessage());
+                    callback.onError(err);
+                    callback.onComplete(false, null, err);
+                    return false;
+                } catch (Exception e) {
+                    if (wasInterrupted()) {
+                        callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
+                        return false;
+                    }
+                    String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "ACP handshake failed: " + e.getMessage());
+                    callback.onError(err);
+                    callback.onComplete(false, null, err);
+                    return false;
+                }
+                // 握手成功 → 存长驻(下 turn 复用,省 spawn+握手)
+                persistentConn = conn;
+                persistentSessionId = resolvedSessionId;
+                persistentHandle = currentHandle;
+                this.sessionId = resolvedSessionId;
             }
 
             // 开启思考(若用户启用)
@@ -226,6 +255,8 @@ public class KimiAcpCliSession implements CliSession {
                 promptParams.addProperty(KimiAcpProtocol.FIELD_SESSION_ID, resolvedSessionId);
                 promptParams.add(KimiAcpProtocol.FIELD_PROMPT, buildPromptBlocks(request));
                 conn.request(KimiAcpProtocol.METHOD_SESSION_PROMPT, promptParams, TURN_PROMPT_TIMEOUT_MS);
+                // prompt 正常完成 → 保持长驻进程(下 turn 复用)
+                keepAlive = true;
             } catch (KimiAcpConnection.AcpRpcException e) {
                 if (e.code == KimiAcpProtocol.ERROR_NOT_LOGGED_IN) {
                     String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL,
@@ -234,20 +265,28 @@ public class KimiAcpCliSession implements CliSession {
                     callback.onComplete(false, parser.accumulatedText(), err);
                     return false;
                 }
+                // prompt RPC 失败:session 失效或进程死 → 清长驻,下 turn 重建
+                clearPersistent();
                 String err = formatAcpError(e, conn);
                 callback.onError(err);
                 callback.onComplete(false, parser.accumulatedText(), err);
                 return false;
             } catch (KimiAcpConnection.AcpTimeoutException e) {
+                // 超时可能进程卡死 → 清长驻
+                clearPersistent();
                 String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "kimi 响应超时: " + e.getMessage());
                 callback.onError(err);
                 callback.onComplete(false, parser.accumulatedText(), err);
                 return false;
             } catch (Exception e) {
                 if (wasInterrupted()) {
+                    // interrupt 经 session/cancel notification:prompt 应以 cancelled stopReason 正常结束;
+                    // 若仍抛异常说明 cancel 未生效/进程问题 → 清长驻,下 turn 重建
+                    clearPersistent();
                     callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
                     return false;
                 }
+                clearPersistent();
                 String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "kimi prompt failed: " + e.getMessage());
                 callback.onError(err);
                 callback.onComplete(false, parser.accumulatedText(), err);
@@ -257,12 +296,18 @@ public class KimiAcpCliSession implements CliSession {
             // ── finalizeTurn ──
             return finalizeTurn(parser, callback, diagnostic, conn);
         } finally {
-            try {
-                conn.close();
-            } catch (Exception ignored) {
-                // 忽略关闭异常
+            // 长驻:keepAlive=true(成功)不 close(进程保持,下 turn 复用);
+            // keepAlive=false(出错/中断)→ 清长驻 + close 连接(进程死/重建)
+            if (!keepAlive) {
+                clearPersistent();
+                if (conn != null) {
+                    try {
+                        conn.close();
+                    } catch (Exception ignored) {
+                        // 忽略关闭异常
+                    }
+                }
             }
-            CliProcessLifecycle.terminate(process);
             if (activeHandle == currentHandle) {
                 activeHandle = null;
             }
@@ -271,6 +316,18 @@ public class KimiAcpCliSession implements CliSession {
 
     private boolean finalizeTurn(KimiAcpStreamParser parser, CliSessionCallback callback,
                                   StringBuilder diagnostic, KimiAcpConnection conn) {
+        // interrupt 经 session/cancel notification:prompt 以 stopReason=cancelled 正常返回(不抛异常),
+        // 此处判定 userInterrupted → 走 onInterrupted(而非 onComplete true),与杀进程中断语义对齐。
+        if (wasInterrupted()) {
+            // interrupt 经 session/cancel notification:prompt 以 stopReason=cancelled 正常返回(不抛异常),
+            // 此处判定 userInterrupted → 走 onInterrupted(而非 onComplete true),与杀进程中断语义对齐。
+            // session/cancel 只取消当前 turn,session 保持可用 → 不 clearPersistent,保持长驻(keepAlive=true),
+            // 下 turn 直接复用进程+session(中断不杀进程,ACP 优雅中断的核心收益)。
+            callback.onMessage(CliConstants.MSG_STREAM_END, "");
+            callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
+            callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
+            return false;
+        }
         // 标题接入
         String title = parser.capturedTitle();
         if (title != null && !title.isBlank()) {
@@ -541,6 +598,18 @@ public class KimiAcpCliSession implements CliSession {
     @Override
     public void interrupt() {
         userInterrupted.set(true);
+        // 长驻优先:session/cancel notification 优雅取消 turn(进程保持,下 turn 复用)。
+        KimiAcpConnection conn = persistentConn;
+        String sid = persistentSessionId;
+        if (conn != null && conn.isAlive() && sid != null) {
+            try {
+                conn.sendSessionCancel(sid);
+                return;
+            } catch (Exception e) {
+                LOG.warn("[KimiAcpCliSession][" + tabId + "] session/cancel failed, falling back to process interrupt", e);
+            }
+        }
+        // 退化:无长驻连接或 cancel 失败 → 杀进程(下 turn 重建)
         CliProcessHandle h = activeHandle;
         if (h != null) {
             h.interrupt();
@@ -550,8 +619,25 @@ public class KimiAcpCliSession implements CliSession {
     @Override
     public void dispose() {
         interrupt();
+        // 关闭长驻连接(进程退出)
+        KimiAcpConnection conn = persistentConn;
+        if (conn != null) {
+            try {
+                conn.close();
+            } catch (Exception ignored) {
+            }
+            persistentConn = null;
+            persistentSessionId = null;
+            persistentHandle = null;
+        }
     }
 
+    /** 清除长驻状态(进程死/握手失败/turn 失效时,下 turn 重建)。 */
+    private void clearPersistent() {
+        persistentConn = null;
+        persistentSessionId = null;
+        persistentHandle = null;
+    }
     private boolean wasInterrupted() {
         CliProcessHandle handle = activeHandle;
         return userInterrupted.get() || (handle != null && handle.wasInterrupted());

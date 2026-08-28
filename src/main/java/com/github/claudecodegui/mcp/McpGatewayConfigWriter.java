@@ -56,8 +56,11 @@ public class McpGatewayConfigWriter {
             // Codex/OpenCode 无文件产出(configPath=null),不需要 providerDir。
             case CODEX -> writeCodex(revision, stateFile, command, realServerIds);
             case OPENCODE -> writeOpenCode(revision, stateFile, command, realServerIds);
-            // Grok/Kimi/Pi 等纯 CLI provider 暂无 MCP gateway 注入机制(三机制均 claude/codex/opencode 专属),
-            // 返回 disabled:不注入 gateway、不产文件。Stage 3+ 若需 MCP 接入再为对应 provider 增设机制分支。
+            // Grok/Kimi/Pi 等纯 CLI provider 无 MCP gateway 注入机制(三机制均 claude/codex/opencode 专属),
+            // 返回 disabled:不注入 gateway、不产文件。
+            // Kimi ACP 通道(session/new mcpServers)已验证 0.38 v1/v2 引擎均不生效(v2 源码注释
+            // "v2 引擎无 caller mcpServers 通道";KIMI_CODE_LEGACY_FLAG=1 回退 v1 亦 -32602 拒绝),
+            // 故 kimi MCP 注入为最终 disabled 定论,非临时——kimi 用内建工具(Bash 等)。
             default -> McpGatewayCliConfig.disabled(
                     "MCP gateway injection not configured for provider: " + provider.value());
         };

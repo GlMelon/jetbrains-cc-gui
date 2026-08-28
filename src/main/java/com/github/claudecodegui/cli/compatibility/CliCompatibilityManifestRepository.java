@@ -30,7 +30,7 @@ public final class CliCompatibilityManifestRepository {
     private static final String CACHE_MANIFEST_FILE = "cli-compatibility-manifest.json";
     private static final String CACHE_SIGNATURE_FILE = "cli-compatibility-manifest.sig";
     static final String PUBLIC_KEY_BASE64 =
-            "MCowBQYDK2VwAyEAUEM7BQrevvNE4oPTrlvnWJcNFgxus9INUVLoPxPvzeQ=";
+            "MCowBQYDK2VwAyEAmoNuhgtBuDr4Ldy+DCOyCVLmwuLg9hqN70S4RYZq7+E=";
     private static final long MAX_MANIFEST_BYTES = 256L * 1024L;
     private static final long MAX_SIGNATURE_BYTES = 8L * 1024L;
 
