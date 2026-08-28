@@ -9,7 +9,7 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 /**
- * 共享 marker 协议 CLI 流解析器(Grok/Kimi/Pi 等 CLI provider 复用)。
+ * 共享 marker 协议 CLI 流解析器(omp/dsh 两条 channel 复用)。
  * <p>
  * 解析 stdout 逐行文本,检测 {@code [TAG]} 标记,输出统一 MSG_* 协议,
  * 经 {@link CliSectionEmitter} 消费。协议定义见 ai-bridge/utils/marker-protocol.js。
@@ -19,6 +19,8 @@ import com.intellij.openapi.diagnostic.Logger;
  *   <li>{@code [STREAM_START]} → {@link CliConstants#MSG_STREAM_START}</li>
  *   <li>{@code [MESSAGE_START]} → {@link CliConstants#MSG_MESSAGE_START}</li>
  *   <li>{@code [CONTENT_DELTA] <json>} → 提取 text 字段 → {@link CliConstants#MSG_CONTENT_DELTA}</li>
+ *   <li>{@code [THINKING_DELTA] <json>} → 提取 text 字段,首条补 thinkingStart → 思考区增量
+ *       (增量式,无需前缀差去重;对齐 GrokCliStreamParser.handleThought)</li>
  *   <li>{@code [SESSION_ID] <id>} → {@link CliConstants#MSG_SESSION_ID}(仅首次下发)</li>
  *   <li>{@code [USAGE] <json>} → {@link CliConstants#MSG_USAGE}</li>
  *   <li>{@code [STREAM_END]} → {@link CliConstants#MSG_STREAM_END} + {@link CliConstants#MSG_MESSAGE_END}</li>
@@ -36,6 +38,7 @@ public class MarkerCliStreamParser implements CliStreamParser {
     private static final String TAG_STREAM_START = "[STREAM_START]";
     private static final String TAG_MESSAGE_START = "[MESSAGE_START]";
     private static final String TAG_CONTENT_DELTA = "[CONTENT_DELTA]";
+    private static final String TAG_THINKING_DELTA = "[THINKING_DELTA]";
     private static final String TAG_SESSION_ID = "[SESSION_ID]";
     private static final String TAG_USAGE = "[USAGE]";
     private static final String TAG_STREAM_END = "[STREAM_END]";
@@ -53,6 +56,7 @@ public class MarkerCliStreamParser implements CliStreamParser {
     private boolean sessionIdEmitted;
     private boolean hasError;
     private boolean receivedAnyEvent;
+    private boolean thinkingActivated;
     private final StringBuilder errorDiagnostic = new StringBuilder();
     private final StringBuilder assistantContent = new StringBuilder();
 
@@ -108,6 +112,8 @@ public class MarkerCliStreamParser implements CliStreamParser {
             handleMessageStart();
         } else if (trimmed.startsWith(TAG_CONTENT_DELTA)) {
             handleContentDelta(trimmed);
+        } else if (trimmed.startsWith(TAG_THINKING_DELTA)) {
+            handleThinkingDelta(trimmed);
         } else if (trimmed.startsWith(TAG_SESSION_ID)) {
             handleSessionId(trimmed);
         } else if (trimmed.startsWith(TAG_USAGE)) {
@@ -150,6 +156,28 @@ public class MarkerCliStreamParser implements CliStreamParser {
             // 无 text 字段:尝试把 payload 本身作为纯文本下发(向后兼容)
             emitter.contentDelta(assistantContent, payload);
         }
+    }
+
+    /**
+     * 处理 [THINKING_DELTA] 标记:omp thinking_delta / dsh reasoning-delta 的增量文本。
+     * 事件为<b>增量式</b>(每条为新增片段),首条前补发 thinkingStart(思考区卡片创建),
+     * 后续直接 thinkingDelta——与 GrokCliStreamParser.handleThought 同构。
+     */
+    private void handleThinkingDelta(String line) {
+        receivedAnyEvent = true;
+        String payload = extractPayload(line, TAG_THINKING_DELTA);
+        if (payload == null) {
+            return;
+        }
+        String text = extractJsonStringField(payload, "text");
+        if (text == null || text.isEmpty()) {
+            return;
+        }
+        if (!thinkingActivated) {
+            thinkingActivated = true;
+            emitter.thinkingStart();
+        }
+        emitter.thinkingDelta(text);
     }
 
     private void handleSessionId(String line) {

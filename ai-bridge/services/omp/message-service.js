@@ -27,6 +27,7 @@ import {
   beginStream,
   emitJsonStringMarker,
   emitSessionId,
+  emitThinkingDelta,
   emitToolResultMessage,
   emitToolUseMessage,
   emitUsage,
@@ -189,7 +190,7 @@ export async function sendMessage(
           if (update.type === 'text_delta' && typeof update.delta === 'string' && update.delta) {
             emitJsonStringMarker('[CONTENT_DELTA]', update.delta);
           } else if (update.type === 'thinking_delta' && typeof update.delta === 'string' && update.delta) {
-            emitJsonStringMarker('[THINKING_DELTA]', update.delta);
+            emitThinkingDelta(update.delta);
           }
           break;
         }

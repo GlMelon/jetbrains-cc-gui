@@ -15,6 +15,7 @@ import {
   emitJsonStringMarker,
   emitSendError,
   emitSessionId,
+  emitThinkingDelta,
   emitToolResultMessage,
   emitToolUseMessage,
   emitUsage,
@@ -164,7 +165,7 @@ function emitStreamEvent(event) {
       emitJsonStringMarker('[CONTENT_DELTA]', event.text);
       return true;
     case 'reasoning-delta':
-      emitJsonStringMarker('[THINKING_DELTA]', event.text);
+      emitThinkingDelta(event.text);
       return true;
     case 'tool-call':
       emitToolUseMessage({ id: event.toolId, name: event.toolName, input: event.input });

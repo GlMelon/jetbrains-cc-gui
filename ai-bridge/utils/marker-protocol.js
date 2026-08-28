@@ -7,6 +7,17 @@ export function emitJsonStringMarker(tag, text) {
   process.stdout.write(`${tag} ${JSON.stringify(text)}\n`);
 }
 
+/**
+ * Emit an incremental thinking/reasoning delta marker.
+ * Java MarkerCliStreamParser maps the first occurrence to thinkingStart
+ * and subsequent ones to thinkingDelta (see CliSectionEmitter).
+ */
+export function emitThinkingDelta(text) {
+  if (typeof text === 'string' && text) {
+    emitJsonStringMarker('[THINKING_DELTA]', text);
+  }
+}
+
 export function emitSendError(message, label = 'CLI') {
   console.log(`[SEND_ERROR] ${JSON.stringify({ error: String(message || `Unknown ${label} error`) })}`);
 }
