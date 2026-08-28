@@ -62,6 +62,22 @@ public class CliEnvironmentChecker {
             "Inflection Pi 命令行工具",
             "@earendil-works/pi-coding-agent"
         ),
+        // omp:Pi fork(can1357/oh-my-pi,bin=omp)。npm 上 "omp" 是无 bin 的无关占位包、
+        // "oh-my-pi" 已被无关项目占用 → npmPackage 置 null(检测/门控照常,仅无
+        // 版本检查与一键安装;checkCliEnvironment/installCliTool 均有 null 守卫)。
+        new CliToolDefinition(
+            ProviderType.OMP.value(),
+            "OMP CLI",
+            "oh-my-pi 命令行工具(Pi fork)",
+            null
+        ),
+        // dsh:DeepSeek Harness,npm 官方包 @deepseek-ai/dsh(bin=dsh,已 npm view 验证)。
+        new CliToolDefinition(
+            ProviderType.DSH.value(),
+            "DeepSeek Harness CLI",
+            "DeepSeek Harness 命令行工具",
+            "@deepseek-ai/dsh"
+        ),
     };
 
     /**
@@ -70,7 +86,7 @@ public class CliEnvironmentChecker {
     private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.]+)?)");
 
     // ── 检测结果缓存 ──────────────────────────────────────────────
-    // 全量检测 = 6 个 CLI × (可执行文件探测 + --version + npm view),秒级耗时;
+    // 全量检测 = 各 CLI × (可执行文件探测 + --version + npm view),秒级耗时;
     // 供应商下拉/模型列表/供应商页签等常驻 UI 消费安装状态,不能每次都全量重检。
     // TTL 内直接复用缓存;force(用户点击"重新检测/刷新")绕过缓存强制重检。
     private static final long CACHE_TTL_MS = 5 * 60 * 1000;
@@ -155,8 +171,8 @@ public class CliEnvironmentChecker {
             }
 
             // 4. 获取最新版本（从npm registry）—— 仅当声明了 npm 包名时才查询。
-            // 当前 CLI_TOOLS 六家均有真实 npmPackage;本判空仅防御未来新增
-            // 非 npm 分发条目(声明为 null/blank):npmPackage=null 会使
+            // 除 omp(npm 无官方包,npmPackage=null)外其余七家均有真实 npmPackage;
+            // 判空守卫覆盖非 npm 分发条目(声明为 null/blank):npmPackage=null 会使
             // getLatestVersionFromNpm(null) NPE(ProcessBuilder 拒绝 null 参数),
             // 触发下方 catch 污染整张卡片状态;且对不存在的包每次空等最长 10s。
             String latestVersion = null;
@@ -266,6 +282,11 @@ public class CliEnvironmentChecker {
             dirs.add(userHome + "/.npm-global/bin");
             dirs.add("/usr/local/bin");
             dirs.add("/usr/bin");
+            // omp/dsh 专属安装目录(与 CliStatusDetector 的目录表对齐;
+            // dsh 的 Hermes 原生安装器把 node + dsh 一起放在 .hermes/node/bin)
+            dirs.add(userHome + "/.omp/bin");
+            dirs.add(userHome + "/.dsh/bin");
+            dirs.add(userHome + "/.hermes/node/bin");
             
             // Volta
             dirs.add(userHome + "/.volta/bin");

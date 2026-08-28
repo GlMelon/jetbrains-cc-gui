@@ -76,6 +76,20 @@ const CLI_TOOLS: CliToolConfig[] = [
     icon: 'pi',
     docUrl: 'https://pi.dev/docs/latest',
   },
+  {
+    id: 'omp',
+    nameKey: 'settings.cli.ompName',
+    description: 'settings.cli.ompDescription',
+    icon: 'omp',
+    docUrl: 'https://github.com/can1357/oh-my-pi',
+  },
+  {
+    id: 'dsh',
+    nameKey: 'settings.cli.dshName',
+    description: 'settings.cli.dshDescription',
+    icon: 'dsh',
+    docUrl: 'https://github.com/deepseek-ai/deepseek-harness',
+  },
 ];
 
 const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
