@@ -20,6 +20,14 @@ interface UseServerDataOptions {
 
 const TERMINAL_STATUSES = new Set(['failed', 'needs-auth', 'disabled']);
 
+/**
+ * Java may never answer a status query (node spawn hangs, bridge not ready,
+ * latch 65s) — don't leave the spinner / disabled button on forever. Matches
+ * useCliModels' 15s front-end timeout policy. The Java side still has its own
+ * (65s) latch, but the UI recovers sooner.
+ */
+const STATUS_TIMEOUT_MS = 15_000;
+
 function getTerminalStatusNames(statusList: McpServerStatusInfo[]): Set<string> {
   const names = new Set<string>();
   for (const status of statusList) {
@@ -97,6 +105,8 @@ export function useServerData({
   const latestToolsRequestIdsRef = useRef<Map<string, string>>(new Map());
   const terminalStatusNamesRef = useRef<Set<string>>(new Set());
   const serversRef = useRef<McpServer[]>([]);
+  /** status 查询的前端超时句柄:超时复位 statusLoading,允许重试(对齐 useCliModels)。 */
+  const statusTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     latestToolsRequestIdsRef.current.clear();
@@ -155,6 +165,13 @@ export function useServerData({
   // Load server status
   const loadServerStatus = useCallback(() => {
     setStatusLoading(true);
+    // 前端超时兜底:Java 侧 latch 65s,但 node 挂起/bridge 未就绪时按钮会假死 ~75s;
+    // 超时复位允许重试(对齐 useCliModels 的 15s 策略)。收到下行事件时在 handleServerStatusUpdate 清除。
+    if (statusTimeoutRef.current) window.clearTimeout(statusTimeoutRef.current);
+    statusTimeoutRef.current = window.setTimeout(() => {
+      setStatusLoading(false);
+      statusTimeoutRef.current = null;
+    }, STATUS_TIMEOUT_MS);
     onLog(
       t('mcp.logs.refreshingStatus'),
       'info',
@@ -241,19 +258,19 @@ export function useServerData({
         }
       }
 
-      if (!isCodexMode) {
-        const cachedStatus = readCache<McpServerStatusInfo[]>(cacheKeys.STATUS, cacheKeys);
-        if (cachedStatus && cachedStatus.length > 0) {
-          const terminalStatusNames = getTerminalStatusNames(cachedStatus);
-          terminalStatusNamesRef.current = terminalStatusNames;
-          setServerTools(prev => clearToolsForTerminalStatuses(prev, cachedServers || [], terminalStatusNames));
-          const statusMap = new Map<string, McpServerStatusInfo>();
-          cachedStatus.forEach((status) => {
-            statusMap.set(status.name, status);
-          });
-          setServerStatus(statusMap);
-          setStatusLoading(false);
-        }
+      // 状态缓存恢复(codex 此前只写不读 → 重开面板状态列空白)。读取后若缺失/过期,
+      // 下方 hasCache 分支会补发 loadServerStatus(后端有 30s 缓存+合并+负缓存兜成本)。
+      const cachedStatus = readCache<McpServerStatusInfo[]>(cacheKeys.STATUS, cacheKeys);
+      if (cachedStatus && cachedStatus.length > 0) {
+        const terminalStatusNames = getTerminalStatusNames(cachedStatus);
+        terminalStatusNamesRef.current = terminalStatusNames;
+        setServerTools(prev => clearToolsForTerminalStatuses(prev, cachedServers || [], terminalStatusNames));
+        const statusMap = new Map<string, McpServerStatusInfo>();
+        cachedStatus.forEach((status) => {
+          statusMap.set(status.name, status);
+        });
+        setServerStatus(statusMap);
+        setStatusLoading(false);
       }
 
       // Restore last expanded server
@@ -291,6 +308,15 @@ export function useServerData({
 
     if (hasCache) {
       onLog(t('mcp.logs.usingCacheStrategy'), 'info');
+      // server 缓存有效但状态缓存缺失或已过期 → 补发一次状态查询(后端有 30s 缓存+合并+负缓存兜成本),
+      // 避免重开面板时状态列空白不自动补拉(codex 模式此前因状态缓存只写不读而必然空白)。
+      const statusCacheEntry = localStorage.getItem(cacheKeys.STATUS);
+      const statusCacheAge = statusCacheEntry
+        ? Date.now() - (JSON.parse(statusCacheEntry).timestamp || 0)
+        : Infinity;
+      if (!statusCacheEntry || statusCacheAge > 30_000) {
+        loadServerStatus();
+      }
     } else {
       onLog(t('mcp.logs.firstLoad'), 'info');
       loadServers();
@@ -299,6 +325,10 @@ export function useServerData({
 
     return () => {
       clearRefreshTimers();
+      if (statusTimeoutRef.current) {
+        window.clearTimeout(statusTimeoutRef.current);
+        statusTimeoutRef.current = null;
+      }
     };
   }, [cacheKeys, isCodexMode, loadServers, loadServerStatus, t, onLog, clearToolsForTerminalStatuses]);
 
@@ -331,6 +361,11 @@ export function useServerData({
         const terminalStatusNames = getTerminalStatusNames(statusList);
         terminalStatusNamesRef.current = terminalStatusNames;
         setServerTools(prev => clearToolsForTerminalStatuses(prev, serversRef.current, terminalStatusNames));
+        // 收到响应:清除前端超时兜底
+        if (statusTimeoutRef.current) {
+          window.clearTimeout(statusTimeoutRef.current);
+          statusTimeoutRef.current = null;
+        }
         setStatusLoading(false);
         // Persist status to cache
         writeCache(cacheKeys.STATUS, statusList);

@@ -58,6 +58,11 @@ export class ServerSupervisor {
     this.routeNames = new Map();
     /** @type {number} */
     this.failureCount = 0;
+    /**
+     * 退避冷却到期时刻(ms epoch);到期前 refresh() 直接返回现状,不重 spawn。
+     * @type {number}
+     */
+    this.nextAttemptAt = 0;
     /** @type {boolean} */
     this.refreshing = false;
     this.setHealth('STARTING');
@@ -77,10 +82,19 @@ export class ServerSupervisor {
   /**
    * 重建/刷新工具列表;并发调用合并为一次(由 refreshing 标志串行化)。
    *
+   * <p>失败退避:此前 BACKOFF 只是健康状态标签,失败后下一次 refresh() 立即重 spawn(零延迟、
+   * 零上限),每次 MCP 配置变更/gateway 重载/坏工具调用都会并发重 spawn 所有失败 server。
+   * 现在 initialize/listTools 失败后进入指数退避冷却(见 {@link backoffDelayMs}),冷却期内
+   * refresh() 直接返回现有 tools 不 spawn;成功或 stop() 清零。
+   *
    * @returns {Promise<GatewayTool[]>}
    */
   async refresh() {
     if (this.refreshing) return this.tools;
+    if (Date.now() < this.nextAttemptAt) {
+      // 退避冷却期内:不 spawn,返回现状(健康状态保持 BACKOFF/DEGRADED 不变)
+      return this.tools;
+    }
     this.refreshing = true;
     try {
       // 死 client(底层 stdio 进程已 exit/error,errored 置位;http client 无持久进程恒活)等同无 client:
@@ -127,10 +141,13 @@ export class ServerSupervisor {
         };
       });
       this.failureCount = 0;
+      this.nextAttemptAt = 0; // 成功:清退避冷却,立即恢复
       this.setHealth('READY', null, Date.now());
       return this.tools;
     } catch (error) {
       this.failureCount += 1;
+      // 真指数退避:失败次数越多冷却越长,冷却期内不再 spawn(此前 BACKOFF 仅是标签,立即重 spawn)
+      this.nextAttemptAt = Date.now() + backoffDelayMs(this.failureCount);
       this.setHealth(this.tools.length > 0 ? 'DEGRADED' : 'BACKOFF', toErrorMessage(error));
       return this.tools;
     } finally {
@@ -165,6 +182,8 @@ export class ServerSupervisor {
       this.client?.close();
     } catch {}
     this.client = null;
+    this.failureCount = 0;
+    this.nextAttemptAt = 0;
     this.setHealth('STOPPED');
   }
 
@@ -198,3 +217,22 @@ export class ServerSupervisor {
 function toErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
+
+/** 指数退避基数(ms)。第 1 次失败 = 1s,2 = 2s,3 = 4s ... 递增。 */
+const BACKOFF_BASE_MS = 1_000;
+/** 退避上限(ms):坏 server 的连续失败冷却封顶在 5 分钟(与 Java 侧熔断 half-open 探试窗一致)。 */
+const BACKOFF_MAX_MS = 5 * 60_000;
+
+/**
+ * 指数退避延迟(ms):base * 2^(n-1),封顶在 {@link BACKOFF_MAX_MS}。
+ * 纯函数(无 Date.now 依赖),便于单测。
+ *
+ * @param {number} failureCount 连续失败次数(≥1)
+ * @returns {number} 冷却毫秒数
+ */
+export function backoffDelayMs(failureCount) {
+  if (failureCount <= 0) return 0;
+  const delay = BACKOFF_BASE_MS * Math.pow(2, failureCount - 1);
+  return Math.min(delay, BACKOFF_MAX_MS);
+}
+

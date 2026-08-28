@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -73,10 +74,38 @@ public class CodexMcpService {
         this.gson = new GsonBuilder().create();
     }
 
+    // ── tools 查询防线(对齐 ClaudeMcpQueryService):in-flight 合并 + 失败负缓存。
+    //    此前每次展开 server 卡都 spawn 一个 node 占 65s 轮询,坏 server 每次点击固定浪费一个。──
+    private final ConcurrentHashMap<String, CompletableFuture<JsonObject>> inFlightToolsQueries =
+            new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> toolsFailureAt = new ConcurrentHashMap<>();
+    private static final long TOOLS_FAILURE_COOLDOWN_MS = 10_000L;
+
     public CompletableFuture<JsonObject> getMcpServerTools(String serverId, JsonObject serverConfig) {
+        String toolsKey = serverId != null ? serverId : "";
+
+        // 失败负缓存:冷却期内直接返回缓存失败,不再 spawn
+        Long failedAt = toolsFailureAt.get(toolsKey);
+        if (failedAt != null && System.currentTimeMillis() - failedAt < TOOLS_FAILURE_COOLDOWN_MS) {
+            LOG.info("[CodexMcpTools] Failure cooldown active for " + serverId + ", skipping spawn");
+            JsonObject cooldownResult = new JsonObject();
+            cooldownResult.addProperty("serverId", serverId);
+            cooldownResult.addProperty("error", "Tools query failed recently, cooldown active");
+            cooldownResult.add("tools", new JsonArray());
+            return CompletableFuture.completedFuture(cooldownResult);
+        }
+
+        // in-flight 合并:同 server 并发请求共享同一个 future
+        CompletableFuture<JsonObject> newFuture = new CompletableFuture<>();
+        CompletableFuture<JsonObject> inFlight = inFlightToolsQueries.putIfAbsent(toolsKey, newFuture);
+        if (inFlight != null) {
+            LOG.info("[CodexMcpTools] Joining in-flight tools query, serverId=" + serverId);
+            return inFlight;
+        }
+
         // 显式 executor:内部 spawn node 子进程并轮询等待(MCP_TOOLS_TIMEOUT_MS=65s),无 executor
         // 会把 commonPool worker 占住最长 65 秒(同文件 ProcessManager javadoc 的 L10 并发教训)。
-        return CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<JsonObject> query = CompletableFuture.supplyAsync(() -> {
             String channelId = ProcessManager.newChannelId("__codex_mcp_tools__");
             Process process = null;
             Thread readerThread = null;
@@ -215,6 +244,24 @@ public class CodexMcpService {
                 }
             }
         }, AppExecutorUtil.getAppExecutorService());
+
+        // 完成回调:清在途条目 + 失败置负缓存 + 回填给所有 join 的请求
+        query.whenComplete((result, error) -> {
+            inFlightToolsQueries.remove(toolsKey, newFuture);
+            boolean failed = error != null || result == null
+                    || !result.has("success")
+                    || !result.get("success").isJsonPrimitive()
+                    || !result.get("success").getAsBoolean();
+            if (failed) {
+                toolsFailureAt.put(toolsKey, System.currentTimeMillis());
+            }
+            if (error != null) {
+                newFuture.completeExceptionally(error);
+            } else {
+                newFuture.complete(result);
+            }
+        });
+        return newFuture;
     }
 
     private static void closeProcessStreams(Process process) {

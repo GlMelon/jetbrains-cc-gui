@@ -38,12 +38,14 @@ import {
  * Get MCP server connection status.
  * Directly validates the actual connection status of each MCP server (via mcp-status-service module).
  * @param {string|null} [cwd=null] - Working directory (used to detect project-specific MCP configuration)
+ * @param {string[]} [skipVerify=[]] - Server names to skip verification (Java-side circuit open);
+ *   each gets a synthetic failed result with the [circuit-open] marker instead of a fresh spawn
  * @returns {Promise<void>}
  */
-export async function getMcpServerStatus(cwd = null) {
+export async function getMcpServerStatus(cwd = null, skipVerify = []) {
   try {
     // Use the mcp-status-service module to get status, passing cwd for project-specific config
-    const mcpStatus = await getMcpServersStatus(/** @type {string} */ (cwd));
+    const mcpStatus = await getMcpServersStatus(/** @type {string} */ (cwd), skipVerify);
 
     // Output with [MCP_SERVER_STATUS] tag for fast identification on the Java side.
     // Also keep a compatible JSON format as fallback.

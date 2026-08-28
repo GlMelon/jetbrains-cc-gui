@@ -4,6 +4,7 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.mcp.McpCommandRiskEvaluator;
 import com.github.claudecodegui.mcp.McpInstallRejectedException;
+import com.github.claudecodegui.mcp.McpVerifyCircuitBreaker;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonArray;
@@ -23,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 
 /**
@@ -59,7 +61,21 @@ public class CodexMcpServerManager {
     private static final int STATUS_CHECK_TIMEOUT_MS = 5000; // 5 seconds timeout for HTTP checks
     private static final int STDIO_HANDSHAKE_TIMEOUT_MS = 3000; // 3 seconds timeout for STDIO checks
 
+    // ── 状态查询四层防线(对齐 ClaudeMcpQueryService;背景:前端乒乓风暴曾致 908 node 僵尸,
+    //    Codex 路径每次查询对每个 stdio server spawn 1-2 个进程做握手,无防线时同族风险更高)──
+    /** 成功结果缓存 TTL:冷却期内重复请求直接回缓存,不 spawn。 */
+    private static final long STATUS_CACHE_TTL_MS = 30_000L;
+    /** 空结果负缓存:一次查询产出空表后,冷却期内不再做任何 spawn。 */
+    private static final long EMPTY_RESULT_COOLDOWN_MS = 10_000L;
+
     private final CodexSettingsManager settingsManager;
+    /** 单 server 验证熔断器:连续失败 ≥3 跳过握手,5min 后放行一次试探(与 Claude 共用实现)。 */
+    private final McpVerifyCircuitBreaker circuitBreaker = new McpVerifyCircuitBreaker();
+    /** 串行化整表查询:等待者阻塞到锁释放后命中新写缓存,语义等价 in-flight 合并(不重复 spawn)。 */
+    private final ReentrantLock statusLock = new ReentrantLock();
+    private volatile List<JsonObject> cachedStatusList;
+    private volatile long cachedStatusAt = 0;
+    private volatile long emptyResultAt = 0;
 
     public CodexMcpServerManager(CodexSettingsManager settingsManager) {
         this.settingsManager = settingsManager;
@@ -196,6 +212,10 @@ public class CodexMcpServerManager {
             throw new IllegalArgumentException("Server must have an id");
         }
 
+        // 配置变更:状态缓存与熔断计数立即失效(用户修好/新增的 server 不被旧熔断挡住)
+        cachedStatusList = null;
+        circuitBreaker.reset();
+
         String serverId = server.get("id").getAsString();
 
         // SEC-01 安全闸门:从 command/args 重算 riskLevel,危险则拒绝落盘。
@@ -302,6 +322,10 @@ public class CodexMcpServerManager {
      * Delete an MCP server by ID
      */
     public boolean deleteMcpServer(String serverId) throws IOException {
+        // 配置变更:状态缓存与熔断计数立即失效
+        cachedStatusList = null;
+        circuitBreaker.reset();
+
         Map<String, Object> config = settingsManager.readConfigToml();
         if (config == null) {
             return false;
@@ -457,21 +481,69 @@ public class CodexMcpServerManager {
     /**
      * Get status of all configured MCP servers
      * Returns a list of status information for each server
+     *
+     * <p>四层防线(对齐 {@code ClaudeMcpQueryService}):30s 成功缓存 → 10s 空结果负缓存 →
+     * 锁内串行(并发等待者命中新缓存,等价 in-flight 合并,不重复 spawn)→ 连续失败熔断
+     * (名单内 server 跳过握手,合成带 [circuit-open] 标记的失败结果)。
      */
     public List<JsonObject> getMcpServerStatus() {
-        List<JsonObject> statusList = new ArrayList<>();
-
+        statusLock.lock();
         try {
-            List<JsonObject> servers = getMcpServers();
+            long now = System.currentTimeMillis();
 
-            statusList.addAll(collectServerStatuses(servers, this::checkServerStatus));
+            List<JsonObject> cached = cachedStatusList;
+            if (cached != null && now - cachedStatusAt < STATUS_CACHE_TTL_MS) {
+                LOG.debug("[CodexMcpServerManager] Returning cached status (" + cached.size() + " servers)");
+                return cached;
+            }
+            if (cached == null && now - emptyResultAt < EMPTY_RESULT_COOLDOWN_MS) {
+                LOG.debug("[CodexMcpServerManager] Empty-result cooldown active, skipping checks");
+                return new ArrayList<>();
+            }
 
-            LOG.info("[CodexMcpServerManager] Checked status of " + statusList.size() + " MCP servers");
-        } catch (Exception e) {
-            LOG.error("[CodexMcpServerManager] Failed to get MCP server status: " + e.getMessage(), e);
+            List<JsonObject> statusList = new ArrayList<>();
+            try {
+                List<JsonObject> servers = getMcpServers();
+
+                // 熔断名单:连续失败 ≥3 的 server 本次跳过握手(合成失败结果,不再 spawn)
+                Set<String> skip = circuitBreaker.serversToSkip(now);
+                if (!skip.isEmpty()) {
+                    LOG.info("[CodexMcpServerManager] Circuit open, skipping handshake: " + skip);
+                }
+                statusList.addAll(collectServerStatuses(servers, server ->
+                        skip.contains(getServerDisplayName(server))
+                                ? syntheticCircuitOpenStatus(server)
+                                : checkServerStatus(server)));
+
+                LOG.info("[CodexMcpServerManager] Checked status of " + statusList.size() + " MCP servers");
+            } catch (Exception e) {
+                LOG.error("[CodexMcpServerManager] Failed to get MCP server status: " + e.getMessage(), e);
+            }
+
+            // 熔断计数回灌(failed 累加 / connected 清零;合成标记结果不计数)
+            circuitBreaker.onResult(statusList);
+
+            if (statusList.isEmpty()) {
+                emptyResultAt = System.currentTimeMillis();
+            } else {
+                cachedStatusList = statusList;
+                cachedStatusAt = System.currentTimeMillis();
+            }
+            return statusList;
+        } finally {
+            statusLock.unlock();
         }
+    }
 
-        return statusList;
+    /** 合成熔断跳过状态:名称与真实检查结果一致,error 携带 [circuit-open] 标记供熔断器识别。 */
+    private static JsonObject syntheticCircuitOpenStatus(JsonObject server) {
+        JsonObject status = new JsonObject();
+        status.addProperty(CommonConstants.JSON_KEY_NAME, getServerDisplayName(server));
+        status.addProperty(CommonConstants.JSON_KEY_STATUS, CommonConstants.MCP_STATUS_FAILED);
+        status.addProperty(CommonConstants.JSON_KEY_ERROR,
+                McpVerifyCircuitBreaker.CIRCUIT_MARKER
+                        + " Handshake skipped after repeated failures; retried after cooldown");
+        return status;
     }
 
     static List<JsonObject> collectServerStatuses(

@@ -81,12 +81,51 @@ export async function verifyEnabledMcpServers(enabledServers, verify = verifyMcp
 }
 
 /**
+ * Circuit-open marker carried in the error field of synthetic skipped results.
+ * The Java circuit breaker matches on this to exclude skipped servers from its
+ * failure counting (they are already open — re-counting would be meaningless).
+ */
+export const CIRCUIT_SKIP_MARKER = '[circuit-open]';
+
+/**
+ * Partition enabled servers into (toVerify, syntheticResults) by the skip set.
+ * Skipped servers are NOT spawned/verified — they get a synthetic failed result
+ * with {@link CIRCUIT_SKIP_MARKER} so the UI still shows them as failed while the
+ * healthy servers continue to be verified normally.
+ *
+ * @param {Array<{name: string, config: Record<string, any>}>} enabled - Enabled servers
+ * @param {string[] | null | undefined} skipVerify - Names whose verification is skipped
+ * @returns {{ toVerify: Array<{name: string, config: Record<string, any>}>, skippedResults: Array<Record<string, any>> }}
+ */
+export function partitionCircuitSkipped(enabled, skipVerify) {
+  const skipSet = Array.isArray(skipVerify) && skipVerify.length > 0
+    ? new Set(skipVerify)
+    : null;
+  if (!skipSet) {
+    return { toVerify: enabled, skippedResults: [] };
+  }
+  const toVerify = enabled.filter(({ name }) => !skipSet.has(name));
+  const skippedResults = enabled
+    .filter(({ name }) => skipSet.has(name))
+    .map(({ name }) => ({
+      name,
+      status: 'failed',
+      error: `${CIRCUIT_SKIP_MARKER} Verification skipped after repeated failures; retried after cooldown`,
+    }));
+  return { toVerify, skippedResults };
+}
+
+/**
  * Get the connection status of all MCP servers
  * Includes enabled, disabled, and invalid servers so the frontend gets a complete picture
  * @param {string | null} [cwd] - Current working directory (used to detect project config)
+ * @param {string[] | null} [skipVerify] - Server names to skip verification (circuit open on the
+ *   Java side after repeated failures). Skipped servers get a synthetic failed result carrying
+ *   the {@link CIRCUIT_SKIP_MARKER} instead of a fresh spawn — a broken server must not keep
+ *   being cold-started (npx spawn per query), and must not affect verification of healthy ones.
  * @returns {Promise<Array<Record<string, any>>>} List of MCP server statuses
  */
-export async function getMcpServersStatus(cwd = null) {
+export async function getMcpServersStatus(cwd = null, skipVerify = null) {
   try {
     const allServers = await loadAllMcpServersInfo(cwd);
 
@@ -94,9 +133,12 @@ export async function getMcpServersStatus(cwd = null) {
       allServers.disabled.length, 'disabled,',
       allServers.invalid.length, 'invalid MCP servers');
 
-    // Verify all enabled servers in parallel
-    const enabledResults = allServers.enabled.length > 0
-      ? await verifyEnabledMcpServers(allServers.enabled)
+    const { toVerify, skippedResults } = partitionCircuitSkipped(allServers.enabled, skipVerify);
+
+    // Verify the remaining enabled servers in parallel (one server's rejection never
+    // discards the others — allSettled in verifyEnabledMcpServers)
+    const enabledResults = toVerify.length > 0
+      ? await verifyEnabledMcpServers(toVerify)
       : [];
 
     // Generate failed status for disabled servers (with reason)
@@ -113,7 +155,7 @@ export async function getMcpServersStatus(cwd = null) {
       error: `Invalid config: ${reason}`,
     }));
 
-    const results = [...enabledResults, ...disabledResults, ...invalidResults];
+    const results = [...enabledResults, ...skippedResults, ...disabledResults, ...invalidResults];
 
     log('info', '[MCP Status] Completed: total', results.length, 'servers (',
       enabledResults.length, 'verified,',

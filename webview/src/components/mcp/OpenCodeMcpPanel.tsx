@@ -16,7 +16,7 @@
  * <p>header 含"刷新状态"按钮;"重载 Gateway"已提升至 {@link McpSettingsSection} 全局操作栏(provider 无关)。
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpServer, McpServerStatusInfo } from '../../types/mcp';
 import { sendAction, subscribeEvent } from '../../bridge/typed';
@@ -73,10 +73,20 @@ export function OpenCodeMcpPanel() {
     sendAction(UPSTREAM.GET_OPENCODE_MCP_SERVERS, {});
   }, []);
 
+  // status 查询的前端超时句柄:超时复位 statusLoading 允许重试(对齐 useCliModels 15s)
+  const statusTimeoutRef = useRef<number | null>(null);
   const loadServerStatus = useCallback(() => {
     setStatusLoading(true);
+    if (statusTimeoutRef.current) window.clearTimeout(statusTimeoutRef.current);
+    statusTimeoutRef.current = window.setTimeout(() => {
+      setStatusLoading(false);
+      statusTimeoutRef.current = null;
+    }, 15_000);
     sendAction(UPSTREAM.GET_OPENCODE_MCP_SERVER_STATUS, {});
   }, []);
+
+  // gateway 状态事件的重拉节流时间戳(见下方订阅处的 5s 时间窗)
+  const gwStatusRefreshAtRef = useRef(0);
 
   // 进面板:拉列表 + 状态,并订阅下行事件(payload 为 escapeJs 后的 JSON 字符串,需 JSON.parse)
   useEffect(() => {
@@ -110,6 +120,11 @@ export function OpenCodeMcpPanel() {
       } catch (error) {
         console.error('[OpenCodeMcpPanel] Failed to parse server status:', error);
       } finally {
+        // 收到响应:清除前端超时兜底
+        if (statusTimeoutRef.current) {
+          window.clearTimeout(statusTimeoutRef.current);
+          statusTimeoutRef.current = null;
+        }
         setStatusLoading(false);
       }
     };
@@ -117,13 +132,21 @@ export function OpenCodeMcpPanel() {
     const unsubList = subscribeEvent(DOWNSTREAM.OPENCODE_MCP_SERVER_LIST, (json) => handleListUpdate(json as string));
     const unsubStatus = subscribeEvent(DOWNSTREAM.OPENCODE_MCP_SERVER_STATUS, (json) => handleStatusUpdate(json as string));
     // gateway 重启完成信号:重拉 server 状态(重启后 health 全变,不重拉则面板停留旧红态)
+    // 防御:该事件若在异常路径高频重复(曾与 status 查询形成乒乓风暴),5s 时间窗内只重拉一次。
     const unsubGatewayStatus = subscribeEvent(DOWNSTREAM.MCP_GATEWAY_STATUS, () => {
+      const now = Date.now();
+      if (now - gwStatusRefreshAtRef.current < 5000) return;
+      gwStatusRefreshAtRef.current = now;
       loadServerStatus();
     });
     return () => {
       unsubList();
       unsubStatus();
       unsubGatewayStatus();
+      if (statusTimeoutRef.current) {
+        window.clearTimeout(statusTimeoutRef.current);
+        statusTimeoutRef.current = null;
+      }
     };
   }, [loadServers, loadServerStatus]);
 

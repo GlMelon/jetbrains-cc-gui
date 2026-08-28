@@ -3,7 +3,7 @@
  * Handles server refresh, toggle, and other operations
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { McpServer, ServerToolsState, ServerRefreshState, RefreshLog, CacheKeys } from '../types';
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
@@ -43,6 +43,16 @@ export function useServerManagement({
 } {
   // Individual server refresh state
   const [serverRefreshStates, setServerRefreshStates] = useState<ServerRefreshState>({});
+  // 单 server 刷新的延时句柄:随组件卸载清理,避免面板关闭后仍补发全量 loadServerStatus
+  const refreshTimersRef = useRef<number[]>([]);
+
+  // 卸载时清理所有悬挂的刷新定时器
+  useEffect(() => {
+    return () => {
+      refreshTimersRef.current.forEach((id) => window.clearTimeout(id));
+      refreshTimersRef.current = [];
+    };
+  }, []);
 
   // Set individual server refresh state
   const setServerRefreshing = useCallback((serverId: string, isRefreshing: boolean, step: string = '') => {
@@ -83,17 +93,20 @@ export function useServerManagement({
     }
 
     // Simulate refresh process (SDK doesn't support single server refresh)
-    setTimeout(() => {
+    // 定时器存 ref,随卸载清理;否则面板关闭后 1.5s 仍补发全量 loadServerStatus
+    const step1 = window.setTimeout(() => {
       setServerRefreshing(server.id, true, t('mcp.logs.checkingConnection'));
       onLog(t('mcp.logs.checkingConnectionServer', { name: serverName }), 'info', undefined, serverName);
     }, 300);
+    refreshTimersRef.current.push(step1);
 
-    setTimeout(() => {
+    const step2 = window.setTimeout(() => {
       // Refresh all server statuses to get updates
       loadServerStatus();
       setServerRefreshing(server.id, false, '');
       onLog(t('mcp.logs.refreshComplete', { name: serverName }), 'success', undefined, serverName);
     }, 1500);
+    refreshTimersRef.current.push(step2);
   }, [cacheKeys, setServerTools, loadServerStatus, loadServerTools, t, onLog, setServerRefreshing]);
 
   // Toggle server enabled state

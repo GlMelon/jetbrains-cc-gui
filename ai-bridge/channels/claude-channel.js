@@ -83,7 +83,10 @@ export async function handleClaudeCommand(command, args, stdinData) {
 
     case 'getMcpServerStatus': {
       const cwd = stdinData?.cwd || args[0] || null;
-      await claudeGetMcpServerStatus(cwd);
+      // Java 侧熔断名单:连续失败 ≥3 的 server 跳过验证(合成 [circuit-open] 失败结果,
+      // 不再冷启动 spawn),成功 server 照常验证
+      const skipVerify = Array.isArray(stdinData?.skipVerify) ? stdinData.skipVerify : [];
+      await claudeGetMcpServerStatus(cwd, skipVerify);
       break;
     }
 

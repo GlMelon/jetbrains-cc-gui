@@ -242,8 +242,14 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
   });
 
   // gateway 重启完成信号:重拉 server 状态(重启后 health 全变,不重拉则面板停留旧红态)
+  // 防御:gateway 状态事件若在异常路径高频重复(曾与 status 查询形成乒乓风暴,120ms/轮),
+  // 5s 时间窗内只重拉一次,避免风暴复活。
+  const gwStatusRefreshAtRef = useRef(0);
   useEffect(() => {
     const unsub = subscribeEvent(DOWNSTREAM.MCP_GATEWAY_STATUS, () => {
+      const now = Date.now();
+      if (now - gwStatusRefreshAtRef.current < 5000) return;
+      gwStatusRefreshAtRef.current = now;
       loadServerStatus();
     });
     return () => { unsub(); };

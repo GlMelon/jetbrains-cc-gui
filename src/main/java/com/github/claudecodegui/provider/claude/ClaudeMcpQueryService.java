@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.claude;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.mcp.McpVerifyCircuitBreaker;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.Gson;
@@ -16,8 +17,10 @@ import java.io.File;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,6 +50,29 @@ class ClaudeMcpQueryService {
     private volatile String cachedStatusCwd;
     private volatile List<JsonObject> cachedStatusResult;
     private volatile long cachedStatusTimestamp = 0;
+
+    // in-flight 查询合并表(key=cwd):同 cwd 的并发请求共享同一个 future,后端只 spawn 一次。
+    // 防线背景:前端 MCP_GATEWAY_STATUS 订阅器曾与 status 查询形成乒乓风暴(120ms/轮,1 小时
+    // 496 次 spawn,系统进程耗尽),仅靠 30s 成功缓存挡不住"0 成功"的风暴(失败不写缓存)。
+    private final ConcurrentHashMap<String, CompletableFuture<List<JsonObject>>> inFlightStatusQueries =
+            new ConcurrentHashMap<>();
+    // 失败负缓存冷却:一次查询产出空结果后,冷却期内直接返回空,不再 spawn node。
+    // 空结果含"查询失败"与"项目确实无 MCP server"两种,10s 冷却对后者无害(配置不会 10s 内变)。
+    private static final long EMPTY_RESULT_COOLDOWN_MS = 10_000L;
+    private volatile long lastEmptyResultTimestamp = 0;
+
+    // 单 server 验证熔断器:连续失败 ≥3 的 server 跳过验证(名单经 stdin 传给 ai-bridge,
+    // 不再冷启动 spawn),5min 后放行一次试探。失败不影响成功 server 的正常验证。
+    private final McpVerifyCircuitBreaker circuitBreaker = new McpVerifyCircuitBreaker();
+
+    // ── tools 查询防线(status 有四层,tools 此前一层没有:每次展开 server 卡都 spawn 一个
+    //    node 进程占 65s latch,坏 server 每次点击固定浪费一个)──
+    /** in-flight 合并(key=serverId):同 server 并发 tools 请求共享同一个 future。 */
+    private final ConcurrentHashMap<String, CompletableFuture<JsonObject>> inFlightToolsQueries =
+            new ConcurrentHashMap<>();
+    /** 失败负缓存:key=serverId,值=失败时刻;冷却期内直接返回缓存失败,不 spawn。 */
+    private final ConcurrentHashMap<String, Long> toolsFailureAt = new ConcurrentHashMap<>();
+    private static final long TOOLS_FAILURE_COOLDOWN_MS = 10_000L;
 
     ClaudeMcpQueryService(
             Logger log,
@@ -79,11 +105,34 @@ class ClaudeMcpQueryService {
             return CompletableFuture.completedFuture(cached);
         }
 
-        return CompletableFuture.supplyAsync(() -> {
+        // 失败负缓存:最近一次空结果仍在冷却期内 → 直接返回空,不 spawn node
+        if (System.currentTimeMillis() - lastEmptyResultTimestamp < EMPTY_RESULT_COOLDOWN_MS) {
+            log.debug("[McpStatus] Empty-result cooldown active, returning empty without spawn");
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
+        // in-flight 合并:同 cwd 并发请求共享同一个 future,风暴时后端只 spawn 一次
+        String statusKey = cwd != null ? cwd : "";
+        CompletableFuture<List<JsonObject>> newFuture = new CompletableFuture<>();
+        CompletableFuture<List<JsonObject>> inFlight = inFlightStatusQueries.putIfAbsent(statusKey, newFuture);
+        if (inFlight != null) {
+            log.info("[McpStatus] Joining in-flight query, cwd=" + cwd);
+            return inFlight;
+        }
+
+        CompletableFuture<List<JsonObject>> query = CompletableFuture.supplyAsync(() -> {
             log.info("[McpStatus] Starting getMcpServerStatus, cwd=" + cwd);
 
             JsonObject stdinInput = new JsonObject();
             stdinInput.addProperty("cwd", cwd != null ? cwd : "");
+            // 熔断名单:连续失败 ≥3 的 server 本次跳过验证(ai-bridge 直接合成失败结果)
+            java.util.Set<String> skip = circuitBreaker.serversToSkip(System.currentTimeMillis());
+            if (!skip.isEmpty()) {
+                JsonArray skipArray = new JsonArray();
+                skip.forEach(skipArray::add);
+                stdinInput.add("skipVerify", skipArray);
+                log.info("[McpStatus] Circuit open, skipping verification: " + skip);
+            }
 
             MarkerResult result = executeMarkerQuery(
                     MCP_STATUS_CHANNEL_ID,
@@ -154,10 +203,47 @@ class ClaudeMcpQueryService {
             }
             return servers;
         }, AppExecutorUtil.getAppExecutorService());
+
+        // 完成回调:清在途条目 + 熔断计数回灌 + 空结果置负缓存 + 把结果回填给所有 join 的请求
+        query.whenComplete((result, error) -> {
+            inFlightStatusQueries.remove(statusKey, newFuture);
+            if (error == null) {
+                circuitBreaker.onResult(result);
+            }
+            if (error != null || result == null || result.isEmpty()) {
+                lastEmptyResultTimestamp = System.currentTimeMillis();
+            }
+            if (error != null) {
+                newFuture.completeExceptionally(error);
+            } else {
+                newFuture.complete(result);
+            }
+        });
+        return newFuture;
     }
 
     CompletableFuture<JsonObject> getMcpServerTools(String serverId, String cwd) {
-        return CompletableFuture.supplyAsync(() -> {
+        String toolsKey = serverId != null ? serverId : "";
+
+        // 失败负缓存:冷却期内直接返回缓存失败,不再 spawn
+        Long failedAt = toolsFailureAt.get(toolsKey);
+        if (failedAt != null && System.currentTimeMillis() - failedAt < TOOLS_FAILURE_COOLDOWN_MS) {
+            log.debug("[McpTools] Failure cooldown active for " + serverId + ", skipping spawn");
+            JsonObject cooldownResult = new JsonObject();
+            cooldownResult.addProperty("serverId", serverId);
+            cooldownResult.addProperty("error", "Tools query failed recently, cooldown active");
+            return CompletableFuture.completedFuture(cooldownResult);
+        }
+
+        // in-flight 合并:同 server 并发请求共享同一个 future
+        CompletableFuture<JsonObject> newFuture = new CompletableFuture<>();
+        CompletableFuture<JsonObject> inFlight = inFlightToolsQueries.putIfAbsent(toolsKey, newFuture);
+        if (inFlight != null) {
+            log.info("[McpTools] Joining in-flight tools query, serverId=" + serverId);
+            return inFlight;
+        }
+
+        CompletableFuture<JsonObject> query = CompletableFuture.supplyAsync(() -> {
             log.info("[McpTools] Starting getMcpServerTools, serverId=" + serverId);
 
             JsonObject stdinInput = new JsonObject();
@@ -201,6 +287,20 @@ class ClaudeMcpQueryService {
             errorResult.addProperty("error", "Failed to get tools list");
             return errorResult;
         }, AppExecutorUtil.getAppExecutorService());
+
+        // 完成回调:清在途条目 + 失败置负缓存 + 回填给所有 join 的请求
+        query.whenComplete((result, error) -> {
+            inFlightToolsQueries.remove(toolsKey, newFuture);
+            if (error != null || result == null || !result.has("tools")) {
+                toolsFailureAt.put(toolsKey, System.currentTimeMillis());
+            }
+            if (error != null) {
+                newFuture.completeExceptionally(error);
+            } else {
+                newFuture.complete(result);
+            }
+        });
+        return newFuture;
     }
 
     // ============================================================================
@@ -212,12 +312,15 @@ class ClaudeMcpQueryService {
      * Handles process lifecycle, stdin writing, marker detection via CountDownLatch, and cleanup.
      */
     private MarkerResult executeMarkerQuery(
-            String channelId,
+            String channelIdPrefix,
             String commandName,
             JsonObject stdinInput,
             String markerPrefix,
             String logPrefix
     ) {
+        // 每次调用生成唯一 channel ID:并发查询若共用常量 ID,registerProcess 会互相覆盖账本条目,
+        // 被覆盖的进程 unregister 时条件移除失败,IDE 退出 cleanupAllProcesses 杀不到 → 孤儿进程。
+        String channelId = ProcessManager.newChannelId(channelIdPrefix);
         Process process = null;
         Thread readerThread = null;
         long startTime = System.currentTimeMillis();

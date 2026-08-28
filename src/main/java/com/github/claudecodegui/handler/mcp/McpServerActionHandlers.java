@@ -246,7 +246,12 @@ public class McpServerActionHandlers {
                         });
                         return null;
                     });
-                publishGatewayStatus();
+                // 注意:此处不得 publishGatewayStatus()。GET_MCP_SERVER_STATUS 每次完成都广播
+                // MCP_GATEWAY_STATUS,而前端 McpSettingsSection/OpenCodeMcpPanel 收到该事件会
+                // 重拉 getMcpServerStatus → 前后端乒乓死循环(120ms/轮,每轮 spawn 一个 node
+                // 进程,曾致 908 个 node 僵尸 + 系统进程耗尽 error=1455)。gateway 状态事件只在
+                // 真正的 gateway 生命周期变化时广播(handleReloadMcpGateway)。
+
             } catch (Exception e) {
                 LOG.error("[McpServerActionHandlers] Error while waiting for bridge or fetching status: "
                     + e.getMessage(), e);
