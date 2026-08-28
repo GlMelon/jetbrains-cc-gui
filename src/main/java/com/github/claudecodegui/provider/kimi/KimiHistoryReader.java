@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.kimi;
 
+import com.github.claudecodegui.cli.common.CliPromptContexts;
 import com.github.claudecodegui.handler.history.NativeCliHistoryMessages;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
@@ -114,18 +115,193 @@ public class KimiHistoryReader {
             return List.of();
         }
         List<JsonObject> out = new ArrayList<>();
+        // ACP wire 事件流的 turn 内聚合缓冲(text/think 分片与工具块按 turn 拼装)
+        AcpTurnBuffer turn = new AcpTurnBuffer();
         try {
             for (String line : Files.readAllLines(wire, StandardCharsets.UTF_8)) {
                 JsonObject obj = NativeCliHistoryMessages.parseObject(line);
-                JsonObject message = obj == null ? null : toFrontendMessage(obj);
-                if (message != null) {
-                    out.add(message);
+                if (obj == null) {
+                    continue;
                 }
+                if (obj.has("role")) {
+                    // 旧 role-based 行(交互/legacy 布局)
+                    JsonObject message = toFrontendMessage(obj);
+                    if (message != null) {
+                        out.add(message);
+                    }
+                    continue;
+                }
+                // ACP wire 事件流(v2 引擎,2026-08 实测:type 驱动,无顶层 role)
+                consumeAcpEvent(obj, out, turn);
             }
         } catch (IOException e) {
             LOG.warn("[KimiHistory] read " + wire + " failed: " + e.getMessage());
         }
+        flushAcpTurn(out, turn);
         return out;
+    }
+
+    /** ACP turn 内聚合缓冲:一个 turn 产出一条 assistant(think/text/tool_use)+ 若干 tool_result。 */
+    private static final class AcpTurnBuffer {
+        final StringBuilder text = new StringBuilder();
+        final StringBuilder thinking = new StringBuilder();
+        final List<JsonObject> toolUses = new ArrayList<>();
+        final List<JsonObject> toolResults = new ArrayList<>();
+
+        void reset() {
+            text.setLength(0);
+            thinking.setLength(0);
+            toolUses.clear();
+            toolResults.clear();
+        }
+    }
+
+    /**
+     * ACP wire 事件行消费(无顶层 role 的行)。识别的变体:
+     * <ul>
+     *   <li>{@code turn.prompt} → 用户消息(input[].text 拼接,去注入标记);</li>
+     *   <li>{@code context.append_loop_event}(event.type=content.part)→
+     *       part.type=text/think 累积进当前 turn 缓冲;</li>
+     *   <li>{@code context.append_loop_event}(event.type=tool.call / tool.result)→
+     *       工具调用块与结果(2026-08 实测形态:toolCallId/name/args;result.output);</li>
+     *   <li>{@code turn.ended} → flush 当前 turn 的 assistant 消息 + tool_result 消息。</li>
+     * </ul>
+     * 其余(metadata、runtime、profile.bind、step.end、usage 等控制事件)消费但不产出。
+     */
+    private static void consumeAcpEvent(JsonObject line, List<JsonObject> out, AcpTurnBuffer turn) {
+        String type = NativeCliHistoryMessages.primitiveString(line, "type");
+        if (type == null) {
+            return;
+        }
+        switch (type) {
+            case "turn.prompt" -> {
+                flushAcpTurn(out, turn);
+                JsonObject user = NativeCliHistoryMessages.userText(
+                        cleanInjectedContext(acpPromptText(line)));
+                if (user != null) {
+                    out.add(user);
+                }
+            }
+            case "context.append_loop_event" -> {
+                JsonObject event = line.has("event") && line.get("event").isJsonObject()
+                        ? line.getAsJsonObject("event") : null;
+                if (event == null) {
+                    return;
+                }
+                String eventType = NativeCliHistoryMessages.primitiveString(event, "type");
+                if ("content.part".equals(eventType)) {
+                    consumeContentPart(event, turn);
+                } else if ("tool.call".equals(eventType)) {
+                    consumeToolCall(event, turn);
+                } else if ("tool.result".equals(eventType)) {
+                    consumeToolResult(event, turn);
+                }
+            }
+            case "turn.ended" -> flushAcpTurn(out, turn);
+            default -> {
+                // 其它 ACP 控制事件:忽略
+            }
+        }
+    }
+
+    /** content.part 分片:text/think 累积进当前 turn 缓冲;未知 part 类型容错忽略。 */
+    private static void consumeContentPart(JsonObject event, AcpTurnBuffer turn) {
+        JsonObject part = event.has("part") && event.get("part").isJsonObject()
+                ? event.getAsJsonObject("part") : null;
+        if (part == null) {
+            return;
+        }
+        String partType = NativeCliHistoryMessages.primitiveString(part, "type");
+        if ("text".equals(partType)) {
+            String text = NativeCliHistoryMessages.primitiveString(part, "text");
+            if (text != null) {
+                turn.text.append(text);
+            }
+        } else if ("think".equals(partType)) {
+            String think = NativeCliHistoryMessages.primitiveString(part, "think");
+            if (think != null) {
+                turn.thinking.append(think);
+            }
+        }
+    }
+
+    /** tool.call 事件 → assistant 的 tool_use 块(toolCallId/name/args)。 */
+    private static void consumeToolCall(JsonObject event, AcpTurnBuffer turn) {
+        String callId = NativeCliHistoryMessages.primitiveString(event, "toolCallId");
+        String name = NativeCliHistoryMessages.primitiveString(event, "name");
+        JsonObject args = event.has("args") && event.get("args").isJsonObject()
+                ? event.getAsJsonObject("args") : new JsonObject();
+        turn.toolUses.add(NativeCliHistoryMessages.toolUseBlock(callId, name, args));
+    }
+
+    /** tool.result 事件 → 独立 user(tool_result)消息,随 assistant 之后补发。 */
+    private static void consumeToolResult(JsonObject event, AcpTurnBuffer turn) {
+        String callId = NativeCliHistoryMessages.primitiveString(event, "toolCallId");
+        JsonObject result = event.has("result") && event.get("result").isJsonObject()
+                ? event.getAsJsonObject("result") : null;
+        String output = result == null ? null
+                : NativeCliHistoryMessages.primitiveString(result, "output");
+        // output 缺失时退回 result 整体 JSON(不丢内容)
+        String content = output != null ? output
+                : (result == null ? "" : GsonHolder.GSON.toJson(result));
+        boolean isError = result != null && result.has("is_error")
+                && result.get("is_error").isJsonPrimitive() && result.get("is_error").getAsBoolean();
+        JsonObject message = NativeCliHistoryMessages.toolResultMessage(callId, content, isError);
+        if (message != null) {
+            turn.toolResults.add(message);
+        }
+    }
+
+    /** turn.prompt 的 input[].text 拼接。 */
+    private static String acpPromptText(JsonObject line) {
+        JsonElement input = line.get("input");
+        if (input == null || !input.isJsonArray()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (JsonElement el : input.getAsJsonArray()) {
+            if (!el.isJsonObject()) {
+                continue;
+            }
+            String text = NativeCliHistoryMessages.primitiveString(el.getAsJsonObject(), "text");
+            if (text != null) {
+                sb.append(text);
+            }
+        }
+        return sb.toString();
+    }
+
+    /** 将当前 turn 缓冲 flush 为一条 assistant 消息(thinking/text/tool_use 块)+ tool_result 消息。 */
+    private static void flushAcpTurn(List<JsonObject> out, AcpTurnBuffer turn) {
+        String text = turn.text.toString();
+        String thinking = turn.thinking.toString();
+        List<JsonObject> toolUses = List.copyOf(turn.toolUses);
+        List<JsonObject> toolResults = List.copyOf(turn.toolResults);
+        turn.reset();
+        if (!text.isEmpty() || !thinking.isEmpty() || !toolUses.isEmpty()) {
+            List<JsonObject> blocks = new ArrayList<>();
+            if (!thinking.isEmpty()) {
+                blocks.add(NativeCliHistoryMessages.thinkingBlock(thinking));
+            }
+            if (!text.isEmpty()) {
+                blocks.add(NativeCliHistoryMessages.textBlock(text));
+            }
+            blocks.addAll(toolUses);
+            JsonObject message = NativeCliHistoryMessages.assistant(text, blocks);
+            if (message != null) {
+                out.add(message);
+            }
+        }
+        out.addAll(toolResults);
+    }
+
+    /**
+     * 剥离插件注入的上下文标记(Opened Files / Referenced Files / Agent Role):
+     * kimi 把 lastPrompt 首行当会话 title、turn.prompt 原文入历史,注入段会污染展示。
+     * 委托 {@link CliPromptContexts#stripInjectedContext}(与实时 SESSION_TITLE 链同源)。
+     */
+    static String cleanInjectedContext(String text) {
+        return CliPromptContexts.stripInjectedContext(text);
     }
 
     // ── 内部 ───────────────────────────────────────────────────────────────────
@@ -159,7 +335,9 @@ public class KimiHistoryReader {
         }
         KimiSessionInfo info = new KimiSessionInfo();
         info.sessionId = idDir.getFileName().toString();
-        info.title = NativeCliHistoryMessages.truncateTitle(firstString(state, TITLE_KEYS));
+        // title=lastPrompt 首行(kimi 侧行为),注入段(Opened Files 等)会污染列表展示,剥除
+        info.title = NativeCliHistoryMessages.truncateTitle(
+                cleanInjectedContext(firstString(state, TITLE_KEYS)));
         info.cwd = sessionCwd == null ? "" : sessionCwd;
         info.lastTimestamp = lastModifiedOf(stateFile);
         info.firstTimestamp = info.lastTimestamp;

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.grok;
 
+import com.github.claudecodegui.handler.history.NativeCliHistoryMessages;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -82,7 +83,7 @@ public class GrokHistoryReader {
         return out;
     }
 
-    /** 会话按文件聚合为 Claude 兼容前端消息({type,content,contentBlocks})。 */
+    /** 会话按文件聚合为 Claude 兼容前端消息(块挂 raw.content,形状契约见 {@link NativeCliHistoryMessages})。 */
     public List<JsonObject> loadMessages(Path sessionDir) {
         Path history = sessionDir.resolve("chat_history.jsonl");
         if (!Files.isRegularFile(history)) {
@@ -274,7 +275,7 @@ public class GrokHistoryReader {
                 resultBlock.addProperty("is_error", false);
                 resultBlock.addProperty("content", stringContent(line.get("content")));
                 blocks.add(resultBlock);
-                front.add("contentBlocks", blocks);
+                front.add("raw", NativeCliHistoryMessages.rawEnvelope("user", blocks));
                 return front;
             }
             case "user": {
@@ -342,7 +343,7 @@ public class GrokHistoryReader {
         JsonObject front = baseMessage("assistant");
         front.addProperty("content", text == null ? "" : text);
         if (blocks.size() > 0) {
-            front.add("contentBlocks", blocks);
+            front.add("raw", NativeCliHistoryMessages.rawEnvelope("assistant", blocks));
         }
         return front;
     }

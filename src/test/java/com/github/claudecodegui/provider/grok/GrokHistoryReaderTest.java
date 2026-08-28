@@ -81,13 +81,13 @@ public class GrokHistoryReaderTest {
         assertEquals("actual=" + messages.stream().map(m -> m == null ? "null" : m.toString()).toList(),
                 3, messages.size());
         assertEquals("assistant", messages.get(0).get("type").getAsString());
-        assertTrue(messages.get(0).get("contentBlocks").toString().contains("\"bash\""));
-        assertTrue(messages.get(0).get("contentBlocks").toString().contains("command"));
+        assertTrue(messages.get(0).getAsJsonObject("raw").get("content").toString().contains("\"bash\""));
+        assertTrue(messages.get(0).getAsJsonObject("raw").get("content").toString().contains("command"));
 
         JsonObject resultMsg = messages.get(1);
         assertEquals("user", resultMsg.get("type").getAsString());
-        assertTrue(resultMsg.get("contentBlocks").toString().contains("\"t1\"")
-                && resultMsg.get("contentBlocks").toString().contains("file-a"));
+        assertTrue(resultMsg.getAsJsonObject("raw").get("content").toString().contains("\"t1\"")
+                && resultMsg.getAsJsonObject("raw").get("content").toString().contains("file-a"));
 
         assertEquals("assistant", messages.get(2).get("type").getAsString());
         assertEquals("done!", messages.get(2).get("content").getAsString());

@@ -96,14 +96,14 @@ public class PiHistoryReaderTest {
         JsonObject assistant = messages.get(1);
         assertEquals("assistant", assistant.get("type").getAsString());
         assertEquals("done", assistant.get("content").getAsString());
-        String blocks = assistant.get("contentBlocks").toString();
+        String blocks = assistant.getAsJsonObject("raw").get("content").toString();
         assertTrue(blocks.contains("\"thinking\"") && blocks.contains("plan..."));
         assertTrue(blocks.contains("\"bash\"") && blocks.contains("ls"));
 
         JsonObject result = messages.get(2);
         assertEquals("user", result.get("type").getAsString());
-        assertTrue(result.get("contentBlocks").toString().contains("\"tc1\"")
-                && result.get("contentBlocks").toString().contains("out"));
+        assertTrue(result.getAsJsonObject("raw").get("content").toString().contains("\"tc1\"")
+                && result.getAsJsonObject("raw").get("content").toString().contains("out"));
     }
 
     @Test

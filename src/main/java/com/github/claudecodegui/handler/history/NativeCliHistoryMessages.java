@@ -12,10 +12,12 @@ import java.util.List;
  * <p>
  * 目标形状(与 CodexMessageConverter.convertCodexMessageToFrontend 一致):
  * <pre>
- *   {"type":"user"|"assistant","content":"&lt;text&gt;"[,"contentBlocks":[...]]}
+ *   {"type":"user"|"assistant","content":"&lt;text&gt;"[,"raw":{"role":...,"content":[...]}}]}
  * </pre>
- * 其中 contentBlocks 支持 {@code text}/{@code tool_use}/{@code tool_result} 三种块。
- * 供各 HistoryReader 复用,避免每家手写一套块拼装。
+ * 块({@code text}/{@code tool_use}/{@code tool_result}/{@code thinking})挂 {@code raw.content}
+ * 数组——前端 normalizeBlocks、MessageParser.hasToolResult 等全链路只读这个位置;
+ * ⚠️ 不要放顶层 contentBlocks:该字段无任何消费者,历史回显会静默丢失思考/工具区
+ * (2026-08-28 kimi 实测教训)。供各 HistoryReader 复用,避免每家手写一套块拼装。
  */
 public final class NativeCliHistoryMessages {
 
@@ -49,12 +51,12 @@ public final class NativeCliHistoryMessages {
         if (contentBlocks != null && !contentBlocks.isEmpty()) {
             JsonArray arr = new JsonArray();
             contentBlocks.forEach(arr::add);
-            front.add("contentBlocks", arr);
+            front.add("raw", rawEnvelope("assistant", arr));
         }
         return front;
     }
 
-    /** 工具结果承载消息(tool_result 只能挂在 user 消息的 contentBlocks 上)。 */
+    /** 工具结果承载消息(tool_result 只能挂在 user 消息的 raw.content 块上)。 */
     public static JsonObject toolResultMessage(String toolUseId, String content, boolean isError) {
         if (toolUseId == null || toolUseId.isBlank()) {
             return null;
@@ -64,8 +66,19 @@ public final class NativeCliHistoryMessages {
         front.addProperty("content", "");
         JsonArray arr = new JsonArray();
         arr.add(toolResultBlock(toolUseId, content == null ? "" : content, isError));
-        front.add("contentBlocks", arr);
+        front.add("raw", rawEnvelope("user", arr));
         return front;
+    }
+
+    /**
+     * Claude 兼容 raw 信封:raw.content=块数组(前端 normalizeBlocks、MessageParser.hasToolResult
+     * 等全链路既定读取位置)。自拼消息的 HistoryReader(如 grok)也经此包装,保证形状单一。
+     */
+    public static JsonObject rawEnvelope(String role, JsonArray blocks) {
+        JsonObject raw = new JsonObject();
+        raw.addProperty("role", role);
+        raw.add("content", blocks);
+        return raw;
     }
 
     public static JsonObject toolUseBlock(String id, String name, JsonObject input) {

@@ -7,9 +7,13 @@ import com.github.claudecodegui.provider.ProviderRegistry;
 import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.github.claudecodegui.provider.claude.ClaudeProviderAdapter;
 import com.github.claudecodegui.provider.codex.CodexProviderAdapter;
+import com.github.claudecodegui.provider.grok.GrokHistoryReader;
+import com.github.claudecodegui.provider.kimi.KimiHistoryReader;
 import com.github.claudecodegui.provider.opencode.OpenCodeProviderAdapter;
+import com.github.claudecodegui.provider.pi.PiHistoryReader;
 import com.google.gson.JsonObject;
 
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -35,18 +39,32 @@ public class SessionProviderRouter {
     }
 
     private static List<ProviderAdapter> buildAdapterList() {
+        // Grok / Kimi / Pi:纯 CLI marker provider,通用轻量适配器;三家的上游 CLI 均有本地会话
+        // 落盘(各自 *HistoryReader),注入 SessionMessagesLoader 支撑历史面板「点会话回load」
+        // (SessionProviderRouter.getInitialSessionHistory → getSessionMessages)。
+        // 未注入 loader 时 getSessionMessages 走接口默认 fail-fast。
+        KimiHistoryReader kimiReader = new KimiHistoryReader();
+        GrokHistoryReader grokReader = new GrokHistoryReader();
+        PiHistoryReader piReader = new PiHistoryReader();
         return List.of(
                 new ClaudeProviderAdapter(),
                 new CodexProviderAdapter(),
                 new OpenCodeProviderAdapter(),
-                // Grok / Kimi / Pi:纯 CLI marker provider(无 history/mcp/rewind),通用轻量适配器。
-                // 注册后 getSessionMessages 等经 ProviderRegistry.require 命中,不再 fail-fast;
-                // 其 capabilities 不含 HISTORY,getSessionMessages 走默认 UnsupportedOperationException。
-                new CliOnlyProviderAdapter(ProviderId.GROK, "Grok"),
-                new CliOnlyProviderAdapter(ProviderId.KIMI, "Kimi"),
-                new CliOnlyProviderAdapter(ProviderId.PI, "Pi"),
+                new CliOnlyProviderAdapter(ProviderId.GROK, "Grok", (sessionId, cwd) -> {
+                    Path dir = grokReader.findSessionDir(sessionId, cwd);
+                    return dir == null ? List.of() : grokReader.loadMessages(dir);
+                }),
+                new CliOnlyProviderAdapter(ProviderId.KIMI, "Kimi", (sessionId, cwd) -> {
+                    Path dir = kimiReader.findSessionDir(sessionId, cwd);
+                    return dir == null ? List.of() : kimiReader.loadMessages(dir);
+                }),
+                new CliOnlyProviderAdapter(ProviderId.PI, "Pi", (sessionId, cwd) -> {
+                    Path file = piReader.findSessionFile(sessionId, cwd);
+                    return file == null ? List.of() : piReader.loadMessages(file);
+                }),
                 // OMP / DSH:上游 v0.5.4 新增纯 CLI provider(omp=pi fork marker 模式;dsh=marker+host RPC),
-                // 同样以轻量适配器注册;会话发送经 session/runtime 路由,此处仅占位 provider 身份。
+                // 同样以轻量适配器注册;会话发送经 session/runtime 路由,此处仅占位 provider 身份
+                // (上游无会话落盘体系,不注入历史读取器)。
                 new CliOnlyProviderAdapter(ProviderId.OMP, "OMP"),
                 new CliOnlyProviderAdapter(ProviderId.DSH, "DeepSeek Harness")
         );

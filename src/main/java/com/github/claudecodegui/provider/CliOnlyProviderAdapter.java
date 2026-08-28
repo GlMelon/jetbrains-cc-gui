@@ -1,31 +1,48 @@
 package com.github.claudecodegui.provider;
 
+import com.google.gson.JsonObject;
+
+import java.util.List;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 /**
- * 纯 CLI marker provider(Grok / Kimi / Pi)的通用轻量适配器。
+ * 纯 CLI marker provider(Grok / Kimi / Pi / OMP / DSH)的通用轻量适配器。
  *
- * <p>这三家 provider 仅支持 CLI(marker 协议流式,经各自 {@code *CliSession} 把上游
- * {@code grok run} / {@code kimi} / {@code pi} 输出归一为 MSG_*),<b>不</b>提供
- * history / mcp / rewind / skills 等横切能力——上游 CLI 无会话历史读取接口。故:
+ * <p>这几家 provider 仅支持 CLI(marker 协议流式,经各自 {@code *CliSession} 把上游 CLI 输出
+ * 归一为 MSG_*),<b>不</b>提供 mcp / rewind / skills 等横切能力。历史读取是可选项:
  * <ul>
- *   <li>{@link #capabilities()} 仅声明 {@link ProviderCapability#CLI_SESSION}
- *       + {@link ProviderCapability#STREAMING},对齐 {@link ProviderDescriptor#cliBuiltin};</li>
- *   <li>{@link #getSessionMessages(String, String)} 走接口默认(抛
- *       {@link UnsupportedOperationException})——因不声明 {@link ProviderCapability#HISTORY},
- *       前端历史 UI 不会对这三家触发,默认实现仅为 fail-fast 兜底,取代原先静默 fallback 到 CLAUDE。</li>
+ *   <li>注入 {@code sessionMessagesLoader} 的 provider(如 kimi/grok/pi,各自 HistoryReader
+ *       读上游 CLI 本地会话落盘)声明 {@link ProviderCapability#HISTORY},
+ *       {@link #getSessionMessages(String, String)} 走 loader——支撑历史面板「点会话回load」
+ *       (SessionProviderRouter.getInitialSessionHistory,未实现时实测对 kimi 抛
+ *       UnsupportedOperationException 前端报 Error loading session);</li>
+ *   <li>不注入的 provider(omp/dsh,上游无会话落盘体系)走接口默认 fail-fast。</li>
  * </ul>
- * <p>三家 adapter 逻辑完全相同(仅 {@link ProviderId} 与显示名不同),故共用一个参数化类,
- * 避免三份重复代码;与 {@link com.github.claudecodegui.provider.claude.ClaudeProviderAdapter}
+ *
+ * <p>各家 adapter 逻辑完全相同(仅 {@link ProviderId} 与显示名不同),故共用一个参数化类;
+ * 与 {@link com.github.claudecodegui.provider.claude.ClaudeProviderAdapter}
  * 等"全功能"适配器(每家独立类 + historyService)形成对照。
  */
 public final class CliOnlyProviderAdapter implements ProviderAdapter {
+
+    /** 会话消息读取器:(sessionId, cwd) → 前端 Claude 兼容消息;null=不支持历史读取。 */
+    public interface SessionMessagesLoader extends BiFunction<String, String, List<JsonObject>> {
+    }
+
     private final ProviderId providerId;
     private final ProviderViewModel viewModel;
+    private final SessionMessagesLoader sessionMessagesLoader;
 
     public CliOnlyProviderAdapter(ProviderId providerId, String displayLabel) {
+        this(providerId, displayLabel, null);
+    }
+
+    public CliOnlyProviderAdapter(ProviderId providerId, String displayLabel,
+                                  SessionMessagesLoader sessionMessagesLoader) {
         this.providerId = providerId;
         this.viewModel = new ProviderViewModel(providerId, displayLabel);
+        this.sessionMessagesLoader = sessionMessagesLoader;
     }
 
     @Override
@@ -40,6 +57,16 @@ public final class CliOnlyProviderAdapter implements ProviderAdapter {
 
     @Override
     public Set<ProviderCapability> capabilities() {
-        return Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING);
+        return sessionMessagesLoader != null
+                ? Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING, ProviderCapability.HISTORY)
+                : Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING);
+    }
+
+    @Override
+    public List<JsonObject> getSessionMessages(String sessionId, String cwd) {
+        if (sessionMessagesLoader == null) {
+            throw new UnsupportedOperationException("getSessionMessages is not supported by " + providerId.value());
+        }
+        return sessionMessagesLoader.apply(sessionId, cwd);
     }
 }
