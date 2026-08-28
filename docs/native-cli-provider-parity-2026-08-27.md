@@ -70,7 +70,7 @@ McpGatewayConfigWriter 维持 default→disabled 三家现状(reason string 不�
 1. ~~ai-bridge 死代码清理~~ ✅ 69d9b5c2
 2. ~~pi 历史读取器~~ ✅ 第二批
 3. **grok 图片附件**:headless 流式无已知附件 flag,当前静默丢弃(与旧 bridge 行为一致);ACP 路线补齐。
-4. **kimi thinking**:官方限制;跟踪官方 changelog。
+4. ~~**kimi thinking**:官方限制;跟踪官方 changelog。~~ ✅ 已由 ACP 通道解决,落地记录见 [kimi-acp-channel-2026-08-28.md](kimi-acp-channel-2026-08-28.md)。
 5. **运行时验证**:单测级已完成;真机跑通三家(grok thought 流/尾随工具实时卡片/kimi 快照合并/
    pi delta 组装/历史面板三家列表+回显+删除)需 IDE 沙箱人工过一轮。
 6. MarkerRunOnceCliSession 已删除;MarkerCliStreamParser 仅剩 omp/dsh channel 使用(勿误删)。
