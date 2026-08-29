@@ -371,11 +371,27 @@ Return ONLY the title text, no JSON formatting, no quotes.`;
 
 /**
  * Save AI title to the JSONL session file.
+ *
+ * 落盘(~/.claude/projects/<sanitized-cwd>/<sessionId>.jsonl 追加 ai-title 行)是
+ * Claude 会话专属:该 jsonl 由 claude CLI 在轮次中自建。其他 provider 的 sessionId
+ * 在该目录没有对应会话文件,若无条件 mkdir+appendFile 会造出只含一行 ai-title 的
+ * 孤儿 jsonl —— 被 ClaudeSessionLiteReader 按「文件名即 sessionId」收录成幽灵会话
+ * 混进 Claude 历史列表(历史遗留,kimi 首轮即触发)。因此非 claude provider
+ * 只经 emitTitleGenerated 下发 UI 标题,不写盘;provider 缺省时同样不写盘
+ * (fail-safe:宁可丢一个磁盘标题,不再制造污染)。
+ *
  * @param {string} sessionId
  * @param {string} title
  * @param {string|null} cwd
+ * @param {string|undefined} provider - 对话 provider id(Java 侧传入);仅 'claude' 落盘
  */
-async function saveAiTitle(sessionId, title, cwd) {
+async function saveAiTitle(sessionId, title, cwd, provider) {
+  if (provider !== 'claude') {
+    emitTitleGenerated(sessionId, title);
+    logTitleEvent('info', 'AI title generated (UI-only, provider=' + (provider || 'unknown')
+      + '): "' + title + '" for session ' + sessionId);
+    return true;
+  }
   try {
     const sessionFile = getSessionFilePath(sessionId, cwd);
     const dir = join(sessionFile, '..');
@@ -408,8 +424,9 @@ async function saveAiTitle(sessionId, title, cwd) {
  * @param {string} userMessage - The user's first message text (already extracted)
  * @param {string} sessionId - Session ID
  * @param {string|null} cwd - Working directory
+ * @param {string|undefined} [provider] - 对话 provider id;仅 'claude' 落盘 ~/.claude/projects
  */
-export async function generateSessionTitle(userMessage, sessionId, cwd) {
+export async function generateSessionTitle(userMessage, sessionId, cwd, provider) {
   if (!userMessage || !userMessage.trim() || !sessionId) {
     logTitleEvent('info', 'Skipping title generation: missing userMessage or sessionId');
     // Treat invalid input as "do not retry" — return true so callers don't
@@ -431,14 +448,17 @@ export async function generateSessionTitle(userMessage, sessionId, cwd) {
   // The caller guards (!resumeSessionId / !requestedSessionId) normally prevent
   // duplicate calls, but this check protects against edge cases where the guard
   // fails or the session file already has a title from another source.
-  try {
-    const sessionFile = getSessionFilePath(sessionId, cwd);
-    if (await hasExistingAiTitle(sessionFile)) {
-      logTitleEvent('info', 'Skipping title generation: session already has an AI title');
-      return true;
+  // 仅对 claude 有意义(落盘目标即幂等标记);非 claude 不落盘,检查空转。
+  if (provider === 'claude') {
+    try {
+      const sessionFile = getSessionFilePath(sessionId, cwd);
+      if (await hasExistingAiTitle(sessionFile)) {
+        logTitleEvent('info', 'Skipping title generation: session already has an AI title');
+        return true;
+      }
+    } catch (e) {
+      logTitleEvent('warn', 'Failed to check existing AI title, proceeding: ' + (e instanceof Error ? e.message : String(e)));
     }
-  } catch (e) {
-    logTitleEvent('warn', 'Failed to check existing AI title, proceeding: ' + (e instanceof Error ? e.message : String(e)));
   }
 
   try {
@@ -456,7 +476,7 @@ export async function generateSessionTitle(userMessage, sessionId, cwd) {
     if (title) {
       // saveAiTitle returning false signals an FS error; don't retry — disk
       // problems are usually persistent and a retry storm helps no one.
-      await saveAiTitle(sessionId, title, cwd);
+      await saveAiTitle(sessionId, title, cwd, provider);
       return true;
     }
     // callHaikuApi returns null for an unavailable CLI or unparseable response.
@@ -496,7 +516,9 @@ async function readStdin() {
  * 会话内路径(message-sender.js)通过 import 直接调
  * generateSessionTitle,不会触发此 main —— 由 import.meta.url 守卫隔离。
  *
- * stdin: { userMessage, sessionId, cwd }
+ * stdin: { userMessage, sessionId, cwd, provider }
+ *         provider 为对话 provider id(CliSessionTitleService 传 state.getProvider());
+ *         仅 'claude' 会把 ai-title 落盘 ~/.claude/projects,其余只下发 UI 标题。
  * stdout: generateSessionTitle 内部经 emitTitleGenerated 写出 title_generated 事件行
  *         ({type:'daemon'} 为前后端契约字面量,保留不变),
  *         Java 侧 PromptEnhancerProcessRunner 的 lineHandler 解析该行并下发 SESSION_TITLE。
@@ -507,8 +529,8 @@ async function main() {
   try {
     const input = await readStdin();
     const data = JSON.parse(input);
-    const { userMessage, sessionId, cwd } = data;
-    await generateSessionTitle(userMessage, sessionId, cwd);
+    const { userMessage, sessionId, cwd, provider } = data;
+    await generateSessionTitle(userMessage, sessionId, cwd, provider);
     process.exit(0);
   } catch (error) {
     logTitleEvent('error', 'CLI title generation main failed: '

@@ -256,7 +256,8 @@ public class SessionSendService {
         }
 
         // provider 无关的统一 post-turn 钩子:仅在 CLI 首轮成功后 fire-and-forget 触发标题生成。
-        // 三 provider(Claude/Codex/OpenCode)共用同一 CliSessionTitleService,内部判 CLI+首轮+配置。
+        // 全部 CLI provider 共用同一 CliSessionTitleService,内部判 CLI+首轮+配置;
+        // provider 相关差异(原生标题门控 / 落盘仅 claude)由服务内部按 provider 处理。
         // 标题输入剥除注入上下文(Opened Files 等),避免注入段稀释 Haiku 对用户真实意图的提取。
         return future.whenComplete((result, ex) -> {
             if (ex != null) {
@@ -264,6 +265,7 @@ public class SessionSendService {
             }
             cliTitleService.maybeGenerateTitle(
                     isProviderSendable,
+                    currentProvider,
                     sessionIdBeforeSend == null,
                     CliPromptContexts.stripInjectedContext(input),
                     state.getSessionId(),

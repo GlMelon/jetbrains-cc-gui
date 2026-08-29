@@ -30,9 +30,14 @@ public final class CliOnlyProviderAdapter implements ProviderAdapter {
     public interface SessionMessagesLoader extends BiFunction<String, String, List<JsonObject>> {
     }
 
+    /** 分页历史读取器:(sessionId, cwd) → 带分页元数据的初始页;null=初始页走全量(pageInfo=null)。 */
+    public interface SessionHistoryLoader extends BiFunction<String, String, SessionHistoryLoadResult> {
+    }
+
     private final ProviderId providerId;
     private final ProviderViewModel viewModel;
     private final SessionMessagesLoader sessionMessagesLoader;
+    private final SessionHistoryLoader sessionHistoryLoader;
 
     public CliOnlyProviderAdapter(ProviderId providerId, String displayLabel) {
         this(providerId, displayLabel, null);
@@ -40,9 +45,16 @@ public final class CliOnlyProviderAdapter implements ProviderAdapter {
 
     public CliOnlyProviderAdapter(ProviderId providerId, String displayLabel,
                                   SessionMessagesLoader sessionMessagesLoader) {
+        this(providerId, displayLabel, sessionMessagesLoader, null);
+    }
+
+    public CliOnlyProviderAdapter(ProviderId providerId, String displayLabel,
+                                  SessionMessagesLoader sessionMessagesLoader,
+                                  SessionHistoryLoader sessionHistoryLoader) {
         this.providerId = providerId;
         this.viewModel = new ProviderViewModel(providerId, displayLabel);
         this.sessionMessagesLoader = sessionMessagesLoader;
+        this.sessionHistoryLoader = sessionHistoryLoader;
     }
 
     @Override
@@ -73,5 +85,15 @@ public final class CliOnlyProviderAdapter implements ProviderAdapter {
             throw new UnsupportedOperationException("getSessionMessages is not supported by " + providerId.value());
         }
         return sessionMessagesLoader.apply(sessionId, cwd);
+    }
+
+    @Override
+    public SessionHistoryLoadResult getInitialSessionHistory(String sessionId, String cwd) {
+        // 注入分页 loader 时初始页带 pageInfo(前端据此展示「加载更早」入口);
+        // 未注入保持接口默认(全量 + pageInfo=null),omp/dsh 现状即此形态。
+        if (sessionHistoryLoader != null) {
+            return sessionHistoryLoader.apply(sessionId, cwd);
+        }
+        return ProviderAdapter.super.getInitialSessionHistory(sessionId, cwd);
     }
 }

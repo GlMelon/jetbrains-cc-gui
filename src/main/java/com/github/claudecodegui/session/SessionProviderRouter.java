@@ -8,15 +8,13 @@ import com.github.claudecodegui.provider.ProviderRegistry;
 import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.github.claudecodegui.provider.claude.ClaudeProviderAdapter;
 import com.github.claudecodegui.provider.codex.CodexProviderAdapter;
+import com.github.claudecodegui.provider.common.NativeCliHistoryPageService;
+import com.github.claudecodegui.provider.common.NativeCliHistoryReaders;
 import com.github.claudecodegui.provider.dsh.DshHistoryReader;
-import com.github.claudecodegui.provider.grok.GrokHistoryReader;
-import com.github.claudecodegui.provider.kimi.KimiHistoryReader;
 import com.github.claudecodegui.provider.omp.OmpHistoryReader;
 import com.github.claudecodegui.provider.opencode.OpenCodeProviderAdapter;
-import com.github.claudecodegui.provider.pi.PiHistoryReader;
 import com.google.gson.JsonObject;
 
-import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -46,27 +44,25 @@ public class SessionProviderRouter {
         // 会话落盘(本地 *HistoryReader 或 host 侧 RPC),注入 SessionMessagesLoader 支撑
         // 历史面板「点会话回load」(SessionProviderRouter.getInitialSessionHistory → getSessionMessages)。
         // 未注入 loader 时 getSessionMessages 走接口默认 fail-fast。
-        KimiHistoryReader kimiReader = new KimiHistoryReader();
-        GrokHistoryReader grokReader = new GrokHistoryReader();
-        PiHistoryReader piReader = new PiHistoryReader();
+        // grok/kimi/pi 额外注入分页 loader(NativeCliHistoryPageService,reader 定位单点在
+        // NativeCliHistoryReaders,翻页 handler 共用):初始页只回最近 NATIVE_CLI_HISTORY_PAGE_SIZE 轮
+        // + pageInfo,更早轮经 LOAD_CODEX_HISTORY_PAGE 前端按需 prepend;omp/dsh 暂不注入
+        // (消息形状的轮边界判定未验证,handler 白名单不含,记 backlog)。
         OmpHistoryReader ompReader = new OmpHistoryReader();
         DshHistoryReader dshReader = new DshHistoryReader();
+        CliOnlyProviderAdapter.SessionMessagesLoader grokLoader = NativeCliHistoryReaders.grok()::read;
+        CliOnlyProviderAdapter.SessionMessagesLoader kimiLoader = NativeCliHistoryReaders.kimi()::read;
+        CliOnlyProviderAdapter.SessionMessagesLoader piLoader = NativeCliHistoryReaders.pi()::read;
+        NativeCliHistoryPageService grokPage = new NativeCliHistoryPageService(grokLoader::apply);
+        NativeCliHistoryPageService kimiPage = new NativeCliHistoryPageService(kimiLoader::apply);
+        NativeCliHistoryPageService piPage = new NativeCliHistoryPageService(piLoader::apply);
         return List.of(
                 new ClaudeProviderAdapter(),
                 new CodexProviderAdapter(),
                 new OpenCodeProviderAdapter(),
-                new CliOnlyProviderAdapter(ProviderId.GROK, "Grok", (sessionId, cwd) -> {
-                    Path dir = grokReader.findSessionDir(sessionId, cwd);
-                    return dir == null ? List.of() : grokReader.loadMessages(dir);
-                }),
-                new CliOnlyProviderAdapter(ProviderId.KIMI, "Kimi", (sessionId, cwd) -> {
-                    Path dir = kimiReader.findSessionDir(sessionId, cwd);
-                    return dir == null ? List.of() : kimiReader.loadMessages(dir);
-                }),
-                new CliOnlyProviderAdapter(ProviderId.PI, "Pi", (sessionId, cwd) -> {
-                    Path file = piReader.findSessionFile(sessionId, cwd);
-                    return file == null ? List.of() : piReader.loadMessages(file);
-                }),
+                new CliOnlyProviderAdapter(ProviderId.GROK, "Grok", grokLoader, grokPage::loadInitialPage),
+                new CliOnlyProviderAdapter(ProviderId.KIMI, "Kimi", kimiLoader, kimiPage::loadInitialPage),
+                new CliOnlyProviderAdapter(ProviderId.PI, "Pi", piLoader, piPage::loadInitialPage),
                 // OMP:本地 JSONL 落盘(OmpHistoryReader);DSH:host 侧历史经 bridge RPC 拉取
                 new CliOnlyProviderAdapter(ProviderId.OMP, "OMP", (sessionId, cwd) -> {
                     try {

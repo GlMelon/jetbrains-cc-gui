@@ -8,7 +8,6 @@ import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.github.claudecodegui.util.ClaudeHistoryWriter;
 import com.github.claudecodegui.util.CodexHistoryWriter;
 import com.github.claudecodegui.util.TokenUsageUtils;
 import com.github.claudecodegui.util.UsageCostCalculator;
@@ -338,12 +337,11 @@ public class CodexMessageHandler implements MessageCallback {
 
         if (result.error != null && !result.error.isBlank()) {
             state.addMessage(new Message(Message.Type.ASSISTANT, result.error));
-            // Persist the interruption message to JSONL so it appears in history
-            String sessionId = state.getSessionId();
-            String cwd = state.getCwd();
-            if (sessionId != null && cwd != null) {
-                ClaudeHistoryWriter.appendAssistantMessage(cwd, sessionId, result.error);
-            }
+            // 历史遗留:此处曾调 ClaudeHistoryWriter.appendAssistantMessage 往 ~/.claude/projects
+            // 追加中断消息,但那是 Claude 专属历史域——走本 handler 的 provider(codex / 及复用 B4 的
+            // OpenCode/Grok/Kimi/Pi)没有一家的历史在那里,该调用在 isRegularFile 守卫下只会往标题
+            // 脚本遗留的孤儿 jsonl 续写污染,已随标题落盘门控(2026-08)一并移除。
+            // Claude 自身的中断持久化在 ClaudeMessageHandler 对应分支。
         }
 
         callbackHandler.notifyMessageUpdate(state.getMessages());

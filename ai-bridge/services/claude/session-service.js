@@ -4,9 +4,7 @@
  * Responsible for session persistence and history message management.
  */
 
-import { existsSync, createReadStream, mkdirSync, readFileSync, appendFileSync, statSync } from 'fs';
-import { dirname } from 'path';
-import { randomUUID } from 'crypto';
+import { existsSync, createReadStream, readFileSync, statSync } from 'fs';
 import { createInterface } from 'readline';
 import { getClaudeProjectSessionFilePath } from '../../utils/path-utils.js';
 import { selectConversationChain } from './conversation-chain.js';
@@ -35,36 +33,6 @@ function writeJsonResponse(payload) {
  * JSONL 历史消息(结构宽松,关键字段经 typeof/Array.isArray 守卫后使用)。
  * @typedef {{ type?: string, uuid?: string, message?: any }} JsonlMessage
  */
-
-/**
- * Append a message to the JSONL history file.
- * Adds necessary metadata fields to ensure compatibility with the history reader.
- *
- * @param {string} sessionId Session ID
- * @param {string | null} cwd  Current working directory(用于定位 project 历史目录;可为 null 走 process.cwd())
- * @param {Record<string, unknown>} obj 待持久化的消息对象
- * @returns {void}
- */
-export function persistJsonlMessage(sessionId, cwd, obj) {
-  try {
-    const sessionFile = getClaudeProjectSessionFilePath(sessionId, cwd);
-    const projectHistoryDir = dirname(sessionFile);
-    mkdirSync(projectHistoryDir, { recursive: true });
-
-    // Add necessary metadata fields to ensure compatibility with ClaudeHistoryReader
-    const enrichedObj = {
-      ...obj,
-      uuid: randomUUID(),
-      sessionId: sessionId,
-      timestamp: new Date().toISOString()
-    };
-
-    appendFileSync(sessionFile, JSON.stringify(enrichedObj) + '\n', 'utf8');
-    console.log('[PERSIST] Message saved to:', sessionFile);
-  } catch (e) {
-    console.error('[PERSIST_ERROR]', e instanceof Error ? e.message : String(e));
-  }
-}
 
 /**
  * Parse raw JSONL file content into entries, skipping blank and malformed

@@ -33,7 +33,6 @@ import { buildQuickFixPrompt } from '../quickfix-prompts.js';
 import { extractResultError } from './message-utils.js';
 import { createPreToolUseHook } from './permission-mode.js';
 import { loadMcpServersConfigAsRecord } from './mcp-status/config-loader.js';
-import { generateSessionTitle } from '../session-title-service.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
 import { killChildTree } from '../../utils/kill-tree.js';
 

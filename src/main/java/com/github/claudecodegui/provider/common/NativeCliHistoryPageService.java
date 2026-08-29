@@ -1,25 +1,24 @@
-package com.github.claudecodegui.provider.claude;
+package com.github.claudecodegui.provider.common;
 
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.SessionHistoryLoadResult;
-import com.github.claudecodegui.provider.common.SessionHistoryPageSlicer;
 import com.github.claudecodegui.protocol.CodexHistoryPageMode;
 import com.google.gson.JsonObject;
 
 import java.util.List;
 
 /**
- * Backend SSOT for Claude persisted-history pagination.
+ * 纯 CLI provider(grok / kimi / pi)共用的磁盘历史分页服务。
  *
- * <p>切片语义单点在 {@link SessionHistoryPageSlicer}(Codex / Claude / 纯 CLI 三方共用;
- * 轮边界 = human user 消息,pageInfo 经 {@code HISTORY_CODEX_PAGE_INFO} 事件统一消费,
- * provider 无关)。差异仅在数据源:Claude 会话按 cwd 定位
- * ({@code ~/.claude/projects/<sanitized-cwd>/<sessionId>.jsonl}),reader 由调用方注入
- * 以保持无 NodeService 依赖的可测性。
+ * <p>模式照 {@code ClaudeHistoryPageService}:reader 函数式注入保持可测性与
+ * NodeService 解耦;切片语义单点委托 {@link SessionHistoryPageSlicer}。各家差异只在
+ * reader 定位方式(grok/kimi 按 session 目录、pi 按会话文件),由
+ * {@code SessionProviderRouter} 装配时注入。翻页请求经
+ * {@code LoadCodexHistoryPageActionHandler} 路由(白名单含三家)。
  */
-public class ClaudeHistoryPageService {
+public class NativeCliHistoryPageService {
 
-    /** 前端格式历史消息读取器(sessionId + cwd → messages),注入以便单测与 NodeService 解耦。 */
+    /** 前端格式历史消息读取器(sessionId + cwd → messages),注入以便单测与磁盘解耦。 */
     public interface HistoryMessageReader {
         List<JsonObject> readFrontendMessages(String sessionId, String cwd);
     }
@@ -27,11 +26,11 @@ public class ClaudeHistoryPageService {
     private final HistoryMessageReader reader;
     private final int pageSize;
 
-    public ClaudeHistoryPageService(HistoryMessageReader reader) {
-        this(reader, CommonConstants.CLAUDE_HISTORY_PAGE_SIZE);
+    public NativeCliHistoryPageService(HistoryMessageReader reader) {
+        this(reader, CommonConstants.NATIVE_CLI_HISTORY_PAGE_SIZE);
     }
 
-    ClaudeHistoryPageService(HistoryMessageReader reader, int pageSize) {
+    NativeCliHistoryPageService(HistoryMessageReader reader, int pageSize) {
         if (reader == null) {
             throw new IllegalArgumentException("reader is required");
         }
@@ -51,11 +50,6 @@ public class ClaudeHistoryPageService {
 
     SessionHistoryLoadResult slice(List<JsonObject> allMessages, String sessionId, Integer beforeTurn,
                                    CodexHistoryPageMode mode) {
-        // 切片语义单点在 SessionHistoryPageSlicer(Codex/Claude/纯 CLI 三方共用,消复制粘贴)。
         return SessionHistoryPageSlicer.slice(allMessages, sessionId, beforeTurn, mode, pageSize);
-    }
-
-    static boolean isHumanUserMessage(JsonObject message) {
-        return SessionHistoryPageSlicer.isHumanUserMessage(message);
     }
 }

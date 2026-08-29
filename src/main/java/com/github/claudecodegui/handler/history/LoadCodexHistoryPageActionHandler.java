@@ -7,6 +7,8 @@ import com.github.claudecodegui.provider.SessionHistoryLoadResult;
 import com.github.claudecodegui.provider.claude.ClaudeHistoryService;
 import com.github.claudecodegui.provider.codex.CodexHistoryPageResult;
 import com.github.claudecodegui.provider.codex.CodexHistoryService;
+import com.github.claudecodegui.provider.common.NativeCliHistoryPageService;
+import com.github.claudecodegui.provider.common.NativeCliHistoryReaders;
 import com.github.claudecodegui.protocol.CodexHistoryPageMode;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
@@ -30,7 +32,8 @@ import java.util.concurrent.CompletableFuture;
 public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<CodexHistoryPageRequest> {
     /** 支持磁盘分页的 provider 白名单(与 isCurrentSession 的 provider 校验同源)。 */
     private static final Set<String> PAGINATION_PROVIDERS = Set.of(
-            ProviderType.CODEX.value(), ProviderType.CLAUDE.value());
+            ProviderType.CODEX.value(), ProviderType.CLAUDE.value(),
+            ProviderType.GROK.value(), ProviderType.KIMI.value(), ProviderType.PI.value());
 
     @Override
     public UpstreamAction action() {
@@ -72,16 +75,20 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
             return;
         }
 
-        CompletableFuture<SessionHistoryLoadResult> pageFuture =
-                ProviderType.CODEX.value().equals(currentProvider)
-                        ? CompletableFuture.supplyAsync(
-                                () -> {
-                                    CodexHistoryPageResult page =
-                                            new CodexHistoryService().loadHistoryPage(requestedSessionId, beforeTurn);
-                                    return new SessionHistoryLoadResult(page.messages(), page.pageInfo());
-                                },
-                                AppExecutorUtil.getAppExecutorService())
-                        : supplyClaudePage(session, requestedSessionId, beforeTurn);
+        CompletableFuture<SessionHistoryLoadResult> pageFuture;
+        if (ProviderType.CODEX.value().equals(currentProvider)) {
+            pageFuture = CompletableFuture.supplyAsync(
+                    () -> {
+                        CodexHistoryPageResult page =
+                                new CodexHistoryService().loadHistoryPage(requestedSessionId, beforeTurn);
+                        return new SessionHistoryLoadResult(page.messages(), page.pageInfo());
+                    },
+                    AppExecutorUtil.getAppExecutorService());
+        } else if (ProviderType.CLAUDE.value().equals(currentProvider)) {
+            pageFuture = supplyClaudePage(session, requestedSessionId, beforeTurn);
+        } else {
+            pageFuture = supplyNativeCliPage(session, requestedSessionId, currentProvider, beforeTurn);
+        }
         pageFuture.whenComplete((result, error) -> ApplicationManager.getApplication().invokeLater(() -> {
             if (!isCurrentSession(handlerContext, session, requestedSessionId)) {
                 return;
@@ -103,6 +110,22 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
         return CompletableFuture.supplyAsync(
                 // 低频用户操作,按需构造(ClaudeHistoryService 构造拉起 NodeService,不做字段级缓存)。
                 () -> new ClaudeHistoryService().loadHistoryPage(requestedSessionId, cwd, beforeTurn),
+                AppExecutorUtil.getAppExecutorService()
+        );
+    }
+
+    /** 纯 CLI provider(grok/kimi/pi)翻页:reader 定位单点在 {@link NativeCliHistoryReaders}。 */
+    private static CompletableFuture<SessionHistoryLoadResult> supplyNativeCliPage(
+            ClaudeSession session,
+            String requestedSessionId,
+            String provider,
+            Integer beforeTurn
+    ) {
+        String cwd = session.getCwd();
+        return CompletableFuture.supplyAsync(
+                // 低频用户操作,page service 按需构造(三家 reader 构造轻量,与 SessionProviderRouter 装配同)。
+                () -> new NativeCliHistoryPageService(NativeCliHistoryReaders.forProvider(provider)::read)
+                        .loadEarlierPage(requestedSessionId, cwd, beforeTurn),
                 AppExecutorUtil.getAppExecutorService()
         );
     }
@@ -131,10 +154,12 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
                 || !sessionId.equals(expectedSession.getSessionId())) {
             return false;
         }
+        // 会话 provider 与当前 provider 一致,且该 provider 在分页白名单内(原 CODEX/CLAUDE
+        // 两对硬编码判等随白名单扩展泛化,新增 provider 只改 PAGINATION_PROVIDERS)。
         String sessionProvider = expectedSession.getProvider();
         String currentProvider = context.getCurrentProvider();
-        return (ProviderType.CODEX.value().equals(sessionProvider) && ProviderType.CODEX.value().equals(currentProvider))
-                || (ProviderType.CLAUDE.value().equals(sessionProvider) && ProviderType.CLAUDE.value().equals(currentProvider));
+        return sessionProvider != null && sessionProvider.equals(currentProvider)
+                && PAGINATION_PROVIDERS.contains(currentProvider);
     }
 
     private static void dispatchError(HandlerContext context, String sessionId, String error) {
