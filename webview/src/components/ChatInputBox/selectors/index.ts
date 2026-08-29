@@ -5,3 +5,5 @@ export { ProviderSelect } from './ProviderSelect';
 export { ConfigSelect } from './ConfigSelect';
 export { ReasoningSelect } from './ReasoningSelect';
 export { DshPresetSelect } from './DshPresetSelect';
+export { CodexFastModeSelect } from './CodexFastModeSelect';
+export { RuntimeProviderSelect } from './RuntimeProviderSelect';

@@ -61,6 +61,8 @@ const tabIconPaths: Record<string, string> = {
   pi: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
   // Plugin puzzle
   plugin: '<path d="M12 2v6M6 8h12M8 8v8a4 4 0 0 0 8 0V8"/>',
+  // DSH - hexagon node
+  dsh: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
 };
 
 interface ProviderTabSectionProps {
@@ -327,7 +329,7 @@ const ProviderTabSection = ({
               strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.grok }}
+              dangerouslySetInnerHTML={{ __html: tabIconPaths.plugin }}
             />
           </span>
           {t('settings.providerTab.omp', 'OMP')}
@@ -352,7 +354,7 @@ const ProviderTabSection = ({
               strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.grok }}
+              dangerouslySetInnerHTML={{ __html: tabIconPaths.dsh }}
             />
           </span>
           {t('settings.providerTab.dsh', 'DeepSeek Harness')}

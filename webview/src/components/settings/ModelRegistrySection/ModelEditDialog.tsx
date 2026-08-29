@@ -10,10 +10,10 @@ import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../com
 import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
 
 // 与 ModelRegistrySection 内 EMPTY_MODEL 保持同构的弹窗默认表单(解耦,各自维护)
-type Provider = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi';
+type Provider = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh';
 type Role = NonNullable<ModelRegistryItem['role']>;
 
-const PROVIDERS: Provider[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi'];
+const PROVIDERS: Provider[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi', 'omp', 'dsh'];
 const ROLES: Role[] = ['sonnet', 'opus', 'fable', 'haiku'];
 
 const EMPTY_FORM: ModelRegistryItem = {
