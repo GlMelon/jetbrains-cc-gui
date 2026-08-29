@@ -253,6 +253,10 @@ public class ChannelCliSession implements CliSession {
         if (request.reasoningEffort() != null) {
             json.addProperty("reasoningEffort", request.reasoningEffort());
         }
+        // 思考开关转发源头(与 pi 直连「开关 OFF 省略 --thinking」同语义);dsh 无对应概念,忽略无害
+        if (request.thinkingOutputEnabled() != null) {
+            json.addProperty("thinkingOutputEnabled", request.thinkingOutputEnabled());
+        }
         if (request.agentPrompt() != null) {
             json.addProperty("agentPrompt", request.agentPrompt());
         }

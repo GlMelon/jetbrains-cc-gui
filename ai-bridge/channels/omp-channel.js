@@ -22,6 +22,7 @@ export async function handleOmpCommand(command, args, stdinData) {
           model,
           reasoningEffort,
           attachments,
+          thinkingOutputEnabled,
         } = stdinData;
         await ompSendMessage(
           message,
@@ -29,7 +30,8 @@ export async function handleOmpCommand(command, args, stdinData) {
           cwd || '',
           model || '',
           reasoningEffort || '',
-          attachments || []
+          attachments || [],
+          thinkingOutputEnabled !== false
         );
       } else {
         await ompSendMessage(args[0], args[1], args[2], args[3], args[4], []);
