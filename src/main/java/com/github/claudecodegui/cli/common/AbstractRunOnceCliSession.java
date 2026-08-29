@@ -163,8 +163,15 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                     attachFiles = List.of();
                 }
 
+                // 续接 id 与 claude/codex(--resume 语义)及 kimi ACP 通道对齐:优先 request.sessionId()
+                // (前端/state 持有的会话 id,历史回load、插件重启后仍指向用户认可的会话),
+                // 实例字段(同 tab 连续聊天回写/首轮提取)仅作兜底。此前只看实例字段:
+                // 历史点击/重启后新实例预分配新 id,用户会话被静默另起炉灶。
+                String requestedSessionId = request.sessionId();
+                String effectiveSessionId = requestedSessionId != null && !requestedSessionId.isBlank()
+                        ? requestedSessionId.trim() : sessionId;
                 // B13:续接失败时清空 sessionId 重试一次首轮流程(设计 §7.4)。
-                boolean retry = runOnce(request, callback, sessionId, attachFiles, diagnostic, sendStartNanos);
+                boolean retry = runOnce(request, callback, effectiveSessionId, attachFiles, diagnostic, sendStartNanos);
                 if (retry) {
                     LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] continuation session invalidated; retrying as fresh turn"
                             + ": tabId=" + tabId

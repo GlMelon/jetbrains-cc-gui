@@ -58,6 +58,10 @@ public class CliDialectSessionSymmetryTest {
                 base.contains("onStopAuxiliary();"));
         assertTrue("buildPromptText 必须开放给方言子类复用",
                 base.contains("protected String buildPromptText(CliSendRequest request)"));
+        // 历史点击续接:send 必须优先消费 request.sessionId()(仅看实例字段会在
+        // 历史回load/插件重启后静默新开会话,2026-08-29 审计缺口)
+        assertTrue("基类 send 必须优先消费 request.sessionId()(历史续接链)",
+                base.contains("request.sessionId()"));
         assertTrue("safePromptArg 必须开放给方言子类复用",
                 base.contains("protected static String safePromptArg(String text)"));
         assertTrue("resolver() 必须开放给方言子类复用",
