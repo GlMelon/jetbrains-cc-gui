@@ -12,8 +12,12 @@ function createChild() {
   const child = new EventEmitter();
   const createStream = () => ({
     destroyed: false,
+    writableEnded: false,
     destroy() {
       this.destroyed = true;
+    },
+    end() {
+      this.writableEnded = true;
     },
   });
   child.stdin = createStream();
@@ -30,16 +34,18 @@ function createChild() {
   return child;
 }
 
-test('safeKillProcess sends SIGTERM even when child.killed is already true', () => {
+test('safeKillProcess sends SIGTERM even when child.killed is already true', async () => {
   const child = createChild();
   safeKillProcess(child, 'test-server');
-  child.exitCode = 0;
-  child.emit('exit', 0);
+
+  // Signals are deferred until the stdin-EOF grace window elapses (upstream
+  // #1721). A live child must still be signalled even though Node already
+  // flagged it as killed (exit-based guard, see kill-tree.js).
+  await new Promise((resolve) => setTimeout(resolve, 550));
 
   assert.deepEqual(child.signals, ['SIGTERM']);
-  assert.equal(child.stdin.destroyed, true);
-  assert.equal(child.stdout.destroyed, true);
-  assert.equal(child.stderr.destroyed, true);
+  // stdin gets an EOF (end()), stdio pipes are no longer force-destroyed.
+  assert.equal(child.stdin.writableEnded, true);
 });
 
 test('safeKillProcess escalates to SIGKILL when the process remains alive', async () => {
@@ -58,15 +64,17 @@ test('safeKillProcess escalates to SIGKILL when the process remains alive', asyn
   }
 });
 
-test('safeKillProcess cancels SIGKILL escalation after close', async () => {
+test('safeKillProcess skips signalling when the child exits during the grace window', async () => {
   const child = createChild();
   safeKillProcess(child, 'test-server');
+  // Child exits on its own after stdin EOF — the deferred signal pass must
+  // notice the exit (exit-based guard) and never fire, let alone escalate.
   child.exitCode = 0;
   child.emit('close', 0);
 
   await new Promise((resolve) => setTimeout(resolve, 550));
 
-  assert.deepEqual(child.signals, ['SIGTERM']);
+  assert.deepEqual(child.signals, []);
 });
 
 test('createProcessHandlers bounds retained stdout and stderr', () => {

@@ -38,14 +38,6 @@ const MAX_PROCESS_OUTPUT_BUFFER_SIZE = 1024 * 1024;
  */
 
 /**
- * @param {import('child_process').ChildProcess} child
- * @returns {boolean}
- */
-function isProcessRunning(child) {
-  return child.exitCode == null && child.signalCode == null;
-}
-
-/**
  * Append a chunk to the buffer, truncating to the most recent content if it
  * would exceed the maximum buffer size.
  * @param {string} current - Current buffered content
@@ -123,25 +115,28 @@ function terminateWithSignals(child, serverName) {
       return;
     }
 
-    if (!child.killed) {
-      child.kill('SIGTERM');
-      // If SIGTERM doesn't kill it, send SIGKILL after 500ms
-      // Use unref() so this timer won't prevent the parent process from exiting
-      const killTimer = setTimeout(() => {
-        try {
-          if (child.exitCode === null && child.signalCode === null && !child.killed) {
-            child.kill('SIGKILL');
-            log('debug', `Force killed process for ${serverName}`);
-          }
-        } catch (e) {
-          log('debug', `SIGKILL failed for ${serverName}:`, e instanceof Error ? e.message : String(e));
+    // Exit-based guard only (see kill-tree.js): Node sets killed=true right
+    // after the first kill() call even while the process is still alive, so
+    // `child.killed` must NOT gate signalling — a child that ignored SIGTERM
+    // would otherwise be shielded from the SIGKILL escalation below.
+    // terminateWithSignals already returned early for exited children (:115).
+    child.kill('SIGTERM');
+    // If SIGTERM doesn't kill it, send SIGKILL after 500ms
+    // Use unref() so this timer won't prevent the parent process from exiting
+    const killTimer = setTimeout(() => {
+      try {
+        if (child.exitCode === null && child.signalCode === null) {
+          child.kill('SIGKILL');
+          log('debug', `Force killed process for ${serverName}`);
         }
-      }, 500);
-      killTimer.unref();
-      const clearKillTimer = () => clearTimeout(killTimer);
-      child.once?.('exit', clearKillTimer);
-      child.once?.('close', clearKillTimer);
-    }
+      } catch (e) {
+        log('debug', `SIGKILL failed for ${serverName}:`, e instanceof Error ? e.message : String(e));
+      }
+    }, 500);
+    killTimer.unref();
+    const clearKillTimer = () => clearTimeout(killTimer);
+    child.once?.('exit', clearKillTimer);
+    child.once?.('close', clearKillTimer);
   } catch (e) {
     log('debug', `Failed to kill process for ${serverName}:`, e instanceof Error ? e.message : String(e));
   }
