@@ -31,7 +31,6 @@ import { sendAction, subscribeEvent } from '../bridge/typed';
 import {
   CODEX_HISTORY_PAGE_SIZE,
   DOWNSTREAM,
-  PROVIDER_TYPE,
   UPSTREAM,
   type CodexHistoryPageErrorPayloadWire,
   type CodexHistoryPageInfoPayloadWire,
@@ -463,8 +462,6 @@ export const MessageList = memo(
     const nextTurnCount = Math.min(REVEAL_TURN_PAGE_SIZE, hiddenTurnCount);
 
     const canLoadEarlierFromDisk = Boolean(
-      // 磁盘分页 provider 白名单:后端 LoadCodexHistoryPageActionHandler 按 currentProvider 路由。
-      (currentProvider === PROVIDER_TYPE.CODEX || currentProvider === PROVIDER_TYPE.CLAUDE) &&
       historyPageInfo?.sessionId === currentSessionId &&
       historyPageInfo?.hasMore,
     );

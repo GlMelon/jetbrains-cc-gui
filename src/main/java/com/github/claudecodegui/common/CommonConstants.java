@@ -87,6 +87,8 @@ public final class CommonConstants {
     public static final int CODEX_HISTORY_PAGE_SIZE = 30;
     /** Number of complete Claude user turns loaded per history page(语义对齐 CODEX_HISTORY_PAGE_SIZE). */
     public static final int CLAUDE_HISTORY_PAGE_SIZE = 30;
+    /** Number of complete user turns loaded per history page for native CLI providers(grok/kimi/pi 共用). */
+    public static final int NATIVE_CLI_HISTORY_PAGE_SIZE = 30;
 
     // ===== Provider 级别默认上下文窗口 =====
     // 基于官方文档的各 provider 默认 context window 值
