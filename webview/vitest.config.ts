@@ -4,7 +4,9 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['./vitest-setup.ts'],
-    include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
+    // src/** 内联测试随 v0.5.4 合并带入(upstream 惯例 colocated tests),
+    // 一并纳入运行;test/** 为本地既有目录。
+    include: ['test/**/*.test.ts', 'test/**/*.test.tsx', 'src/**/*.test.ts', 'src/**/*.test.tsx'],
     exclude: ['../.worktrees/**'],
     globals: true,
     coverage: {

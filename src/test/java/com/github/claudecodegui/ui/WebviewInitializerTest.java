@@ -49,6 +49,16 @@ public class WebviewInitializerTest {
     }
 
     @Test
+    public void gatewayPrewarmFutureIsCancelledOnDispose() throws IOException {
+        String source = readSource();
+
+        Assert.assertTrue(source.contains("private volatile Future<?> gatewayPrewarmFuture"));
+        Assert.assertTrue(source.contains("private synchronized void scheduleGatewayPrewarm"));
+        Assert.assertTrue(source.contains("gatewayPrewarmFuture = null"));
+        Assert.assertTrue(source.contains("prewarm.cancel(true)"));
+    }
+
+    @Test
     public void slowsBridgeInjectionRetriesAfterStartupWindow() {
         int fastDelay = WebviewInitializer.bridgeInjectionRetryDelayMs(50);
         int slowDelay = WebviewInitializer.bridgeInjectionRetryDelayMs(51);

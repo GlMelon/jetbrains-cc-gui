@@ -1740,6 +1740,8 @@
     "model": "模型"
   },
   "modes": {
+    "nativeBadge": "原生管控",
+    "nativeBadgeTooltip": "OpenCode 沒有與此模式等價的 flag;選擇後不傳任何 flag,工具呼叫由你的 opencode.json 權限設定(allow/ask/deny)管控。",
     "default": {
       "label": "預設模式",
       "shortLabel": "預設",
@@ -1773,6 +1775,7 @@
     },
     "plan": {
       "label": "Plan Mode",
+      "shortLabel": "規劃",
       "tooltip": "Plan mode - read-only analysis",
       "description": "Uses only read-only tools, generates plan for user approval"
     },
