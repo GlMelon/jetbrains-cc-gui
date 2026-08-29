@@ -41,9 +41,33 @@ public class DshHistoryReader {
     private static final int MAX_STDERR_CHARS = 8_192;
 
     private final Gson gson = new Gson();
-    private final NodeDetector nodeDetector = NodeDetector.getInstance();
-    private final EnvironmentConfigurator envConfigurator = new EnvironmentConfigurator();
-    private final CodemossSettingsService settingsService = new CodemossSettingsService();
+    // ⚠️ 构造期不可触碰这三个依赖:NodeDetector/EnvironmentConfigurator/CodemossSettingsService
+    // 均间接依赖 IntelliJ 平台 Application 单例,纯 JUnit 装配环境(无 Application,如
+    // SessionProviderRouter.buildAdapterList 仅 new 不调用)会 NPE。惰性到首次 spawn 前初始化。
+    private volatile NodeDetector nodeDetector;
+    private volatile EnvironmentConfigurator envConfigurator;
+    private volatile CodemossSettingsService settingsService;
+
+    private NodeDetector nodeDetector() {
+        if (nodeDetector == null) {
+            nodeDetector = NodeDetector.getInstance();
+        }
+        return nodeDetector;
+    }
+
+    private EnvironmentConfigurator envConfigurator() {
+        if (envConfigurator == null) {
+            envConfigurator = new EnvironmentConfigurator();
+        }
+        return envConfigurator;
+    }
+
+    private CodemossSettingsService settingsService() {
+        if (settingsService == null) {
+            settingsService = new CodemossSettingsService();
+        }
+        return settingsService;
+    }
 
     /**
      * Sessions for one project, shaped like the other CLI readers
@@ -119,7 +143,7 @@ public class DshHistoryReader {
     private JsonObject runDshCommand(String command, JsonObject stdinPayload) {
         Process process = null;
         try {
-            String node = nodeDetector.findNodeExecutable();
+            String node = nodeDetector().findNodeExecutable();
             BridgeDirectoryResolver resolver = BridgePreloader.getSharedResolver();
             File bridgeDir = resolver != null ? resolver.findBridgeDir() : null;
             if (bridgeDir == null || !bridgeDir.exists()) {
@@ -140,9 +164,9 @@ public class DshHistoryReader {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.directory(bridgeDir);
             pb.redirectErrorStream(false);
-            envConfigurator.updateProcessEnvironment(pb, node);
+            envConfigurator().updateProcessEnvironment(pb, node);
             pb.environment().put("DSH_USE_STDIN", "true");
-            DshEnvSupport.inject(pb.environment(), settingsService);
+            DshEnvSupport.inject(pb.environment(), settingsService());
 
             process = pb.start();
 

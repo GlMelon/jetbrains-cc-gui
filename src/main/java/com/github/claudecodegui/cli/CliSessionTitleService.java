@@ -50,9 +50,19 @@ public class CliSessionTitleService {
     private static final long TITLE_TIMEOUT_SECONDS = 30;
     private static final long READER_DRAIN_SECONDS = 5;
 
-    private final NodeService nodeService;
+    // ⚠️ 构造期不可解析 NodeService(内部 new EnvironmentConfigurator 触碰 IntelliJ 平台
+    // Application 单例):本服务在 SessionSendService 构造链上,纯 JUnit 装配环境会 NPE。
+    // 惰性到标题生成实际触发时。
+    private volatile NodeService nodeService;
     private final Set<PendingTitleTask> pendingTasks = ConcurrentHashMap.newKeySet();
     private volatile boolean disposed;
+
+    private NodeService nodeService() {
+        if (nodeService == null) {
+            nodeService = NodeService.getInstance();
+        }
+        return nodeService;
+    }
 
     private static final class PendingTitleTask {
         private final ProcessManager processManager;
@@ -73,10 +83,6 @@ public class CliSessionTitleService {
             // cancelled before ProcessBuilder.start() registers the process.
             processManager.interruptChannel(channelId);
         }
-    }
-
-    public CliSessionTitleService() {
-        this.nodeService = NodeService.getInstance();
     }
 
     /**
@@ -122,18 +128,18 @@ public class CliSessionTitleService {
             LOG.warn("[CliTitle] Failed to read AI title toggle, proceeding: " + e.getMessage());
         }
 
-        final String nodeExecutable = nodeService.getNodeExecutable();
+        final String nodeExecutable = nodeService().getNodeExecutable();
         if (nodeExecutable == null || nodeExecutable.isEmpty()) {
             LOG.warn("[CliTitle] Skipping: Node.js executable not configured");
             return;
         }
-        File bridgeDir = nodeService.getBridgeDir();
+        File bridgeDir = nodeService().getBridgeDir();
         if (bridgeDir == null || !bridgeDir.exists()) {
             LOG.warn("[CliTitle] Skipping: ai-bridge directory unavailable");
             return;
         }
 
-        ProcessManager processManager = nodeService.getProcessManager();
+        ProcessManager processManager = nodeService().getProcessManager();
         String channelId = ProcessManager.newChannelId("cli-session-title");
         PendingTitleTask pendingTask = new PendingTitleTask(processManager, channelId);
         pendingTasks.add(pendingTask);
