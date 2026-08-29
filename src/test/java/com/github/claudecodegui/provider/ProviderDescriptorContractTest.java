@@ -21,7 +21,7 @@ public class ProviderDescriptorContractTest {
     @Test
     public void builtinsReturnsAllProvidersWithExpectedCapabilities() {
         List<ProviderDescriptor> builtins = ProviderDescriptor.builtins();
-        assertEquals(6, builtins.size());
+        assertEquals(8, builtins.size());
         // claude/codex/opencode:全能力
         for (ProviderDescriptor d : List.of(
                 ProviderDescriptor.claude(), ProviderDescriptor.codex(), ProviderDescriptor.opencode())) {
@@ -47,6 +47,15 @@ public class ProviderDescriptorContractTest {
                 EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
                         ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
                 ProviderDescriptor.pi().capabilities());
+        // omp(pi fork channel 模式)/ dsh(host RPC):思考经 marker/reasoning-delta,历史已接线
+        assertEquals("expected omp capabilities",
+                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
+                        ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
+                ProviderDescriptor.omp().capabilities());
+        assertEquals("expected dsh capabilities",
+                EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
+                        ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
+                ProviderDescriptor.dsh().capabilities());
     }
 
     @Test
@@ -85,13 +94,15 @@ public class ProviderDescriptorContractTest {
     @Test
     public void registryHasBuiltinProvidersByDefault() {
         ProviderDescriptorRegistry registry = new ProviderDescriptorRegistry();
-        assertEquals(6, registry.all().size());
+        assertEquals(8, registry.all().size());
         assertTrue(registry.has("claude"));
         assertTrue(registry.has("codex"));
         assertTrue(registry.has("opencode"));
         assertTrue(registry.has("grok"));
         assertTrue(registry.has("kimi"));
         assertTrue(registry.has("pi"));
+        assertTrue(registry.has("omp"));
+        assertTrue(registry.has("dsh"));
         assertEquals("Claude", registry.get("claude").displayLabel());
     }
 
@@ -106,9 +117,9 @@ public class ProviderDescriptorContractTest {
         // 覆盖:claude 被自定义覆盖(override 只声明 STREAMING,内置全能力含 MCP → 不再支持 MCP)
         assertEquals("Claude Override", registry.get("claude").displayLabel());
         assertFalse(registry.get("claude").supports(ProviderCapability.MCP));
-        // 新增:acme(6 内置 + acme = 7)
+        // 新增:acme(8 内置 + acme = 9)
         assertTrue(registry.has("acme"));
-        assertEquals(7, registry.all().size());
+        assertEquals(9, registry.all().size());
     }
 
     @Test
@@ -124,11 +135,11 @@ public class ProviderDescriptorContractTest {
                 EnumSet.of(ProviderCapability.CLI_SESSION));
         ProviderDescriptorRegistry registry = new ProviderDescriptorRegistry(List.of(acme));
 
-        // claude/codex/opencode 声明 MCP(全能力);grok/kimi/pi 与 acme 只声明 CLI_SESSION
+        // claude/codex/opencode 声明 MCP(全能力);cliBuiltin 与 acme 只声明 CLI_SESSION
         List<ProviderDescriptor> mcpProviders = registry.withCapability(ProviderCapability.MCP);
         assertEquals(3, mcpProviders.size());
-        // 6 内置(claude/codex/opencode 全能力含 CLI_SESSION;grok/kimi/pi cliBuiltin 含 CLI_SESSION)+ acme = 7
+        // 8 内置(全部声明 CLI_SESSION)+ acme = 9
         List<ProviderDescriptor> cliOnlyProviders = registry.withCapability(ProviderCapability.CLI_SESSION);
-        assertEquals(7, cliOnlyProviders.size());
+        assertEquals(9, cliOnlyProviders.size());
     }
 }

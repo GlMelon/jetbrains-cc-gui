@@ -40,6 +40,11 @@ export const WelcomeScreen = memo(function WelcomeScreen({
     claude: t('providers.claude.label'),
     codex: t('providers.codex.label'),
     opencode: t('providers.opencode.label'),
+    grok: t('providers.grok.label'),
+    kimi: t('providers.kimi.label'),
+    pi: t('providers.pi.label'),
+    omp: t('providers.omp.label'),
+    dsh: t('providers.dsh.label'),
   };
 
   return (

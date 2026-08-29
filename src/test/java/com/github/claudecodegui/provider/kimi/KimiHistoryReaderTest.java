@@ -40,6 +40,7 @@ public class KimiHistoryReaderTest {
         assertEquals(1, sessions.size());
         assertEquals("session_01HZABC", sessions.get(0).sessionId);
         assertEquals("fix kdemo bug", sessions.get(0).title);
+        assertEquals(0, sessions.get(0).messageCount);  // 无 wire.jsonl → 0(不炸)
 
         // 无关项目不命中;cwd 缺失的会话也无法归位 → 跳过
         assertTrue(reader.listSessions("C:/other").isEmpty());

@@ -103,11 +103,15 @@ public final class CommonConstants {
     public static final int KIMI_DEFAULT_CONTEXT_WINDOW = 256_000;
     /** Pi 默认上下文窗口（200K，取决于底层模型） */
     public static final int PI_DEFAULT_CONTEXT_WINDOW = 200_000;
+    /** OMP 默认上下文窗口（200K，pi fork，同 Pi 口径） */
+    public static final int OMP_DEFAULT_CONTEXT_WINDOW = 200_000;
+    /** DeepSeek Harness 默认上下文窗口（128K，DeepSeek V3 系） */
+    public static final int DSH_DEFAULT_CONTEXT_WINDOW = 128_000;
 
     /**
      * 获取指定 provider 的默认上下文窗口大小。
      *
-     * @param provider provider 标识（"claude" / "codex" / "opencode" / "grok" / "kimi" / "pi"）
+     * @param provider provider 标识（"claude" / "codex" / "opencode" / "grok" / "kimi" / "pi" / "omp" / "dsh"）
      * @return 该 provider 的官方默认上下文窗口（token 数），未知 provider 回退 {@link #DEFAULT_CONTEXT_WINDOW}
      */
     public static int getDefaultContextWindowForProvider(String provider) {
@@ -119,6 +123,8 @@ public final class CommonConstants {
             case PROVIDER_GROK -> GROK_DEFAULT_CONTEXT_WINDOW;
             case PROVIDER_KIMI -> KIMI_DEFAULT_CONTEXT_WINDOW;
             case PROVIDER_PI -> PI_DEFAULT_CONTEXT_WINDOW;
+            case PROVIDER_OMP -> OMP_DEFAULT_CONTEXT_WINDOW;
+            case PROVIDER_DSH -> DSH_DEFAULT_CONTEXT_WINDOW;
             default -> DEFAULT_CONTEXT_WINDOW;
         };
     }

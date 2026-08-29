@@ -35,11 +35,12 @@ interface RuntimeProviderSelectProps {
 
 type RuntimeProvider = ProviderConfig | CodexProviderConfig | OpenCodeProviderConfig;
 
-type ProviderKind = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi';
+type ProviderKind = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh';
 
 const isProviderKind = (provider: string): provider is ProviderKind =>
   provider === 'claude' || provider === 'codex' || provider === 'opencode'
-  || provider === 'grok' || provider === 'kimi' || provider === 'pi';
+  || provider === 'grok' || provider === 'kimi' || provider === 'pi'
+  || provider === 'omp' || provider === 'dsh';
 
 const parseProviderList = (json: string): RuntimeProvider[] => {
   const parsed = JSON.parse(json);
@@ -61,6 +62,8 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     grok: [],
     kimi: [],
     pi: [],
+    omp: [],
+    dsh: [],
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -83,7 +86,11 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
           ? 'kimi'
           : currentProvider === 'pi'
             ? 'pi'
-            : 'claude';
+            : currentProvider === 'omp'
+              ? 'omp'
+              : currentProvider === 'dsh'
+                ? 'dsh'
+                : 'claude';
   const visibleProviders = providersByKind[providerKind];
   const activeProvider = useMemo(
     () => visibleProviders.find((provider) => provider.isActive),

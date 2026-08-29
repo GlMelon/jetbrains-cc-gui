@@ -90,6 +90,18 @@ public record ProviderDescriptor(
                 ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY);
     }
 
+    /** OMP Provider 描述符(pi fork channel 模式;思考/历史经 channel + 本地 JSONL 落盘)。 */
+    public static ProviderDescriptor omp() {
+        return cliBuiltin(ProviderType.OMP,
+                ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY);
+    }
+
+    /** DSH Provider 描述符(host RPC 通道;思考经 reasoning-delta,历史经 host 归档面)。 */
+    public static ProviderDescriptor dsh() {
+        return cliBuiltin(ProviderType.DSH,
+                ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY);
+    }
+
     private static ProviderDescriptor builtin(ProviderType type) {
         return new ProviderDescriptor(
                 type.value(),
@@ -119,8 +131,8 @@ public record ProviderDescriptor(
         );
     }
 
-    /** 内置 Provider 描述符(Claude / Codex / OpenCode + Grok / Kimi / Pi),按 {@link ProviderType} 声明顺序。 */
+    /** 内置 Provider 描述符(全 8 家),按 {@link ProviderType} 声明顺序。 */
     public static List<ProviderDescriptor> builtins() {
-        return List.of(claude(), codex(), opencode(), grok(), kimi(), pi());
+        return List.of(claude(), codex(), opencode(), grok(), kimi(), pi(), omp(), dsh());
     }
 }

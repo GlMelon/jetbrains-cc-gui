@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.mcp.McpGatewayConstants;
+import com.github.claudecodegui.provider.ProviderCapability;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.protocol.payload.SessionCapabilitiesPayloadField;
 import com.github.claudecodegui.protocol.payload.SessionMcpCapabilityPayloadField;
@@ -31,6 +32,27 @@ public final class SessionCapabilityService {
      */
     private static final Gson NULLS_GSON = new GsonBuilder().serializeNulls().create();
 
+    /**
+     * 能力查询路由(懒加载静态共享,构造轻量)。MCP 面板可用性必须以 adapter 层
+     * {@link ProviderCapability#MCP} 声明为门禁:
+     * 否则 gateway status 里有 servers 数组的部署上,无 MCP 能力的 provider
+     * (grok/kimi/pi/omp/dsh)会得到「available=true + 过滤后空列表」的自相矛盾 payload
+     * (2026-08-29 审计缺口)。
+     */
+    private static volatile SessionProviderRouter capabilityRouter;
+
+    private static boolean providerSupportsMcp(String provider) {
+        if (provider == null || provider.isEmpty()) {
+            return false;
+        }
+        SessionProviderRouter router = capabilityRouter;
+        if (router == null) {
+            router = new com.github.claudecodegui.session.SessionProviderRouter();
+            capabilityRouter = router;
+        }
+        return router.supports(provider, ProviderCapability.MCP);
+    }
+
     private SessionCapabilityService() {
     }
 
@@ -53,7 +75,7 @@ public final class SessionCapabilityService {
         JsonArray mcp = new JsonArray();
         String mcpError = null;
         boolean available = false;
-        if (project != null) {
+        if (project != null && providerSupportsMcp(safe(session.getProvider()))) {
             try {
                 String statusJson = McpGatewayService.getInstance(project).statusJson();
                 JsonElement root = JsonParser.parseString(

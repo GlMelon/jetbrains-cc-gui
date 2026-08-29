@@ -57,9 +57,14 @@ public final class CliOnlyProviderAdapter implements ProviderAdapter {
 
     @Override
     public Set<ProviderCapability> capabilities() {
+        // REASONING_THINKING 无条件声明:五家思考区均已落地(grok/kimi/pi native、omp/dsh marker),
+        // 与 ProviderDescriptor.cliBuiltin 描述符层保持同集,消除两套 SSOT 漂移。
+        // HISTORY 按历史 loader 有无(kimi/grok/pi/omp/dsh 有;dsh 走 host RPC 亦有)。
         return sessionMessagesLoader != null
-                ? Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING, ProviderCapability.HISTORY)
-                : Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING);
+                ? Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
+                         ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY)
+                : Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
+                         ProviderCapability.REASONING_THINKING);
     }
 
     @Override
