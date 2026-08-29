@@ -42,6 +42,18 @@ public class McpGatewayConfigWriter {
         this.baseDir = baseDir;
     }
 
+    /**
+     * 该 provider 是否有 gateway 注入机制(claude/codex/opencode 三种)。
+     * 调用方(McpGatewayService.buildCliConfig)须在 ensureStarted/refreshConfig <b>之前</b>
+     * 查询:不支持时直接短路,避免为注定 disabled 的 provider 白付 gateway 冷启动/全局锁成本
+     * (2026-08-29 审计:kimi 已接线 gatewayService 但恒 disabled,反付启动成本)。
+     */
+    public boolean supports(ProviderType provider) {
+        return provider == ProviderType.CLAUDE
+                || provider == ProviderType.CODEX
+                || provider == ProviderType.OPENCODE;
+    }
+
     public McpGatewayCliConfig write(ProviderType provider, String tabId, long revision,
                                      Path stateFile, List<String> gatewayCommand,
                                      List<String> realServerIds) throws IOException {

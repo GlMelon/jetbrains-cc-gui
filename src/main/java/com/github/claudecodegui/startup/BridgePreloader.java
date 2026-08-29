@@ -11,12 +11,14 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.ProjectActivity;
+import com.intellij.openapi.util.Disposer;
 import kotlin.Unit;
 import kotlin.coroutines.Continuation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 
 /**
  * Pre-loads the AI Bridge on project startup to avoid EDT freeze
@@ -70,44 +72,58 @@ public class BridgePreloader implements ProjectActivity {
     @Nullable
     @Override
     public Object execute(@NotNull Project project, @NotNull Continuation<? super Unit> continuation) {
+        if (project.isDisposed()) {
+            return Unit.INSTANCE;
+        }
         LOG.info("[BridgePreloader] Starting bridge preload for project: " + project.getName());
 
-        // Run extraction on a background thread
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+        Future<?> preloadFuture = ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            CompletableFuture<Void> cliPrewarm = null;
             try {
+                if (shouldStopPreload(project)) {
+                    return;
+                }
                 BridgeDirectoryResolver resolver = getSharedResolver();
 
-                // CLI detector 预热不依赖 ai-bridge 解压,立即并行启动:codex/opencode 的 findExecutable()
-                // 首次会 spawn '<cli> --version' 子进程(.cmd 包装冷启动 ~3s),未预热时这 3s 落在用户
-                // 首条消息的同步 send 路径(实测 [PERF-FIRST-TURN] java-prep codex≈3.2s/opencode≈3.6s)。
-                // 后台预热填 cachedExecutable 后,首条消息命中缓存秒回(第二条 java-prep≈50ms 即证)。
-                // Deliberately on ForkJoinPool.commonPool: the enclosing thread is an
-                // AppExecutorUtil pooled thread and prewarmCliResolvers() joins below,
-                // so submitting onto the shared app pool here would risk pool self-wait
-                // under saturation. Two one-shot probes on commonPool are harmless.
-                CompletableFuture<Void> cliPrewarm = CompletableFuture.runAsync(
-                        BridgePreloader::prewarmCliResolvers);
+                // CLI resolver 缓存是全局资源,但外层任务持有 Project。项目关闭后停止此轮预热,
+                // 避免 project activity 在 dispose 后继续访问 project service。
+                cliPrewarm = CompletableFuture.runAsync(BridgePreloader::prewarmCliResolvers);
+                if (shouldStopPreload(project)) {
+                    return;
+                }
 
-                // Trigger extraction (non-blocking on this pooled thread)
                 resolver.findBridgeDir();
+                if (shouldStopPreload(project)) {
+                    return;
+                }
 
-                // ai-bridge 解压完成后,后台预热 MCP Gateway(若 isGatewayActive)。这是"插件启动预热":
-                // 比打开工具窗口更早,让用户打开 AICG 窗口/发首条消息时 gateway 进程已起、各 MCP server
-                // 已加载 → 首次 buildCliConfig 因 configHash 相同而 skip(秒回)。
-                // WebviewInitializer 的预热保留作双保险;applySnapshot 的 configHash 幂等保证不重复推送。
                 prewarmMcpGateway(project);
+                if (shouldStopPreload(project)) {
+                    return;
+                }
 
-                // detector 预热(并行 ~3s)通常已先于 gateway postSnapshot(>10s)完成,此处仅兜底等待,
-                // 确保即便用户立刻发首条消息,detector 缓存也已就绪。
                 cliPrewarm.join();
-
-                LOG.info("[BridgePreloader] Bridge preload completed for project: " + project.getName());
+                if (!shouldStopPreload(project)) {
+                    LOG.info("[BridgePreloader] Bridge preload completed for project: " + project.getName());
+                }
             } catch (Exception e) {
-                LOG.warn("[BridgePreloader] Bridge preload failed: " + e.getMessage(), e);
+                if (!shouldStopPreload(project)) {
+                    LOG.warn("[BridgePreloader] Bridge preload failed: " + e.getMessage(), e);
+                }
+            } finally {
+                if (cliPrewarm != null && shouldStopPreload(project)) {
+                    cliPrewarm.cancel(true);
+                }
             }
         });
-
+        if (!Disposer.tryRegister(project, () -> preloadFuture.cancel(true))) {
+            preloadFuture.cancel(true);
+        }
         return Unit.INSTANCE;
+    }
+
+    private static boolean shouldStopPreload(@NotNull Project project) {
+        return project.isDisposed() || Thread.currentThread().isInterrupted();
     }
 
     /**
@@ -117,14 +133,22 @@ public class BridgePreloader implements ProjectActivity {
      * {@code isGatewayActive} 守卫:gateway 整体禁用时 no-op,避免空跑。
      */
     private static void prewarmMcpGateway(@NotNull Project project) {
-        if (project.isDisposed() || !McpGatewayFeatureFlags.isGatewayActive()) {
+        if (shouldStopPreload(project) || !McpGatewayFeatureFlags.isGatewayActive()) {
             return;
         }
         try {
-            McpGatewayService.getInstance(project).refreshConfig(project.getBasePath());
-            LOG.info("[BridgePreloader] MCP Gateway prewarmed for project: " + project.getName());
+            McpGatewayService gatewayService = McpGatewayService.getInstance(project);
+            if (shouldStopPreload(project)) {
+                return;
+            }
+            gatewayService.refreshConfig(project.getBasePath());
+            if (!shouldStopPreload(project)) {
+                LOG.info("[BridgePreloader] MCP Gateway prewarmed for project: " + project.getName());
+            }
         } catch (Exception e) {
-            LOG.warn("[BridgePreloader] MCP Gateway prewarm failed: " + e.getMessage(), e);
+            if (!shouldStopPreload(project)) {
+                LOG.warn("[BridgePreloader] MCP Gateway prewarm failed: " + e.getMessage(), e);
+            }
         }
     }
 

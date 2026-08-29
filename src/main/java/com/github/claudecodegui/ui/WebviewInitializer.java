@@ -45,6 +45,7 @@ import java.awt.dnd.DropTargetDropEvent;
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -94,6 +95,7 @@ public class WebviewInitializer {
      * native callback handles during a watchdog recreation.
      */
     private volatile BrowserBridges bridges;
+    private volatile Future<?> gatewayPrewarmFuture;
     private int pageGeneration;
 
     public WebviewInitializer(WebviewHost host) {
@@ -211,18 +213,9 @@ public class WebviewInitializer {
         // refreshConfig 内部 isCliEnabled 守卫:gateway 禁用时 no-op 无副作用。
         // 2026-08-28 恢复:原块在 faabe2862 合并 upstream feature/v0.5 时被上游版整文件覆盖丢失
         // (上游无此 fork 专属预热),当时三方修复只恢复了 bootstrap 未恢复此处。
-        Project prewarmProject = host.getProject();
-        if (!prewarmProject.isDisposed() && !isLifecycleDisposed()) {
-            ApplicationManager.getApplication().executeOnPooledThread(() -> {
-                try {
-                    McpGatewayService.getInstance(prewarmProject).refreshConfig(prewarmProject.getBasePath());
-                } catch (Exception e) {
-                    LOG.warn("[WebviewInitializer] MCP Gateway prewarm failed: " + e.getMessage(), e);
-                }
-            });
-        }
+        scheduleGatewayPrewarm(host.getProject());
 
-        // Check JCEF support before creating browser. Keep the precise status
+            // Check JCEF support before creating browser. Keep the precise status
         // so the fallback panel can distinguish a disabled registry flag from
         // a missing runtime or Android Studio's optional JCEF plugin.
         JBCefBrowserFactory.JcefSupportStatus jcefStatus = JBCefBrowserFactory.getJcefSupportStatus();
@@ -518,6 +511,38 @@ public class WebviewInitializer {
                     ? JBCefBrowserFactory.JcefSupportStatus.OUTDATED_JBR
                     : JBCefBrowserFactory.JcefSupportStatus.UNAVAILABLE;
             showJcefNotSupportedPanel(status);
+        }
+    }
+
+    private synchronized void scheduleGatewayPrewarm(Project prewarmProject) {
+        if (prewarmProject.isDisposed() || isLifecycleDisposed()) {
+            return;
+        }
+        Future<?> previous = gatewayPrewarmFuture;
+        if (previous != null && !previous.isDone()) {
+            previous.cancel(true);
+        }
+        Future<?> submitted = ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            if (prewarmProject.isDisposed() || isLifecycleDisposed()
+                    || Thread.currentThread().isInterrupted()) {
+                return;
+            }
+            try {
+                McpGatewayService gatewayService = McpGatewayService.getInstance(prewarmProject);
+                if (prewarmProject.isDisposed() || isLifecycleDisposed()
+                        || Thread.currentThread().isInterrupted()) {
+                    return;
+                }
+                gatewayService.refreshConfig(prewarmProject.getBasePath());
+            } catch (Exception e) {
+                if (!prewarmProject.isDisposed() && !isLifecycleDisposed()) {
+                    LOG.warn("[WebviewInitializer] MCP Gateway prewarm failed: " + e.getMessage(), e);
+                }
+            }
+        });
+        gatewayPrewarmFuture = submitted;
+        if (prewarmProject.isDisposed() || isLifecycleDisposed()) {
+            submitted.cancel(true);
         }
     }
 
@@ -1157,6 +1182,14 @@ public class WebviewInitializer {
             return;
         }
         recreateQueued.set(false);
+        Future<?> prewarm;
+        synchronized (this) {
+            prewarm = gatewayPrewarmFuture;
+            gatewayPrewarmFuture = null;
+        }
+        if (prewarm != null && !prewarm.isDone()) {
+            prewarm.cancel(true);
+        }
         disposeBridges();
     }
 

@@ -25,7 +25,8 @@ import java.util.Base64;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Project-scoped facade for the CLI MCP Gateway.
@@ -47,6 +48,7 @@ public final class McpGatewayService implements Disposable {
 
     private final Project project;
     private final Object lock = new Object();
+    private final Object lifecycleLock = new Object();
     private final McpGatewayConfigCollector collector;
     private final McpGatewayConfigWriter configWriter;
     private final Path gatewayDir;
@@ -57,8 +59,11 @@ public final class McpGatewayService implements Disposable {
     private McpGatewayBridgeClient bridgeClient;
     private McpGatewayConfigSnapshot currentSnapshot;
     private long currentRevision;
+    private long processGeneration;
+    private final AtomicBoolean disposed = new AtomicBoolean();
+    private volatile Future<?> selfHealFuture;
     /**
-     * 最近一次 ensureStarted 的 projectPath,供 onExit 自愈回调 {@link #onGatewayProcessExit}
+     * 最近一次 ensureStarted 的 projectPath,供 onExit 自愈回调重建时复用。
      * 重建时复用——gateway 崩溃后无调用上下文,需记住上次用的 path 才能 ensureStarted 自愈。
      */
     private volatile String lastKnownProjectPath;
@@ -99,18 +104,31 @@ public final class McpGatewayService implements Disposable {
         if (!McpGatewayFeatureFlags.isCliEnabled()) {
             return McpGatewayCliConfig.disabled("MCP Gateway CLI feature disabled");
         }
+        if (isLifecycleDisposed()) {
+            return McpGatewayCliConfig.disabled("MCP Gateway project lifecycle disposed");
+        }
+        // 无注入机制的 provider 先短路(锁与 ensureStarted 之前):否则 kimi 这类已接线
+        // gatewayService 但 writer 恒 disabled 的 provider 每轮 send 都白付冷启动/锁成本。
+        if (configWriter != null && !configWriter.supports(provider)) {
+            return McpGatewayCliConfig.disabled(
+                    "MCP gateway injection not configured for provider: " + provider.value());
+        }
         synchronized (lock) {
             long startNanos = System.nanoTime();
             try {
+                throwIfLifecycleDisposed();
                 ensureStarted(projectPath);
                 long afterEnsureNanos = System.nanoTime();
                 refreshConfig(projectPath);
+                throwIfLifecycleDisposed();
                 long afterRefreshNanos = System.nanoTime();
                 File bridgeDir = BridgePreloader.getSharedResolver().findBridgeDir();
+                throwIfLifecycleDisposed();
                 if (bridgeDir == null) {
                     return McpGatewayCliConfig.disabled("ai-bridge directory unavailable");
                 }
                 String node = NodeDetector.getInstance().findNodeExecutable();
+                throwIfLifecycleDisposed();
                 Path stdioClient = bridgeDir.toPath().resolve(McpGatewayConstants.STDIO_CLIENT_SCRIPT_PATH);
                 List<String> command = NodeDetector.buildNodeScriptCommand(node, stdioClient.toString());
                 List<String> serverIds = realServerIds(currentSnapshot, provider);
@@ -137,15 +155,18 @@ public final class McpGatewayService implements Disposable {
         // gate 用 isGatewayActive(等价 isCliEnabled,SDK 模式移除后仅剩 CLI 路径):
         // 预热与 MCP 增删停重载(Claude/Codex handler)都不分 provider,任何启用 gateway
         // 的配置下改 MCP 都需同步到 gateway,否则 CLI 调用会用到过期 snapshot。
-        if (!McpGatewayFeatureFlags.isGatewayActive()) {
+        if (!McpGatewayFeatureFlags.isGatewayActive() || isLifecycleDisposed()) {
             return;
         }
         synchronized (lock) {
             try {
+                throwIfLifecycleDisposed();
                 ensureStarted(projectPath);
                 applySnapshot(projectPath);
             } catch (Exception e) {
-                LOG.warn("[McpGateway] Failed to refresh Gateway config: " + e.getMessage(), e);
+                if (!isLifecycleDisposed()) {
+                    LOG.warn("[McpGateway] Failed to refresh Gateway config: " + e.getMessage(), e);
+                }
             }
         }
     }
@@ -156,9 +177,11 @@ public final class McpGatewayService implements Disposable {
      * entry points so every CLI turn sees the same fixed revision.
      */
     void applySnapshot(String projectPath) throws Exception {
+        throwIfLifecycleDisposed();
         long startNanos = System.nanoTime();
         long candidateRevision = currentRevision == 0L ? 1L : currentRevision + 1L;
         McpGatewayConfigSnapshot candidate = collector.collect(candidateRevision, projectPath);
+        throwIfLifecycleDisposed();
         long collectEndNanos = System.nanoTime();
         if (currentSnapshot != null && currentSnapshot.configHash().equals(candidate.configHash())) {
             LOG.info("[McpGatewayPerf] applySnapshot skipped (configHash unchanged): collectMs="
@@ -171,7 +194,9 @@ public final class McpGatewayService implements Disposable {
         // 永不重推,gateway 实际空载、CLI 拿不到 MCP 工具。先 post 失败则抛异常、字段不变,下次
         // applySnapshot 自动重推(复现见 idea.log 2026-07-02 BridgePreloader.prewarmMcpGateway
         // → postSnapshot HttpTimeoutException)。
+        throwIfLifecycleDisposed();
         bridgeClient.postSnapshot(candidate);
+        throwIfLifecycleDisposed();
         currentRevision = candidateRevision;
         currentSnapshot = candidate;
         LOG.info("[McpGatewayPerf] applySnapshot committed: collectMs="
@@ -181,9 +206,12 @@ public final class McpGatewayService implements Disposable {
     }
 
     public String statusJson() {
+        if (isLifecycleDisposed()) {
+            return "{}";
+        }
         synchronized (lock) {
             try {
-                if (bridgeClient == null) {
+                if (isLifecycleDisposed() || bridgeClient == null) {
                     return "{}";
                 }
                 return bridgeClient.status().toString();
@@ -195,28 +223,38 @@ public final class McpGatewayService implements Disposable {
     }
 
     private void ensureStarted(String projectPath) throws Exception {
+        throwIfLifecycleDisposed();
         if (projectPath != null) {
             lastKnownProjectPath = projectPath;
         }
-        if (processHandle != null && processHandle.isAlive() && bridgeClient != null
-                && bridgeClient.waitUntilReady(REUSE_PROBE_TIMEOUT)) {
-            return;
+        McpGatewayProcessHandle currentHandle = processHandle;
+        McpGatewayBridgeClient currentClient = bridgeClient;
+        if (currentHandle != null && currentHandle.isAlive() && currentClient != null) {
+            boolean ready = currentClient.waitUntilReady(REUSE_PROBE_TIMEOUT);
+            throwIfLifecycleDisposed();
+            if (ready) {
+                return;
+            }
         }
-        // 进入重建分支:先停掉可能残留的旧进程句柄,避免孤儿 Node 进程 + 端口泄漏。
-        // 触发场景:预热线程正在 cold-start(进程已 spawn 但 /status 尚未 ready)时另一线程
-        // 进入此方法——旧 handle 活着但探测窗口内探不到,若直接覆盖字段,旧进程成孤儿、
-        // 端口仍占用。REUSE_PROBE_TIMEOUT 放宽到与 cold-start 同量级已大幅缓解此竞态,
-        // 此处作兜底:真走到重建时确保旧进程被显式停止。
+
+        // 进入重建分支时先使旧 generation 失效并清理旧句柄。dispose 会在等待同一把锁前先
+        // 翻转不可逆 disposed 闸门,所以下面的每个昂贵 IO/探测边界都必须复核生命周期。
         stopExistingProcess();
+        throwIfLifecycleDisposed();
         Files.createDirectories(gatewayDir);
+        throwIfLifecycleDisposed();
         cleanupStaleGatewayFromPreviousRun();
+        throwIfLifecycleDisposed();
         Files.deleteIfExists(stateFile);
+        throwIfLifecycleDisposed();
 
         File bridgeDir = BridgePreloader.getSharedResolver().findBridgeDir();
+        throwIfLifecycleDisposed();
         if (bridgeDir == null) {
             throw new IllegalStateException("ai-bridge directory unavailable");
         }
         String node = NodeDetector.getInstance().findNodeExecutable();
+        throwIfLifecycleDisposed();
         Path serverScript = bridgeDir.toPath().resolve(McpGatewayConstants.SERVER_SCRIPT_NAME);
         List<String> command = new java.util.ArrayList<>(NodeDetector.buildNodeScriptCommand(node, serverScript.toString()));
         command.add(McpGatewayConstants.ARG_STATE_FILE);
@@ -226,69 +264,114 @@ public final class McpGatewayService implements Disposable {
         command.add(McpGatewayConstants.ARG_PROJECT_PATH);
         command.add(projectPath != null ? projectPath : "");
 
-        processHandle = McpGatewayProcessHandle.start(command);
-        // Opt3:注入 onExit 自愈回调——gateway 进程意外退出(崩溃/OOM/被外部 kill)时 Java 侧
-        // process.onExit() 感知并异步重建,根治"gateway 崩溃 → Java 零感知 → 下一轮 send 等满
-        // Opt2 的 5s 超时窗口"。回调内 synchronized(lock) 与现有调用方互斥,入口 processHandle==null
-        // 早退防 stopGateway 后误触发,isRestartStorm 防配置错时反复崩溃拖垮 commonPool。
-        processHandle.setOnExitCallback(this::onGatewayProcessExit);
-        bridgeClient = new McpGatewayBridgeClient(stateFile, token);
-        if (!bridgeClient.waitUntilReady(COLD_START_TIMEOUT)) {
-            throw new IllegalStateException("MCP Gateway did not become ready");
+        McpGatewayProcessHandle startedHandle = null;
+        boolean committed = false;
+        long generation = ++processGeneration;
+        try {
+            throwIfLifecycleDisposed();
+            startedHandle = McpGatewayProcessHandle.start(command);
+            McpGatewayProcessHandle callbackHandle = startedHandle;
+            startedHandle.setOnExitCallback(() -> onGatewayProcessExit(callbackHandle, generation));
+            throwIfLifecycleDisposed();
+
+            McpGatewayBridgeClient startedClient = new McpGatewayBridgeClient(stateFile, token);
+            boolean ready = startedClient.waitUntilReady(COLD_START_TIMEOUT);
+            throwIfLifecycleDisposed();
+            if (!ready) {
+                throw new IllegalStateException("MCP Gateway did not become ready");
+            }
+
+            // 只有启动、ready 与最后一次生命周期复核全部成功后才发布新资源。dispose 后不会再写回
+            // processHandle/bridgeClient,失败的局部句柄在 finally 中确定性终止。
+            processHandle = startedHandle;
+            bridgeClient = startedClient;
+            committed = true;
+        } finally {
+            if (!committed && startedHandle != null) {
+                startedHandle.setOnExitCallback(null);
+                startedHandle.stop();
+            }
         }
     }
 
     /**
-     * gateway 进程意外退出时的自愈回调(由 {@code McpGatewayProcessHandle.onProcessExit} 在 commonPool 触发)。
-     * <p>自愈体(ensureStarted 最长 60s+10s + applySnapshot 60s,均在锁内)投共享后台池执行——
-     * 不能留在 onExit 的回调线程(自愈风暴时占满 commonPool),也不应无 executor 落回 commonPool
-     * (等价换线程,风暴闸门限 3 并发只是缓解)。内部 synchronized(lock) 与现有调用方互斥。
-     * {@code setOnExitCallback(null)} 是首选屏障,此处 {@code processHandle==null}
-     * 早退是竞态兜底——onExit 已在飞时读到的 callback 仍可能非 null,而 stopGateway 已置 processHandle=null。
+     * gateway 进程意外退出时的自愈回调。handle + generation 构成资源身份,旧进程延迟到达的
+     * onExit 不得重启或覆盖新 generation。自愈 Future 被保存,dispose 可主动取消尚未执行的任务。
      */
-    private void onGatewayProcessExit() {
-        CompletableFuture.runAsync(() -> {
-            // MCP-01:dispose() 后 project 已销毁,自愈无意义(ensureStarted 会触碰已释放的平台资源)。
-            // processHandle==null 早退是主屏障,此处 project.isDisposed() 是竞态双保险。
-            if (project != null && project.isDisposed()) {
+    private void onGatewayProcessExit(McpGatewayProcessHandle expectedHandle, long expectedGeneration) {
+        if (isLifecycleDisposed()) {
+            return;
+        }
+        synchronized (lock) {
+            if (isLifecycleDisposed() || !isCurrentProcess(expectedHandle, expectedGeneration)) {
                 return;
             }
-            synchronized (lock) {
-                if (processHandle == null) {
-                    return;
+            Future<?> previous = selfHealFuture;
+            if (previous != null && !previous.isDone()) {
+                previous.cancel(true);
+            }
+            selfHealFuture = AppExecutorUtil.getAppExecutorService().submit(
+                    () -> runSelfHeal(expectedHandle, expectedGeneration));
+        }
+    }
+
+    private void runSelfHeal(McpGatewayProcessHandle expectedHandle, long expectedGeneration) {
+        if (isLifecycleDisposed() || Thread.currentThread().isInterrupted()) {
+            return;
+        }
+        synchronized (lock) {
+            if (isLifecycleDisposed() || Thread.currentThread().isInterrupted()
+                    || !isCurrentProcess(expectedHandle, expectedGeneration)) {
+                return;
+            }
+            long now = System.currentTimeMillis();
+            exitTimestamps.addLast(now);
+            while (!exitTimestamps.isEmpty() && exitTimestamps.peekFirst() < now - 30_000L) {
+                exitTimestamps.pollFirst();
+            }
+            if (McpGatewayProcessHandle.isRestartStorm(
+                    new java.util.ArrayList<>(exitTimestamps), now, 3, 30_000L)) {
+                LOG.error("[McpGateway] restart storm detected (>3 unexpected exits in 30s); giving up self-heal. "
+                        + "Likely config error (port conflict/script path); next buildCliConfig/refreshConfig resets counter.");
+                return;
+            }
+            try {
+                LOG.info("[McpGateway] gateway process exited unexpectedly; attempting self-heal...");
+                ensureStarted(lastKnownProjectPath);
+                if (currentSnapshot != null) {
+                    applySnapshot(lastKnownProjectPath);
                 }
-                long now = System.currentTimeMillis();
-                exitTimestamps.addLast(now);
-                while (!exitTimestamps.isEmpty() && exitTimestamps.peekFirst() < now - 30_000L) {
-                    exitTimestamps.pollFirst();
-                }
-                if (McpGatewayProcessHandle.isRestartStorm(
-                        new java.util.ArrayList<>(exitTimestamps), now, 3, 30_000L)) {
-                    LOG.error("[McpGateway] restart storm detected (>3 unexpected exits in 30s); giving up self-heal. "
-                            + "Likely config error (port conflict/script path); next buildCliConfig/refreshConfig resets counter.");
-                    return;
-                }
-                try {
-                    LOG.info("[McpGateway] gateway process exited unexpectedly; attempting self-heal...");
-                    ensureStarted(lastKnownProjectPath);
-                    if (currentSnapshot != null) {
-                        applySnapshot(lastKnownProjectPath);
-                    }
-                    LOG.info("[McpGateway] self-healed after unexpected exit");
-                } catch (Exception e) {
+                LOG.info("[McpGateway] self-healed after unexpected exit");
+            } catch (Exception e) {
+                if (!isLifecycleDisposed()) {
                     LOG.warn("[McpGateway] self-heal failed: " + e.getMessage()
                             + " (next send will cold-start a fresh gateway)");
                 }
             }
-        }, AppExecutorUtil.getAppExecutorService());
+        }
+    }
+
+    private boolean isCurrentProcess(McpGatewayProcessHandle expectedHandle, long expectedGeneration) {
+        return processHandle == expectedHandle && processGeneration == expectedGeneration;
+    }
+
+    private void cancelSelfHeal() {
+        Future<?> pending = selfHealFuture;
+        selfHealFuture = null;
+        if (pending != null && !pending.isDone()) {
+            pending.cancel(true);
+        }
     }
 
     private void stopExistingProcess() {
-        if (processHandle != null) {
+        McpGatewayProcessHandle staleHandle = processHandle;
+        processHandle = null;
+        bridgeClient = null;
+        processGeneration++;
+        if (staleHandle != null) {
             try {
-                // stop 前清回调:防 stop() 触发 onExit 误自愈(handle.stop 内也双重清,这里协同)。
-                processHandle.setOnExitCallback(null);
-                processHandle.stop();
+                staleHandle.setOnExitCallback(null);
+                staleHandle.stop();
             } catch (Exception e) {
                 LOG.debug("[McpGateway] Failed to stop stale process handle on rebuild: " + e.getMessage());
             }
@@ -346,7 +429,15 @@ public final class McpGatewayService implements Disposable {
 
     @Override
     public void dispose() {
+        synchronized (lifecycleLock) {
+            if (!disposed.compareAndSet(false, true)) {
+                return;
+            }
+        }
+        cancelSelfHeal();
         synchronized (lock) {
+            // 覆盖 onExit 在首次 cancel 与获得主锁之间提交 self-heal 的窄竞态。
+            cancelSelfHeal();
             try {
                 if (bridgeClient != null) {
                     bridgeClient.stop();
@@ -354,30 +445,31 @@ public final class McpGatewayService implements Disposable {
             } catch (Exception e) {
                 LOG.debug("[McpGateway] Stop API failed: " + e.getMessage());
             }
-            if (processHandle != null) {
-                processHandle.setOnExitCallback(null);
-                processHandle.stop();
-            }
+            stopExistingProcess();
             try {
-                Files.deleteIfExists(stateFile);
+                if (stateFile != null) {
+                    Files.deleteIfExists(stateFile);
+                }
             } catch (Exception ignored) {
             }
-            // MCP-01:与 stopGateway() 对齐显式置空字段。dispose 后在飞的 onGatewayProcessExit 自愈
-            // 回调等到锁时 processHandle==null 早退生效,杜绝「dispose 已停进程→自愈仍在 disposed
-            // service 上 ensureStarted 重启 Node→孤儿进程 + 端口占用」竞态。
-            processHandle = null;
-            bridgeClient = null;
         }
     }
 
     /**
      * 用户在行为菜单关闭 gateway 开关时调用:停止常驻 Node 进程并清空内部状态,
-     * 以便下次 {@link #ensureStarted} 从零重建。区别于 {@link #dispose}(项目销毁时一次性清理、
-     * 不置空字段),这里把句柄置 null 才允许重启;{@code currentRevision} 重置为 0,
+     * 以便下次 {@link #ensureStarted} 从零重建。区别于 {@link #dispose} 的不可逆生命周期闸门，
+     * 本方法只释放当前资源，后续仍允许重启；{@code currentRevision} 重置为 0，
      * 使 {@link #applySnapshot} 下次启动产出全新快照。关后下一条消息起走直连 MCP。
      */
     public void stopGateway() {
+        if (isLifecycleDisposed()) {
+            return;
+        }
+        cancelSelfHeal();
         synchronized (lock) {
+            if (isLifecycleDisposed()) {
+                return;
+            }
             try {
                 if (bridgeClient != null) {
                     bridgeClient.stop();
@@ -385,16 +477,11 @@ public final class McpGatewayService implements Disposable {
             } catch (Exception e) {
                 LOG.debug("[McpGateway] Stop API failed on user toggle: " + e.getMessage());
             }
-            if (processHandle != null) {
-                processHandle.setOnExitCallback(null);
-                processHandle.stop();
-            }
+            stopExistingProcess();
             try {
                 Files.deleteIfExists(stateFile);
             } catch (Exception ignored) {
             }
-            processHandle = null;
-            bridgeClient = null;
             resetSnapshotState();
         }
     }
@@ -421,13 +508,26 @@ public final class McpGatewayService implements Disposable {
      * @throws Exception ensureStarted / applySnapshot 失败(端口冲突、脚本路径错、postSnapshot 超时等)
      */
     public void reloadGateway(String projectPath) throws Exception {
+        throwIfLifecycleDisposed();
         if (!McpGatewayFeatureFlags.isGatewayActive()) {
             throw new IllegalStateException("MCP Gateway is disabled");
         }
         synchronized (lock) {
+            throwIfLifecycleDisposed();
             stopGateway();
+            throwIfLifecycleDisposed();
             ensureStarted(projectPath);
             applySnapshot(projectPath);
+        }
+    }
+
+    private boolean isLifecycleDisposed() {
+        return disposed.get() || (project != null && project.isDisposed());
+    }
+
+    private void throwIfLifecycleDisposed() {
+        if (isLifecycleDisposed()) {
+            throw new IllegalStateException("MCP Gateway project lifecycle disposed");
         }
     }
 
