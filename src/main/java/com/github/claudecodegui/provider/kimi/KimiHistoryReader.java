@@ -346,7 +346,33 @@ public class KimiHistoryReader {
         } catch (IOException ignored) {
             // 非关键统计
         }
+        info.messageCount = approximateMessageCount(idDir.resolve("agents").resolve("main").resolve("wire.jsonl"));
         out.add(info);
+    }
+
+    /** 统计上限:超过此大小的 wire 不做计数(列表是轻量场景,大文件计数价值低)。 */
+    private static final long MESSAGE_COUNT_MAX_WIRE_BYTES = 2L * 1024 * 1024;
+
+    /**
+     * 会话消息数近似统计(非关键统计,容错):turn.prompt≈user、turn.ended≈assistant、
+     * tool.result / legacy role 行各一条。子串匹配避免全量 JSON 解析。
+     */
+    static int approximateMessageCount(Path wire) {
+        try {
+            if (!Files.isRegularFile(wire) || Files.size(wire) > MESSAGE_COUNT_MAX_WIRE_BYTES) {
+                return 0;
+            }
+            int count = 0;
+            for (String line : Files.readAllLines(wire, StandardCharsets.UTF_8)) {
+                if (line.contains("\"turn.prompt\"") || line.contains("\"turn.ended\"")
+                        || line.contains("\"tool.result\"") || line.contains("\"role\"")) {
+                    count++;
+                }
+            }
+            return count;
+        } catch (IOException e) {
+            return 0;
+        }
     }
 
     /** 候选键探测 cwd。 */
