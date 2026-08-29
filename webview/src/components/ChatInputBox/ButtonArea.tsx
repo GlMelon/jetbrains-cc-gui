@@ -87,6 +87,7 @@ export const ButtonArea = ({
   onShowThinkingEnabledChange,
   selectedModel = DEFAULT_CLAUDE_MODEL_ID,
   selectedModelIdentifier,
+  modelSelectOpenSignal,
   permissionMode = 'default',
   currentProvider = 'claude',
   reasoningEffort = 'high',
@@ -332,6 +333,7 @@ export const ButtonArea = ({
         <ModelConfigSelect
           selectedModel={selectedModel}
           selectedModelIdentifier={selectedModelIdentifier}
+          modelSelectOpenSignal={modelSelectOpenSignal}
           onModelSelect={(model) => onModelSelect?.(model)}
           models={availableModels}
           currentProvider={currentProvider}

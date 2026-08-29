@@ -63,6 +63,8 @@ interface ModelConfigSelectProps {
   selectedModel: string;
   /** 后端下发的选中模型 identifier,透传 ModelSelect 用于同名 id 精确判定。 */
   selectedModelIdentifier?: string;
+  /** /model 命令的命令式打开信号(递增触发):打开本菜单并直接展开模型列表。 */
+  modelSelectOpenSignal?: number;
   onModelSelect: (model: ModelInfo) => void;
   models?: ModelInfo[];
   currentProvider?: string;
@@ -95,6 +97,7 @@ function getReasoningLabel(
 export const ModelConfigSelect = ({
   selectedModel,
   selectedModelIdentifier,
+  modelSelectOpenSignal,
   onModelSelect,
   models = [], // A1:registry 为权威来源,调用方(ButtonArea)传入;不再回退静态表。
   currentProvider = 'claude',
@@ -261,6 +264,15 @@ export const ModelConfigSelect = ({
       mainRecalculate();
     }
   }, [clearHoverTimer, isOpen, mainRecalculate]);
+
+  // /model 命令链(4324bc09/本地 openSignal 语义):信号递增时打开本菜单并
+  // 直接展开模型列表 fly-out;0 为初始值,不触发。
+  useEffect(() => {
+    if (!modelSelectOpenSignal) return;
+    setIsOpen(true);
+    setActiveSubmenu('model');
+    mainRecalculate();
+  }, [modelSelectOpenSignal, mainRecalculate]);
 
   useEffect(() => {
     if (!isOpen) return;

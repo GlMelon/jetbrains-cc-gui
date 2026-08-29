@@ -13,6 +13,8 @@ const LABELS: Record<string, string> = {
 };
 
 vi.mock('react-i18next', () => ({
+  // import 链(src/i18n/config.ts)需要该导出;mock 环境不真正初始化。
+  initReactI18next: { type: '3rdParty', init: () => {} },
   useTranslation: () => ({
     t: (key: string, options?: { defaultValue?: string }) => LABELS[key] ?? options?.defaultValue ?? key,
     i18n: { exists: (key: string) => key in LABELS },

@@ -70,6 +70,15 @@
   color: #e09520;
 }
 
+/* Codex fast mode active - subtle orange indicator (upstream v0.5.4) */
+.selector-button.codex-fast-active {
+  color: #cc8400;
+}
+
+.selector-button.codex-fast-active:hover {
+  color: #e09520;
+}
+
 /* SVG icon styling within selector buttons */
 .selector-button > svg {
   width: 14px;
@@ -101,6 +110,30 @@
   text-overflow: ellipsis;
   max-width: 100%;
   transition: max-width var(--dur-enter) ease, opacity var(--dur-enter) ease, margin var(--dur-enter) ease;
+}
+
+/*
+ * Proximity compact mode (all CLI providers, upstream v0.5.4).
+ * Applied by useToolbarSelectorCompact when left selectors would get within 10px
+ * of the send cluster. `data-measuring` forces expanded layout during measure so
+ * we can compare full label widths without a collapse/expand loop.
+ */
+.button-area--compact:not([data-measuring]) .selector-button-text {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin: 0;
+}
+
+.button-area--compact:not([data-measuring]) .selector-button {
+  gap: 2px;
+  padding: 4px 6px;
+  min-width: 28px;
+}
+
+.button-area--compact:not([data-measuring]) .selector-button > .codicon-chevron-up,
+.button-area--compact:not([data-measuring]) .selector-button > .codicon-chevron-down {
+  display: none;
 }
 
 /* Container query for Claude: hide text when narrow (< 400px) */
@@ -242,6 +275,27 @@
   box-sizing: border-box;
 }
 
+/* Model dropdown: group headers (upstream v0.5.4, OpenCode long catalogs) */
+.model-selector-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  user-select: none;
+  cursor: default;
+}
+
+.model-selector-group-icon {
+  font-size: 11px;
+  width: 12px;
+  opacity: 0.85;
+}
+
 .selector-option {
   display: flex;
   align-items: center;
@@ -337,6 +391,15 @@
 
 .selector-search-row {
   padding: 4px 8px;
+}
+
+.selector-search-row--sticky {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--dropdown-bg);
+  border-bottom: 1px solid var(--dropdown-border);
 }
 
 .selector-search-input {

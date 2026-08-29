@@ -46,6 +46,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   selectedAgent,
   onAgentSelect,
   onOpenAgentSettings,
+  onAddModel,
   onClearAgent,
   fileCompletion,
   commandCompletion,
@@ -85,6 +86,8 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   selectedAgent?: SelectedAgent | null;
   onAgentSelect?: (agent: SelectedAgent) => void;
   onOpenAgentSettings?: () => void;
+  /** Navigate to model management to add models (upstream onAddModel chain). */
+  onAddModel?: () => void;
   onClearAgent: () => void;
   fileCompletion: CompletionController;
   commandCompletion: CompletionController;
@@ -133,6 +136,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
         selectedAgent={selectedAgent}
         onAgentSelect={(agent) => onAgentSelect?.(agent)}
         onOpenAgentSettings={onOpenAgentSettings}
+        onAddModel={onAddModel}
         onClearAgent={onClearAgent}
       />
 

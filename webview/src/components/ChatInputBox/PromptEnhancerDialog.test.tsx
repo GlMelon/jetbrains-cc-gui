@@ -12,31 +12,16 @@ vi.mock('react-i18next', () => ({
         'promptEnhancer.enhancing': 'Enhancing...',
         'promptEnhancer.useEnhanced': 'Use Enhanced',
         'promptEnhancer.keepOriginal': 'Keep Original',
-        'promptEnhancer.modeLabel': 'Mode',
-        'promptEnhancer.modeAuto': 'Auto',
-        'promptEnhancer.modeManual': 'Manual',
-        'promptEnhancer.modeUnavailable': 'Unavailable',
-        'promptEnhancer.providerLabel': 'CLI',
-        'promptEnhancer.providerUnresolved': 'No CLI resolved',
-        'promptEnhancer.modelLabel': 'Model',
-        'promptEnhancer.modelUnresolved': 'Default model',
-        'promptEnhancer.openSettings': 'Configure',
-        'promptEnhancer.openSettingsTooltip': 'Open settings',
-        'promptEnhancer.resolvingUsage': 'Resolving runtime config…',
-        'providers.claude.label': 'Claude Code',
-        'providers.codex.label': 'Codex',
       };
       return map[key] ?? options?.defaultValue ?? key;
     },
   }),
 }));
 
-vi.mock('../shared/ProviderModelIcon', () => ({
-  ProviderModelIcon: ({ providerId }: { providerId: string }) => (
-    <span data-testid={`provider-icon-${providerId}`}>{providerId}</span>
-  ),
-}));
-
+/**
+ * 本地实现是纯 7-prop 对话框(upstream 的 usage-meta 链在本仓 pre-merge 已删,
+ * 见 v0.5.4 合并审计)。用例对齐本地行为:开关/loading/回调,不含 usageInfo。
+ */
 describe('PromptEnhancerDialog', () => {
   it('renders nothing when closed', () => {
     const { container } = render(
@@ -53,77 +38,25 @@ describe('PromptEnhancerDialog', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('shows mode, CLI and model from usageInfo', () => {
+  it('shows original and enhanced prompts when open', () => {
     render(
       <PromptEnhancerDialog
         isOpen
-        isLoading
+        isLoading={false}
         originalPrompt="rewrite this"
-        enhancedPrompt=""
-        usageInfo={{
-          provider: 'claude',
-          model: 'claude-sonnet-4-6',
-          resolutionSource: 'auto',
-        }}
+        enhancedPrompt="better text"
         onUseEnhanced={vi.fn()}
         onKeepOriginal={vi.fn()}
         onClose={vi.fn()}
       />
     );
-
-    expect(screen.getByTestId('prompt-enhancer-mode').textContent).toContain('Auto');
-    expect(screen.getByTestId('prompt-enhancer-provider').textContent).toContain('Claude Code');
-    expect(screen.getByTestId('prompt-enhancer-model').textContent).toContain('claude-sonnet-4-6');
+    expect(screen.getByText('rewrite this')).toBeTruthy();
+    expect(screen.getByText('better text')).toBeTruthy();
   });
 
-  it('shows manual mode label when resolutionSource is manual', () => {
-    render(
-      <PromptEnhancerDialog
-        isOpen
-        isLoading={false}
-        originalPrompt="x"
-        enhancedPrompt="y"
-        usageInfo={{
-          provider: 'codex',
-          model: 'gpt-5.5',
-          resolutionSource: 'manual',
-        }}
-        onUseEnhanced={vi.fn()}
-        onKeepOriginal={vi.fn()}
-        onClose={vi.fn()}
-      />
-    );
-
-    expect(screen.getByTestId('prompt-enhancer-mode').textContent).toContain('Manual');
-    expect(screen.getByTestId('prompt-enhancer-provider').textContent).toContain('Codex');
-  });
-
-  it('invokes onOpenSettings when configure is clicked', () => {
-    const onOpenSettings = vi.fn();
-    render(
-      <PromptEnhancerDialog
-        isOpen
-        isLoading={false}
-        originalPrompt="x"
-        enhancedPrompt="y"
-        usageInfo={{
-          provider: 'claude',
-          model: 'claude-sonnet-4-6',
-          resolutionSource: 'auto',
-        }}
-        onUseEnhanced={vi.fn()}
-        onKeepOriginal={vi.fn()}
-        onClose={vi.fn()}
-        onOpenSettings={onOpenSettings}
-      />
-    );
-
-    fireEvent.click(screen.getByTestId('prompt-enhancer-open-settings'));
-    expect(onOpenSettings).toHaveBeenCalledTimes(1);
-  });
-
-  it('hides configure button when onOpenSettings is omitted', () => {
-    render(
+  it('closes via the close button', () => {
+    const onClose = vi.fn();
+    const { container } = render(
       <PromptEnhancerDialog
         isOpen
         isLoading={false}
@@ -131,26 +64,87 @@ describe('PromptEnhancerDialog', () => {
         enhancedPrompt="y"
         onUseEnhanced={vi.fn()}
         onKeepOriginal={vi.fn()}
+        onClose={onClose}
+      />
+    );
+    fireEvent.click(container.querySelector('.prompt-enhancer-close')!);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('invokes onUseEnhanced when the primary button is clicked', () => {
+    const onUseEnhanced = vi.fn();
+    render(
+      <PromptEnhancerDialog
+        isOpen
+        isLoading={false}
+        originalPrompt="x"
+        enhancedPrompt="y"
+        onUseEnhanced={onUseEnhanced}
+        onKeepOriginal={vi.fn()}
         onClose={vi.fn()}
       />
     );
-    expect(screen.queryByTestId('prompt-enhancer-open-settings')).toBeNull();
+    fireEvent.click(screen.getByText('Use Enhanced'));
+    expect(onUseEnhanced).toHaveBeenCalledTimes(1);
   });
 
-  it('shows resolving placeholder when usageInfo is missing', () => {
-    render(
+  it('disables Use Enhanced while loading or when there is no enhanced prompt', () => {
+    const { rerender } = render(
       <PromptEnhancerDialog
         isOpen
         isLoading
         originalPrompt="x"
         enhancedPrompt=""
-        usageInfo={null}
         onUseEnhanced={vi.fn()}
         onKeepOriginal={vi.fn()}
         onClose={vi.fn()}
       />
     );
-    expect(screen.getByTestId('prompt-enhancer-meta-loading')).toBeTruthy();
-    expect(screen.queryByTestId('prompt-enhancer-mode')).toBeNull();
+    const primaryButtons = () =>
+      screen.getAllByText('Use Enhanced').map((el) => (el as HTMLButtonElement).disabled);
+    expect(primaryButtons().every(Boolean)).toBe(true);
+
+    rerender(
+      <PromptEnhancerDialog
+        isOpen
+        isLoading={false}
+        originalPrompt="x"
+        enhancedPrompt=""
+        onUseEnhanced={vi.fn()}
+        onKeepOriginal={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(primaryButtons().every(Boolean)).toBe(true);
+
+    rerender(
+      <PromptEnhancerDialog
+        isOpen
+        isLoading={false}
+        originalPrompt="x"
+        enhancedPrompt="ready"
+        onUseEnhanced={vi.fn()}
+        onKeepOriginal={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+    expect(primaryButtons().some((disabled) => !disabled)).toBe(true);
+  });
+
+  it('closes on Escape key', () => {
+    const onClose = vi.fn();
+    render(
+      <PromptEnhancerDialog
+        isOpen
+        isLoading={false}
+        originalPrompt="x"
+        enhancedPrompt="y"
+        onUseEnhanced={vi.fn()}
+        onKeepOriginal={vi.fn()}
+        onClose={onClose}
+      />
+    );
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
