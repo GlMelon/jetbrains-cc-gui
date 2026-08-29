@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.grok;
 
+import com.github.claudecodegui.cli.common.CliPromptContexts;
 import com.github.claudecodegui.handler.history.NativeCliHistoryMessages;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
@@ -208,7 +209,8 @@ public class GrokHistoryReader {
             if (titlePreview.isEmpty()) {
                 String preview = previewTextOf(obj);
                 if (!preview.isBlank()) {
-                    titlePreview = truncate(preview);
+                    // 首条 user prompt 是标题来源,剥除 Opened Files 等注入段(与 kimi 同款)
+                    titlePreview = truncate(CliPromptContexts.stripInjectedContext(preview));
                 }
             }
         }
@@ -285,7 +287,7 @@ public class GrokHistoryReader {
                     return null;
                 }
                 JsonObject front = baseMessage("user");
-                front.addProperty("content", text);
+                front.addProperty("content", CliPromptContexts.stripInjectedContext(text));
                 return front;
             }
             default:

@@ -94,7 +94,7 @@ function extractToolResultText(result) {
   }
 }
 
-function buildOmpArgs({ message, sessionId, model, reasoningEffort }) {
+function buildOmpArgs({ message, sessionId, model, reasoningEffort, thinkingOutputEnabled = true }) {
   const args = ['--print', '--mode', 'json'];
   // The webview maps omp modes (smol/slow/plan) onto the model value itself —
   // omp resolves role names passed to --model, so no separate mode handling.
@@ -105,7 +105,9 @@ function buildOmpArgs({ message, sessionId, model, reasoningEffort }) {
   if (isNonEmptySessionId(sessionId)) {
     args.push('--resume', sessionId.trim());
   }
-  const thinkingFlag = resolveThinkingFlag(reasoningEffort);
+  // 思考开关 OFF 时不透传 --thinking(对齐 pi 直连:省略 flag 即源头停思考透出;
+  // 显示层 TurnPushGate 拦截只是兜底)。默认 true 保持既有行为。
+  const thinkingFlag = thinkingOutputEnabled === false ? null : resolveThinkingFlag(reasoningEffort);
   if (thinkingFlag) {
     args.push('--thinking', thinkingFlag);
   }
@@ -128,7 +130,8 @@ export async function sendMessage(
   cwd = '',
   model = '',
   reasoningEffort = '',
-  attachments = []
+  attachments = [],
+  thinkingOutputEnabled = true
 ) {
   beginStream();
 
@@ -147,7 +150,7 @@ export async function sendMessage(
   }
 
   const bin = resolveOmpCliPath();
-  const args = buildOmpArgs({ message: promptText, sessionId, model, reasoningEffort });
+  const args = buildOmpArgs({ message: promptText, sessionId, model, reasoningEffort, thinkingOutputEnabled });
   if (isNonEmptySessionId(sessionId)) {
     emitSessionId(sessionId.trim());
   }

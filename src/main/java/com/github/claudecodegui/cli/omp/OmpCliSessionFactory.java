@@ -16,14 +16,23 @@ import com.github.claudecodegui.session.runtime.ProviderType;
  * 声明 provider 路由键 {@link CommonConstants#PROVIDER_OMP},由 CliSessionManager 注册表查表调用。
  */
 public class OmpCliSessionFactory implements CliSessionFactory {
-    private final NodeService nodeService;
+    // ⚠️ 构造期不可解析 NodeService(内部 new EnvironmentConfigurator 触碰 IntelliJ 平台
+    // Application 单例):CliSessionManager 装配发生在 ClaudeSession 构造链上,纯 JUnit
+    // 环境(无 Application)会 NPE。惰性到 create() 首次调用。
+    private volatile NodeService nodeService;
 
     public OmpCliSessionFactory() {
-        this(NodeService.getInstance());
     }
 
     public OmpCliSessionFactory(NodeService nodeService) {
         this.nodeService = nodeService;
+    }
+
+    private NodeService nodeService() {
+        if (nodeService == null) {
+            nodeService = NodeService.getInstance();
+        }
+        return nodeService;
     }
 
     @Override
@@ -33,6 +42,6 @@ public class OmpCliSessionFactory implements CliSessionFactory {
 
     @Override
     public CliSession create(String tabId) {
-        return new ChannelCliSession(tabId, ProviderType.OMP, nodeService);
+        return new ChannelCliSession(tabId, ProviderType.OMP, nodeService());
     }
 }

@@ -1,5 +1,6 @@
 package com.github.claudecodegui.provider.pi;
 
+import com.github.claudecodegui.cli.common.CliPromptContexts;
 import com.github.claudecodegui.handler.history.NativeCliHistoryMessages;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
@@ -148,7 +149,8 @@ public class PiHistoryReader {
                 } else if ("session_info".equals(type) && !titleResolved) {
                     String name = str(entry, "name");
                     if (name != null && !name.isBlank()) {
-                        title = truncateTitle(name);
+                        // name 若由首条 prompt 派生会带注入段,剥除(与 kimi 同款)
+                        title = truncateTitle(CliPromptContexts.stripInjectedContext(name));
                         titleResolved = true;
                     }
                 }
@@ -207,7 +209,8 @@ public class PiHistoryReader {
             case "user": {
                 JsonArray blocks = new JsonArray();
                 String text = extractContent(message.get("content"), blocks, false);
-                return NativeCliHistoryMessages.userText(text.isBlank() ? null : text);
+                return NativeCliHistoryMessages.userText(text.isBlank() ? null
+                        : CliPromptContexts.stripInjectedContext(text));
             }
             case "assistant": {
                 JsonArray blocksOut = new JsonArray();

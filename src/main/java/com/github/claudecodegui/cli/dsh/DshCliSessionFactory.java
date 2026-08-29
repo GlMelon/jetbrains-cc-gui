@@ -18,14 +18,23 @@ import com.github.claudecodegui.session.runtime.ProviderType;
  * 声明 provider 路由键 {@link CommonConstants#PROVIDER_DSH},由 CliSessionManager 注册表查表调用。
  */
 public class DshCliSessionFactory implements CliSessionFactory {
-    private final NodeService nodeService;
+    // ⚠️ 构造期不可解析 NodeService(内部 new EnvironmentConfigurator 触碰 IntelliJ 平台
+    // Application 单例):CliSessionManager 装配发生在 ClaudeSession 构造链上,纯 JUnit
+    // 环境(无 Application)会 NPE。惰性到 create() 首次调用(与 OmpCliSessionFactory 同款)。
+    private volatile NodeService nodeService;
 
     public DshCliSessionFactory() {
-        this(NodeService.getInstance());
     }
 
     public DshCliSessionFactory(NodeService nodeService) {
         this.nodeService = nodeService;
+    }
+
+    private NodeService nodeService() {
+        if (nodeService == null) {
+            nodeService = NodeService.getInstance();
+        }
+        return nodeService;
     }
 
     @Override
@@ -35,6 +44,6 @@ public class DshCliSessionFactory implements CliSessionFactory {
 
     @Override
     public CliSession create(String tabId) {
-        return new ChannelCliSession(tabId, ProviderType.DSH, nodeService);
+        return new ChannelCliSession(tabId, ProviderType.DSH, nodeService());
     }
 }
