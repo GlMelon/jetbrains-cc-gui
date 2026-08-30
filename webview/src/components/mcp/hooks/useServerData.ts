@@ -8,7 +8,7 @@ import { subscribeEvent, sendAction } from '../../../bridge/typed';
 import { DOWNSTREAM, UPSTREAM } from '../../../generated/protocol';
 import { registerLegacyAlias } from '../../../bridge';
 import type { McpServer, McpServerStatusInfo, ServerToolsState, RefreshLog, CacheKeys } from '../types';
-import { readCache, readToolsCache, writeCache } from '../utils';
+import { clearToolsCache, readCache, readToolsCache, writeCache } from '../utils';
 
 interface UseServerDataOptions {
   isCodexMode: boolean;
@@ -38,6 +38,18 @@ function getTerminalStatusNames(statusList: McpServerStatusInfo[]): Set<string> 
   return names;
 }
 
+function clearPersistedToolsForTerminalStatuses(
+  servers: McpServer[],
+  terminalNames: Set<string>,
+  cacheKeys: CacheKeys,
+): void {
+  if (terminalNames.size === 0) return;
+  for (const server of servers) {
+    if (server.id && server.name && terminalNames.has(server.name)) {
+      clearToolsCache(server.id, cacheKeys);
+    }
+  }
+}
 function clearToolsForTerminalStatuses(
   toolsState: ServerToolsState,
   servers: McpServer[],
@@ -264,7 +276,9 @@ export function useServerData({
       if (cachedStatus && cachedStatus.length > 0) {
         const terminalStatusNames = getTerminalStatusNames(cachedStatus);
         terminalStatusNamesRef.current = terminalStatusNames;
-        setServerTools(prev => clearToolsForTerminalStatuses(prev, cachedServers || [], terminalStatusNames));
+        const cachedServerList = cachedServers || [];
+        setServerTools(prev => clearToolsForTerminalStatuses(prev, cachedServerList, terminalStatusNames));
+        clearPersistedToolsForTerminalStatuses(cachedServerList, terminalStatusNames, cacheKeys);
         const statusMap = new Map<string, McpServerStatusInfo>();
         cachedStatus.forEach((status) => {
           statusMap.set(status.name, status);
@@ -339,6 +353,7 @@ export function useServerData({
         const serverList: McpServer[] = JSON.parse(jsonStr);
         setServers(serverList);
         setServerTools(prev => clearToolsForTerminalStatuses(prev, serverList, terminalStatusNamesRef.current));
+        clearPersistedToolsForTerminalStatuses(serverList, terminalStatusNamesRef.current, cacheKeys);
         setLoading(false);
         // Persist to cache so subsequent mounts can load instantly
         writeCache(cacheKeys.SERVERS, serverList);
@@ -361,6 +376,7 @@ export function useServerData({
         const terminalStatusNames = getTerminalStatusNames(statusList);
         terminalStatusNamesRef.current = terminalStatusNames;
         setServerTools(prev => clearToolsForTerminalStatuses(prev, serversRef.current, terminalStatusNames));
+        clearPersistedToolsForTerminalStatuses(serversRef.current, terminalStatusNames, cacheKeys);
         // 收到响应:清除前端超时兜底
         if (statusTimeoutRef.current) {
           window.clearTimeout(statusTimeoutRef.current);
