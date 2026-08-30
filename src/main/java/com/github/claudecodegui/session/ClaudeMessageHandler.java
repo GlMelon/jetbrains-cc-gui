@@ -37,6 +37,7 @@ public class ClaudeMessageHandler implements MessageCallback {
     private final ReplayDeduplicator replayDedup = new ReplayDeduplicator();
     private final Gson gson;
     private final String expectedRuntimeSessionEpoch;
+    private final long expectedResponseTurnEpoch;
     private final CodemossSettingsService settingsService;
 
     // Content accumulator for the current assistant message
@@ -80,6 +81,7 @@ public class ClaudeMessageHandler implements MessageCallback {
             MessageMerger messageMerger,
             Gson gson,
             String expectedRuntimeSessionEpoch,
+            long expectedResponseTurnEpoch,
             CodemossSettingsService settingsService
     ) {
         this.project = project;
@@ -89,7 +91,36 @@ public class ClaudeMessageHandler implements MessageCallback {
         this.messageMerger = messageMerger;
         this.gson = gson;
         this.expectedRuntimeSessionEpoch = expectedRuntimeSessionEpoch;
+        this.expectedResponseTurnEpoch = expectedResponseTurnEpoch;
         this.settingsService = settingsService != null ? settingsService : new CodemossSettingsService();
+    }
+
+    public ClaudeMessageHandler(
+            Project project,
+            SessionState state,
+            CallbackHandler callbackHandler,
+            MessageParser messageParser,
+            MessageMerger messageMerger,
+            Gson gson,
+            String expectedRuntimeSessionEpoch,
+            CodemossSettingsService settingsService
+    ) {
+        this(project, state, callbackHandler, messageParser, messageMerger, gson,
+                expectedRuntimeSessionEpoch, 0L, settingsService);
+    }
+
+    public ClaudeMessageHandler(
+            Project project,
+            SessionState state,
+            CallbackHandler callbackHandler,
+            MessageParser messageParser,
+            MessageMerger messageMerger,
+            Gson gson,
+            String expectedRuntimeSessionEpoch,
+            long expectedResponseTurnEpoch
+    ) {
+        this(project, state, callbackHandler, messageParser, messageMerger, gson,
+                expectedRuntimeSessionEpoch, expectedResponseTurnEpoch, null);
     }
 
     /**
@@ -135,6 +166,10 @@ public class ClaudeMessageHandler implements MessageCallback {
         return currentEpoch != null && !expectedRuntimeSessionEpoch.equals(currentEpoch);
     }
 
+    private boolean isStaleCallback() {
+        return isStaleRuntimeEpoch() || !state.isResponseTurnCurrent(expectedResponseTurnEpoch);
+    }
+
     /**
      * Reset segment activity flags and replay deduplicator.
      * Called at stream start, stream end, block reset, and error/completion boundaries.
@@ -150,7 +185,7 @@ public class ClaudeMessageHandler implements MessageCallback {
      */
     @Override
     public void onMessage(String type, String content) {
-        if (isStaleRuntimeEpoch()) {
+        if (isStaleCallback()) {
             LOG.debug("Ignoring stale Claude callback message for epoch: " + expectedRuntimeSessionEpoch);
             return;
         }
@@ -261,7 +296,7 @@ public class ClaudeMessageHandler implements MessageCallback {
      */
     @Override
     public void onError(String error) {
-        if (isStaleRuntimeEpoch()) {
+        if (isStaleCallback()) {
             LOG.debug("Ignoring stale Claude callback error for epoch: " + expectedRuntimeSessionEpoch);
             return;
         }
@@ -271,7 +306,6 @@ public class ClaudeMessageHandler implements MessageCallback {
         }
 
         isStreaming = false;
-        streamEndedThisTurn = false;
 
         errorReportedThisTurn = true;
         lastReportedError = error;
@@ -297,7 +331,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         // (早于后端 stream_start),若本 turn 死在 stream_start 之前(如 resolver 抛错),
         // wasStreaming=false 会让前端「正在流式输出」footer 永久悬挂。前端
         // getStreamEndHandlingMode 对未开流到达有 minimal/skip 幂等兜底,多发无害。
-        callbackHandler.notifyStreamEnd();
+        notifyStreamEndOnce();
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
         // Sync status bar: error also means the turn is over, clear stale status.
@@ -334,7 +368,7 @@ public class ClaudeMessageHandler implements MessageCallback {
      */
     @Override
     public void onComplete(CliResult result) {
-        if (isStaleRuntimeEpoch()) {
+        if (isStaleCallback()) {
             LOG.debug("Ignoring stale Claude callback completion for epoch: " + expectedRuntimeSessionEpoch);
             return;
         }
@@ -347,7 +381,6 @@ public class ClaudeMessageHandler implements MessageCallback {
             return;
         }
         if (streamEndedThisTurn) {
-            streamEndedThisTurn = false;
             errorReportedThisTurn = false;
             lastReportedError = null;
             // Safety net: ensure loading state is cleared even when stream_end
@@ -395,7 +428,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         if (wasStreaming) {
             LOG.warn("onComplete called without prior stream_end — forcing stream cleanup");
             callbackHandler.notifyMessageUpdate(state.getMessages());
-            callbackHandler.notifyStreamEnd();
+            notifyStreamEndOnce();
         }
 
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
@@ -439,10 +472,9 @@ public class ClaudeMessageHandler implements MessageCallback {
 
         finalizeToolLifecycle();
         callbackHandler.notifyMessageUpdate(state.getMessages());
-        if (wasStreaming && !streamEndedThisTurn) {
-            callbackHandler.notifyStreamEnd();
+        if (wasStreaming) {
+            notifyStreamEndOnce();
         }
-        streamEndedThisTurn = false;
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
         // Sync status bar: interruption also means the turn is over.
@@ -456,7 +488,7 @@ public class ClaudeMessageHandler implements MessageCallback {
 
     @Override
     public void onQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState queueState, int aheadCount) {
-        if (isStaleRuntimeEpoch()) {
+        if (isStaleCallback()) {
             LOG.debug("Ignoring stale Claude queue update for epoch: " + expectedRuntimeSessionEpoch);
             return;
         }
@@ -1011,10 +1043,22 @@ public class ClaudeMessageHandler implements MessageCallback {
     /**
      * Handle stream end event. Notifies the frontend that the message is complete.
      */
+    private boolean notifyStreamEndOnce() {
+        if (streamEndedThisTurn) {
+            return false;
+        }
+        streamEndedThisTurn = true;
+        callbackHandler.notifyStreamEnd();
+        return true;
+    }
+
     private void handleStreamEnd() {
+        if (!isStreaming && streamEndedThisTurn) {
+            return;
+        }
+
         LOG.debug("Stream ended");
         isStreaming = false;  // Mark streaming as inactive
-        streamEndedThisTurn = true;
         resetSegmentState();
 
         // Reset thinking state — stream end is the definitive boundary for a turn.
@@ -1035,7 +1079,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         finalizeToolLifecycle();
         callbackHandler.notifyStreamCompleted();
         callbackHandler.notifyMessageUpdate(state.getMessages());
-        callbackHandler.notifyStreamEnd();
+        notifyStreamEndOnce();
         state.setBusy(false);
         state.setLoading(false);
         state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.COMPLETED);

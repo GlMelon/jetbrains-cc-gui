@@ -289,7 +289,13 @@ public class SessionSendService {
     ) {
         // 绑定当前运行时会话 epoch:运行时切换后(见 ModelProviderHandler 旋转 epoch),
         // 旧 Codex 进程的回调会因 epoch 不匹配被 CodexMessageHandler 丢弃(防串台,与 Claude 侧一致)。
-        CodexMessageHandler handler = new CodexMessageHandler(state, callbackFacade.getCallbackHandler(), state.getRuntimeSessionEpoch());
+        long responseTurnEpoch = state.beginResponseTurn();
+        CodexMessageHandler handler = new CodexMessageHandler(
+                state,
+                callbackFacade.getCallbackHandler(),
+                state.getRuntimeSessionEpoch(),
+                responseTurnEpoch
+        );
         String accessMode = CodemossSettingsService.CODEX_RUNTIME_ACCESS_INACTIVE;
         try {
             accessMode = CodemossSettingsService.getInstance().getCodexRuntimeAccessMode();
@@ -361,10 +367,12 @@ public class SessionSendService {
             List<String> fileTagPaths,
             String effectivePermissionMode
     ) {
+        long responseTurnEpoch = state.beginResponseTurn();
         CodexMessageHandler handler = new CodexMessageHandler(
                 state,
                 callbackFacade.getCallbackHandler(),
-                state.getRuntimeSessionEpoch()
+                state.getRuntimeSessionEpoch(),
+                responseTurnEpoch
         );
 
         // 复用 provider 中性的上下文构造(workspace/module/file);buildCodexContextAppend 实为通用,
@@ -435,6 +443,7 @@ public class SessionSendService {
                         att.data != null ? att.data.length() + "chars" : "null"));
             }
         }
+        long responseTurnEpoch = state.beginResponseTurn();
         ClaudeMessageHandler handler = new ClaudeMessageHandler(
                 project,
                 state,
@@ -443,6 +452,7 @@ public class SessionSendService {
                 messageMerger,
                 gson,
                 state.getRuntimeSessionEpoch(),
+                responseTurnEpoch,
                 CodemossSettingsService.getInstance()
         );
 

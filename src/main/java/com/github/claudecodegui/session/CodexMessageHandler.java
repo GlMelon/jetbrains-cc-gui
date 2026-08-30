@@ -38,6 +38,10 @@ public class CodexMessageHandler implements MessageCallback {
      */
     private final String expectedRuntimeSessionEpoch;
     /**
+     * expected response turn epoch.
+     */
+    private final long expectedResponseTurnEpoch;
+    /**
      * message merger.
      */
     private final MessageMerger messageMerger = new MessageMerger();
@@ -83,7 +87,7 @@ public class CodexMessageHandler implements MessageCallback {
      * @param callbackHandler callback handler
      */
     public CodexMessageHandler(SessionState state, CallbackHandler callbackHandler) {
-        this(state, callbackHandler, null);
+        this(state, callbackHandler, null, 0L);
     }
 
     /**
@@ -96,9 +100,19 @@ public class CodexMessageHandler implements MessageCallback {
      *                                     null/空 表示不参与守卫。
      */
     public CodexMessageHandler(SessionState state, CallbackHandler callbackHandler, String expectedRuntimeSessionEpoch) {
+        this(state, callbackHandler, expectedRuntimeSessionEpoch, 0L);
+    }
+
+    public CodexMessageHandler(
+            SessionState state,
+            CallbackHandler callbackHandler,
+            String expectedRuntimeSessionEpoch,
+            long expectedResponseTurnEpoch
+    ) {
         this.state = state;
         this.callbackHandler = callbackHandler;
         this.expectedRuntimeSessionEpoch = expectedRuntimeSessionEpoch;
+        this.expectedResponseTurnEpoch = expectedResponseTurnEpoch;
     }
 
     /**
@@ -115,6 +129,10 @@ public class CodexMessageHandler implements MessageCallback {
         return currentEpoch != null && !expectedRuntimeSessionEpoch.equals(currentEpoch);
     }
 
+    private boolean isStaleCallback() {
+        return isStaleRuntimeEpoch() || !state.isResponseTurnCurrent(expectedResponseTurnEpoch);
+    }
+
     /**
      * Handle a received message by dispatching to the appropriate handler based on type.
      *
@@ -123,7 +141,7 @@ public class CodexMessageHandler implements MessageCallback {
      */
     @Override
     public void onMessage(String type, String content) {
-        if (isStaleRuntimeEpoch()) {
+        if (isStaleCallback()) {
             LOG.debug("Ignoring stale Codex onMessage (runtime session switched): type=" + type);
             return;
         }
@@ -234,12 +252,11 @@ public class CodexMessageHandler implements MessageCallback {
      */
     @Override
     public void onError(String error) {
-        if (isStaleRuntimeEpoch()) {
+        if (isStaleCallback()) {
             LOG.debug("Ignoring stale Codex onError (runtime session switched)");
             return;
         }
         isStreaming = false;
-        streamEndedThisTurn = false;
         resetThinkingStatus();
         replayDedup.reset();
         state.setError(error);
@@ -256,7 +273,7 @@ public class CodexMessageHandler implements MessageCallback {
         // streamingActive 在 RESPONSE_PHASE(active) 即置位,turn 若死在
         // stream_start 之前,wasStreaming=false 会悬挂前端流式 footer;
         // 前端 minimal/skip 幂等兜底使未开流时的多发无害。
-        callbackHandler.notifyStreamEnd();
+        notifyStreamEndOnce();
         // 项4:删除 notifyStreamEnd 之后冗余的第二次 notifyMessageUpdate(上方已通知,与 Claude onError 对称)。
         resetStreamingAccumulator();
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
@@ -295,7 +312,7 @@ public class CodexMessageHandler implements MessageCallback {
      */
     @Override
     public void onComplete(CliResult result) {
-        if (isStaleRuntimeEpoch()) {
+        if (isStaleCallback()) {
             LOG.debug("Ignoring stale Codex onComplete (runtime session switched)");
             return;
         }
@@ -307,7 +324,6 @@ public class CodexMessageHandler implements MessageCallback {
         boolean wasStreaming = isStreaming;
 
         isStreaming = false;
-        streamEndedThisTurn = false;
         state.setBusy(false);
         state.setLoading(false);
         state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.COMPLETED);
@@ -318,7 +334,7 @@ public class CodexMessageHandler implements MessageCallback {
         if (wasStreaming && !streamEndedBeforeComplete) {
             LOG.warn("Codex onComplete called without prior stream_end; forcing stream cleanup");
             callbackHandler.notifyMessageUpdate(state.getMessages());
-            callbackHandler.notifyStreamEnd();
+            notifyStreamEndOnce();
         }
 
         resetStreamingAccumulator();
@@ -331,7 +347,6 @@ public class CodexMessageHandler implements MessageCallback {
         boolean wasStreaming = isStreaming;
 
         isStreaming = false;
-        streamEndedThisTurn = false;
         resetThinkingStatus();
         state.setError(null);
         state.setBusy(false);
@@ -352,7 +367,7 @@ public class CodexMessageHandler implements MessageCallback {
         finalizeToolLifecycle();
         callbackHandler.notifyMessageUpdate(state.getMessages());
         if (wasStreaming && !streamEndedBeforeComplete) {
-            callbackHandler.notifyStreamEnd();
+            notifyStreamEndOnce();
         }
 
         resetStreamingAccumulator();
@@ -366,7 +381,7 @@ public class CodexMessageHandler implements MessageCallback {
 
     @Override
     public void onQueueDisplayStateChanged(ClaudeSession.SessionCallback.QueueDisplayState queueState, int aheadCount) {
-        if (isStaleRuntimeEpoch()) {
+        if (isStaleCallback()) {
             LOG.debug("Ignoring stale Codex onQueueDisplayStateChanged (runtime session switched)");
             return;
         }
@@ -1268,19 +1283,27 @@ public class CodexMessageHandler implements MessageCallback {
      * Handle Stream End
      *
      */
+    private boolean notifyStreamEndOnce() {
+        if (streamEndedThisTurn) {
+            return false;
+        }
+        streamEndedThisTurn = true;
+        callbackHandler.notifyStreamEnd();
+        return true;
+    }
+
     private void handleStreamEnd() {
         if (!isStreaming && streamEndedThisTurn) {
             return;
         }
 
         isStreaming = false;
-        streamEndedThisTurn = true;
         resetThinkingStatus();
         replayDedup.reset();
         finalizeToolLifecycle();
         callbackHandler.notifyStreamCompleted();
         callbackHandler.notifyMessageUpdate(state.getMessages());
-        callbackHandler.notifyStreamEnd();
+        notifyStreamEndOnce();
         state.setBusy(false);
         state.setLoading(false);
         state.updateLastModifiedTime();

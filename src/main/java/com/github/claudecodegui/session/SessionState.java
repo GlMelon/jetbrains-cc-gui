@@ -145,6 +145,7 @@ public class SessionState {
     // PSI context collection toggle
     private boolean psiContextEnabled = true;
     private final AtomicLong pendingSendInvalidationEpoch = new AtomicLong(0);
+    private final AtomicLong responseTurnEpoch = new AtomicLong(0);
 
     // Getters
     public String getSessionId() {
@@ -256,6 +257,14 @@ public class SessionState {
 
     public boolean isPendingSendOperationCurrent(long epoch) {
         return pendingSendInvalidationEpoch.get() == epoch;
+    }
+
+    public long beginResponseTurn() {
+        return responseTurnEpoch.incrementAndGet();
+    }
+
+    public boolean isResponseTurnCurrent(long epoch) {
+        return epoch <= 0 || responseTurnEpoch.get() == epoch;
     }
 
     // Setters

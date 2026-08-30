@@ -24,6 +24,19 @@ public class SessionStateTest {
     }
 
     @Test
+    public void beginningNewResponseTurnInvalidatesEarlierCallbacks() {
+        SessionState state = new SessionState();
+
+        long firstTurn = state.beginResponseTurn();
+        assertTrue(state.isResponseTurnCurrent(firstTurn));
+
+        long secondTurn = state.beginResponseTurn();
+
+        assertFalse(state.isResponseTurnCurrent(firstTurn));
+        assertTrue(state.isResponseTurnCurrent(secondTurn));
+        assertTrue(state.isResponseTurnCurrent(0L));
+    }
+    @Test
     public void providerRejectsUnknownValues() {
         SessionState state = new SessionState();
         state.setProvider("codex");

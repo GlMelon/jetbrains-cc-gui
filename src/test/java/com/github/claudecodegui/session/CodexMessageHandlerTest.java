@@ -1,5 +1,6 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.google.gson.JsonArray;
@@ -892,6 +893,51 @@ public class CodexMessageHandlerTest {
         // 过期回调必须被丢弃:消息不增加,流未启动
         assertEquals("stale-epoch onMessage must not add messages", messagesBefore, state.getMessages().size());
         assertEquals("stale-epoch onMessage must not start stream", 0, callback.streamStartCount);
+    }
+
+    @Test
+    public void staleResponseTurnCallbacksDoNotEndNewTurn() {
+        SessionState state = new SessionState();
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        long firstTurn = state.beginResponseTurn();
+        CodexMessageHandler handler = new CodexMessageHandler(
+                state,
+                callbackHandler,
+                state.getRuntimeSessionEpoch(),
+                firstTurn
+        );
+
+        handler.onMessage(CliConstants.MSG_STREAM_START, "");
+        state.beginResponseTurn();
+        state.setBusy(true);
+        state.setLoading(true);
+
+        handler.onMessage(CliConstants.MSG_STREAM_END, "");
+        handler.onError("late error");
+        handler.onComplete(new CliResult());
+
+        assertTrue(state.isBusy());
+        assertTrue(state.isLoading());
+        assertEquals(0, callback.streamEndCount);
+    }
+
+    @Test
+    public void duplicateStreamEndAfterCompletionIsDeliveredOnce() {
+        SessionState state = new SessionState();
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+        handler.onMessage(CliConstants.MSG_STREAM_START, "");
+        handler.onMessage(CliConstants.MSG_STREAM_END, "");
+        handler.onComplete(new CliResult());
+        handler.onMessage(CliConstants.MSG_STREAM_END, "");
+
+        assertEquals(1, callback.streamEndCount);
     }
 
     @Test
