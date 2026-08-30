@@ -64,14 +64,24 @@ public final class SessionCapabilityService {
             return NULLS_GSON.toJson(payload);
         }
 
-        payload.addProperty(SessionCapabilitiesPayloadField.SESSION_ID.wireKey(), safe(session.getSessionId()));
+
+        String provider = safe(session.getProvider());
+        String sessionId = safe(session.getSessionId());
+        SessionNegotiatedCapabilities negotiatedCapabilities = session.getSessionCapabilities();
+        payload.addProperty(SessionCapabilitiesPayloadField.SESSION_ID.wireKey(), sessionId);
         payload.addProperty(
                 SessionCapabilitiesPayloadField.RUNTIME_EPOCH.wireKey(),
                 safe(session.getRuntimeSessionEpoch())
         );
-        payload.addProperty(SessionCapabilitiesPayloadField.PROVIDER.wireKey(), safe(session.getProvider()));
+        payload.addProperty(SessionCapabilitiesPayloadField.PROVIDER.wireKey(), provider);
         payload.addProperty(SessionCapabilitiesPayloadField.OBSERVED_AT.wireKey(), observedAt);
-
+        addNegotiatedCapabilities(payload, negotiatedCapabilities);
+        SessionCapabilityMetadataStore.getInstance().save(
+                provider,
+                sessionId,
+                negotiatedCapabilities,
+                observedAt
+        );
         JsonArray mcp = new JsonArray();
         String mcpError = null;
         boolean available = false;
@@ -96,6 +106,7 @@ public final class SessionCapabilityService {
                 mcpError = MCP_STATUS_ERROR;
             }
         }
+
         payload.addProperty(SessionCapabilitiesPayloadField.MCP_AVAILABLE.wireKey(), available);
         if (mcpError == null) {
             payload.add(SessionCapabilitiesPayloadField.MCP_ERROR.wireKey(), JsonNull.INSTANCE);
@@ -112,10 +123,28 @@ public final class SessionCapabilityService {
         payload.addProperty(SessionCapabilitiesPayloadField.RUNTIME_EPOCH.wireKey(), EMPTY);
         payload.addProperty(SessionCapabilitiesPayloadField.PROVIDER.wireKey(), EMPTY);
         payload.addProperty(SessionCapabilitiesPayloadField.OBSERVED_AT.wireKey(), observedAt);
+        addNegotiatedCapabilities(payload, SessionNegotiatedCapabilities.unknown());
         payload.addProperty(SessionCapabilitiesPayloadField.MCP_AVAILABLE.wireKey(), false);
         payload.add(SessionCapabilitiesPayloadField.MCP_ERROR.wireKey(), JsonNull.INSTANCE);
         payload.add(SessionCapabilitiesPayloadField.MCP.wireKey(), new JsonArray());
         payload.add(SessionCapabilitiesPayloadField.SKILLS.wireKey(), new JsonArray());
+    }
+
+    private static void addNegotiatedCapabilities(JsonObject payload, SessionNegotiatedCapabilities capabilities) {
+        SessionNegotiatedCapabilities effective = capabilities == null
+                ? SessionNegotiatedCapabilities.unknown() : capabilities;
+        JsonObject json = effective.toJson();
+        payload.add(SessionCapabilitiesPayloadField.STATE.wireKey(), json.get(SessionCapabilitiesPayloadField.STATE.wireKey()));
+        payload.add(SessionCapabilitiesPayloadField.CHANNEL.wireKey(), json.get(SessionCapabilitiesPayloadField.CHANNEL.wireKey()));
+        payload.add(SessionCapabilitiesPayloadField.THINKING_AVAILABLE.wireKey(),
+                json.get(SessionCapabilitiesPayloadField.THINKING_AVAILABLE.wireKey()));
+        payload.add(SessionCapabilitiesPayloadField.TOOLS_AVAILABLE.wireKey(),
+                json.get(SessionCapabilitiesPayloadField.TOOLS_AVAILABLE.wireKey()));
+        payload.add(SessionCapabilitiesPayloadField.SESSION_MCP_AVAILABLE.wireKey(),
+                json.get(SessionCapabilitiesPayloadField.SESSION_MCP_AVAILABLE.wireKey()));
+        payload.add(SessionCapabilitiesPayloadField.DEGRADED.wireKey(), json.get(SessionCapabilitiesPayloadField.DEGRADED.wireKey()));
+        payload.add(SessionCapabilitiesPayloadField.DEGRADATION_REASON.wireKey(),
+                json.get(SessionCapabilitiesPayloadField.DEGRADATION_REASON.wireKey()));
     }
 
     private static void appendServer(JsonArray target, JsonElement element, String currentProvider) {

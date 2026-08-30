@@ -73,6 +73,10 @@ public class SessionSendService {
         runtimeRouter.disposeTab(tabId);
     }
 
+    public SessionNegotiatedCapabilities getSessionCapabilities(String tabId, String provider) {
+        return runtimeRouter.capabilities(tabId, provider);
+    }
+
     /** Release all resources owned by this session send service. */
     public void dispose() {
         cliTitleService.dispose();

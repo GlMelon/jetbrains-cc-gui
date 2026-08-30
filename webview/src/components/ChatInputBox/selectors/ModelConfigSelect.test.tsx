@@ -131,6 +131,23 @@ describe('ModelConfigSelect', () => {
     expect(onModelSelect).toHaveBeenCalledWith('claude-haiku-4-5');
   });
 
+  it('hides effort when the current session reports thinking unavailable', () => {
+    render(
+      <ModelConfigSelect
+        selectedModel="grok-4.6"
+        onModelSelect={vi.fn()}
+        models={[{ id: 'grok-4.6', label: 'Grok 4.6' }]}
+        currentProvider="grok"
+        reasoningEffort="max"
+        sessionThinkingAvailable={false}
+        onReasoningChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('model-config-trigger'));
+    expect(screen.queryByTestId('model-config-option-effort')).toBeNull();
+  });
+
   it('hides effort for Claude models without adaptive thinking', () => {
     render(
       <ModelConfigSelect

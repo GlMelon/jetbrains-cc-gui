@@ -51,7 +51,7 @@ public class KimiCliSessionFactory implements CliSessionFactory {
         if (KimiAcpChannelGate.isAcpEligible()) {
             return new KimiAcpCliSession(tabId, gatewayService);
         }
-        return new KimiRunOnceCliSession(tabId, gatewayService);
+        return new KimiRunOnceCliSession(tabId, gatewayService, KimiAcpChannelGate.degradationReason());
     }
 
     /**

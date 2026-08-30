@@ -24,6 +24,10 @@ function isNullableNumber(value: unknown): value is number | null {
   return typeof value === 'number' || value === null;
 }
 
+function isNullableBoolean(value: unknown): value is boolean | null {
+  return typeof value === 'boolean' || value === null;
+}
+
 function isMcpCapability(value: unknown): value is SessionMcpCapability {
   if (!isRecord(value)) return false;
   return (
@@ -73,6 +77,13 @@ function parseCapabilities(payload: unknown): SessionCapabilities | null {
     typeof value.runtimeEpoch !== 'string' ||
     typeof value.provider !== 'string' ||
     typeof value.observedAt !== 'number' ||
+    typeof value.state !== 'string' ||
+    typeof value.channel !== 'string' ||
+    !isNullableBoolean(value.thinkingAvailable) ||
+    !isNullableBoolean(value.toolsAvailable) ||
+    !isNullableBoolean(value.sessionMcpAvailable) ||
+    typeof value.degraded !== 'boolean' ||
+    !isNullableString(value.degradationReason) ||
     typeof value.mcpAvailable !== 'boolean' ||
     !isNullableString(value.mcpError)
   ) {

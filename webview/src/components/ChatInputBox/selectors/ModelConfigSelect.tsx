@@ -75,6 +75,7 @@ interface ModelConfigSelectProps {
   longContextEnabled?: boolean;
   onLongContextChange?: (enabled: boolean) => void;
   reasoningEffort?: ReasoningEffort;
+  sessionThinkingAvailable?: boolean;
   onReasoningChange?: (effort: ReasoningEffort) => void;
   codexFastMode?: CodexFastMode;
   onCodexFastModeChange?: (mode: CodexFastMode) => void;
@@ -108,6 +109,7 @@ export const ModelConfigSelect = ({
   longContextEnabled = true,
   onLongContextChange,
   reasoningEffort = 'high',
+  sessionThinkingAvailable,
   onReasoningChange,
   codexFastMode = 'normal',
   onCodexFastModeChange,
@@ -194,6 +196,7 @@ export const ModelConfigSelect = ({
     handleReasoningChange,
     selectedModel,
     currentProvider,
+    sessionThinkingAvailable,
   );
 
   const strippedValue = strip1MContextSuffix(selectedModel);
@@ -392,6 +395,7 @@ export const ModelConfigSelect = ({
                   onChange={handleReasoningChange}
                   selectedModel={selectedModel}
                   currentProvider={currentProvider}
+                  sessionThinkingAvailable={sessionThinkingAvailable}
                   embedded
                   triggerRef={effortTriggerRef}
                   onClose={closeMenu}

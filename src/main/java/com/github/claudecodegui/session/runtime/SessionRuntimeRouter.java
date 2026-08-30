@@ -3,6 +3,7 @@ package com.github.claudecodegui.session.runtime;
 import com.github.claudecodegui.cli.CliSessionManager;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.CliResult;
+import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
 import com.intellij.openapi.project.Project;
 
 import java.util.concurrent.CompletableFuture;
@@ -58,6 +59,15 @@ public class SessionRuntimeRouter {
      */
     public void disposeTab(String tabId) {
         registry.all().forEach(r -> r.disposeTab(tabId));
+    }
+
+    /**
+     * Reads the concrete CLI session capability without creating a session as a
+     * side effect. A session that has not sent its first turn is therefore
+     * reported as {@code unknown}, not as a provider-static promise.
+     */
+    public SessionNegotiatedCapabilities capabilities(String tabId, String provider) {
+        return cliManager.capabilities(tabId, provider);
     }
 
     /** Release all CLI sessions owned by this router. */

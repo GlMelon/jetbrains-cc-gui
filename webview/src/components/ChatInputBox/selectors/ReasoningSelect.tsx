@@ -34,6 +34,7 @@ interface ReasoningSelectProps {
   disabled?: boolean;
   selectedModel?: string;
   currentProvider?: string;
+  sessionThinkingAvailable?: boolean;
   embedded?: boolean;
   triggerRef?: React.RefObject<HTMLElement | null>;
   onClose?: () => void;
@@ -59,6 +60,7 @@ export const ReasoningSelect = ({
   disabled,
   selectedModel,
   currentProvider,
+  sessionThinkingAvailable,
   embedded = false,
   triggerRef,
   onClose,
@@ -83,6 +85,7 @@ export const ReasoningSelect = ({
     onChange,
     selectedModel,
     currentProvider,
+    sessionThinkingAvailable,
   );
 
   /**

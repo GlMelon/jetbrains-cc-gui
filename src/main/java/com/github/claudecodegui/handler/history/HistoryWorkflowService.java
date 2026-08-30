@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.session.SessionCapabilityMetadataStore;
 import com.github.claudecodegui.util.AttachmentStorageService;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -27,6 +28,7 @@ class HistoryWorkflowService {
     private final Supplier<String> projectPathSupplier;
     private final BiConsumer<String, String> attachmentCleanup;
     private final Consumer<String> metadataCleanup;
+    private final SessionCapabilityMetadataStore capabilityMetadataStore;
 
     HistoryWorkflowService(HandlerContext context,
                            HistoryProviderRegistry providerRegistry,
@@ -35,7 +37,8 @@ class HistoryWorkflowService {
                            HistoryLoadService historyLoadService,
                            NodeJsServiceCaller nodeJsServiceCaller) {
         this(context, providerRegistry, projectPathResolver, sessionsJsonEnhancer, historyLoadService,
-                nodeJsServiceCaller, () -> projectPathResolver.resolve(context), null, null);
+                nodeJsServiceCaller, () -> projectPathResolver.resolve(context), null, null,
+                SessionCapabilityMetadataStore.getInstance());
     }
 
     HistoryWorkflowService(HandlerContext context,
@@ -47,6 +50,21 @@ class HistoryWorkflowService {
                            Supplier<String> projectPathSupplier,
                            BiConsumer<String, String> attachmentCleanup,
                            Consumer<String> metadataCleanup) {
+        this(context, providerRegistry, projectPathResolver, sessionsJsonEnhancer, historyLoadService,
+                nodeJsServiceCaller, projectPathSupplier, attachmentCleanup, metadataCleanup,
+                SessionCapabilityMetadataStore.getInstance());
+    }
+
+    HistoryWorkflowService(HandlerContext context,
+                           HistoryProviderRegistry providerRegistry,
+                           HistoryProjectPathResolver projectPathResolver,
+                           HistorySessionsJsonEnhancer sessionsJsonEnhancer,
+                           HistoryLoadService historyLoadService,
+                           NodeJsServiceCaller nodeJsServiceCaller,
+                           Supplier<String> projectPathSupplier,
+                           BiConsumer<String, String> attachmentCleanup,
+                           Consumer<String> metadataCleanup,
+                           SessionCapabilityMetadataStore capabilityMetadataStore) {
         this.context = context;
         this.providerRegistry = providerRegistry;
         this.projectPathResolver = projectPathResolver;
@@ -56,6 +74,7 @@ class HistoryWorkflowService {
         this.projectPathSupplier = projectPathSupplier;
         this.attachmentCleanup = attachmentCleanup;
         this.metadataCleanup = metadataCleanup;
+        this.capabilityMetadataStore = capabilityMetadataStore;
     }
 
     void refresh(String provider) {
@@ -134,9 +153,7 @@ class HistoryWorkflowService {
                 return HistoryDeleteResult.none();
             }
             HistoryDeleteResult result = adapter.deleteSession(sessionId, projectPath);
-            if (result.mainDeleted()) {
-                cleanupSessionMetadata(sessionId);
-            }
+            cleanupSessionMetadata(adapter.provider().value(), sessionId);
             cleanupSessionAttachments(adapter.provider().value(), sessionId);
             LOG.info("[HistoryHandler] Delete completed - Main file: "
                     + (result.mainDeleted() ? "deleted" : "not found")
@@ -212,7 +229,10 @@ class HistoryWorkflowService {
         return projectPathResolver.resolve(context);
     }
 
-    private void cleanupSessionMetadata(String sessionId) {
+    private void cleanupSessionMetadata(String provider, String sessionId) {
+        if (capabilityMetadataStore != null) {
+            capabilityMetadataStore.remove(provider, sessionId);
+        }
         if (metadataCleanup != null) {
             metadataCleanup.accept(sessionId);
             return;

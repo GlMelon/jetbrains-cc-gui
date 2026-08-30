@@ -791,6 +791,7 @@ const App = () => {
                 onProviderSelect={wrappedHandleProviderSelect}
                 sessionTitle={sessionTitle}
                 detailedOutputEnabled={detailedOutputEnabled}
+                sessionThinkingAvailable={sessionCapabilities.data?.thinkingAvailable ?? undefined}
                 avatarConfig={avatarConfig}
                 messageQueue={messageQueue}
                 onRemoveFromQueue={dequeueMessage}

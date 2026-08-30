@@ -150,6 +150,11 @@ public class CodexCliSession implements CliSession {
         return (System.nanoTime() - startNanos) / 1_000_000;
     }
 
+    @Override
+    public com.github.claudecodegui.session.SessionNegotiatedCapabilities capabilities() {
+        return com.github.claudecodegui.session.SessionNegotiatedCapabilities.cli(true, true, false);
+    }
+
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
         prepareForSend();
         return CliSessionExecutor.runAsync(() -> {

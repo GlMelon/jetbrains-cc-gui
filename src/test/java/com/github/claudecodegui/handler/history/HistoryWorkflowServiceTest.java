@@ -1,10 +1,13 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.session.SessionCapabilityMetadataStore;
+import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.google.gson.JsonObject;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class HistoryWorkflowServiceTest {
@@ -59,6 +63,23 @@ public class HistoryWorkflowServiceTest {
                 "attachments:" + ProviderType.CLAUDE.value() + ":s1",
                 "clear:D:\\repo",
                 "load:D:\\repo"), eventsWithAdapter(adapter, events));
+    }
+
+    @Test
+    public void deleteRemovesStoredSessionCapabilities() throws Exception {
+        RecordingAdapter adapter = new RecordingAdapter(ProviderType.CLAUDE,
+                "{\"success\":true,\"sessions\":[]}");
+        adapter.capabilities = Set.of(HistoryCapability.DELETE);
+        adapter.deleteResult = new HistoryDeleteResult(true, 0);
+        SessionCapabilityMetadataStore store = new SessionCapabilityMetadataStore(
+                Files.createTempDirectory("session-capabilities-delete").resolve("metadata.json"));
+        store.save(ProviderType.CLAUDE.value(), "s1", SessionNegotiatedCapabilities.cli(true, true, false), 123L);
+        HistoryWorkflowService workflow = workflow(new HistoryProviderRegistry(List.of(adapter)),
+                new RecordingDispatchService(), () -> "D:\\repo", null, null, store);
+
+        workflow.deleteWithoutRefresh(ProviderType.CLAUDE.value(), "s1");
+
+        assertNull(store.find(ProviderType.CLAUDE.value(), "s1"));
     }
 
     @Test
@@ -182,8 +203,19 @@ public class HistoryWorkflowServiceTest {
                                                    java.util.function.Supplier<String> projectPathSupplier,
                                                    java.util.function.BiConsumer<String, String> attachmentCleanup,
                                                    java.util.function.Consumer<String> metadataCleanup) {
+        return workflow(registry, dispatchService, projectPathSupplier, attachmentCleanup, metadataCleanup,
+                SessionCapabilityMetadataStore.getInstance());
+    }
+
+    private static HistoryWorkflowService workflow(HistoryProviderRegistry registry,
+                                                   RecordingDispatchService dispatchService,
+                                                   java.util.function.Supplier<String> projectPathSupplier,
+                                                   java.util.function.BiConsumer<String, String> attachmentCleanup,
+                                                   java.util.function.Consumer<String> metadataCleanup,
+                                                   SessionCapabilityMetadataStore capabilityMetadataStore) {
         return new HistoryWorkflowService(null, registry, new HistoryProjectPathResolver(),
-                new NoOpEnhancer(), dispatchService, null, projectPathSupplier, attachmentCleanup, metadataCleanup);
+                new NoOpEnhancer(), dispatchService, null, projectPathSupplier, attachmentCleanup, metadataCleanup,
+                capabilityMetadataStore);
     }
 
     private static final class NoOpEnhancer extends HistorySessionsJsonEnhancer {

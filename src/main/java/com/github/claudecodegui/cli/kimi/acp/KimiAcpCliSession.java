@@ -15,6 +15,10 @@ import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.AssistantResponsePhase;
+import com.github.claudecodegui.session.SessionCapabilityChannel;
+import com.github.claudecodegui.session.SessionCapabilityDegradationReason;
+import com.github.claudecodegui.session.SessionCapabilityState;
+import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -79,10 +83,17 @@ public class KimiAcpCliSession implements CliSession {
     private volatile CliProcessHandle persistentHandle;
     /** 当前 session 的思考档位目录(session/new 或 load 的 configOptions 解析),随 clearPersistent 清空。 */
     private volatile ThinkingOptions thinkingOptions;
+    private volatile SessionNegotiatedCapabilities negotiatedCapabilities =
+            SessionNegotiatedCapabilities.unknown();
 
     public KimiAcpCliSession(String tabId, McpGatewayService gatewayService) {
         this.tabId = tabId;
         this.gatewayService = gatewayService;
+    }
+
+    @Override
+    public SessionNegotiatedCapabilities capabilities() {
+        return negotiatedCapabilities;
     }
 
     @Override
@@ -249,6 +260,8 @@ public class KimiAcpCliSession implements CliSession {
                         callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
                         return false;
                     }
+                    updateNegotiatedCapabilities(SessionCapabilityState.DEGRADED,
+                            SessionCapabilityDegradationReason.ACP_NEGOTIATION_FAILED);
                     String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "ACP handshake failed: " + e.getMessage());
                     callback.onError(err);
                     callback.onComplete(false, null, err);
@@ -276,6 +289,8 @@ public class KimiAcpCliSession implements CliSession {
                 }
             } catch (Exception e) {
                 LOG.warn("[KimiAcpCliSession][" + tabId + "] set thinking config failed (non-fatal)", e);
+                updateNegotiatedCapabilities(SessionCapabilityState.DEGRADED,
+                        SessionCapabilityDegradationReason.ACP_NEGOTIATION_FAILED);
                 // 思考配置失败不致命,继续(prompt 仍可用,只是无 thought chunk)
             }
 
@@ -295,6 +310,8 @@ public class KimiAcpCliSession implements CliSession {
                 keepAlive = true;
             } catch (KimiAcpConnection.AcpRpcException e) {
                 if (e.code == KimiAcpProtocol.ERROR_NOT_LOGGED_IN) {
+                    updateNegotiatedCapabilities(SessionCapabilityState.DEGRADED,
+                            SessionCapabilityDegradationReason.ACP_RUNTIME_FAILED);
                     String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL,
                             "kimi 未登录,请在终端运行 kimi 登录后重试 (-32000)");
                     callback.onError(err);
@@ -302,6 +319,8 @@ public class KimiAcpCliSession implements CliSession {
                     return false;
                 }
                 // prompt RPC 失败:session 失效或进程死 → 清长驻,下 turn 重建
+                updateNegotiatedCapabilities(SessionCapabilityState.DEGRADED,
+                        SessionCapabilityDegradationReason.ACP_RUNTIME_FAILED);
                 clearPersistent();
                 String err = formatAcpError(e, conn);
                 callback.onError(err);
@@ -309,6 +328,8 @@ public class KimiAcpCliSession implements CliSession {
                 return false;
             } catch (KimiAcpConnection.AcpTimeoutException e) {
                 // 超时可能进程卡死 → 清长驻
+                updateNegotiatedCapabilities(SessionCapabilityState.DEGRADED,
+                        SessionCapabilityDegradationReason.ACP_RUNTIME_FAILED);
                 clearPersistent();
                 String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "kimi 响应超时: " + e.getMessage());
                 callback.onError(err);
@@ -316,12 +337,16 @@ public class KimiAcpCliSession implements CliSession {
                 return false;
             } catch (Exception e) {
                 if (wasInterrupted()) {
+                    updateNegotiatedCapabilities(SessionCapabilityState.DEGRADED,
+                            SessionCapabilityDegradationReason.ACP_RUNTIME_FAILED);
                     // interrupt 经 session/cancel notification:prompt 应以 cancelled stopReason 正常结束;
                     // 若仍抛异常说明 cancel 未生效/进程问题 → 清长驻,下 turn 重建
                     clearPersistent();
                     callback.onInterrupted(parser.accumulatedText(), CliConstants.I18N_REQUEST_INTERRUPTED);
                     return false;
                 }
+                updateNegotiatedCapabilities(SessionCapabilityState.DEGRADED,
+                        SessionCapabilityDegradationReason.ACP_RUNTIME_FAILED);
                 clearPersistent();
                 String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "kimi prompt failed: " + e.getMessage());
                 callback.onError(err);
@@ -457,6 +482,7 @@ public class KimiAcpCliSession implements CliSession {
         // thinking 档位目录:合法值由当前模型决定(KimiAcpProtocol 取值说明),
         // 从 configOptions 解析供 set_config_option 前协商,避免发不支持的档位。
         this.thinkingOptions = parseThinkingOptions(sessionResult);
+        updateNegotiatedCapabilities(SessionCapabilityState.NEGOTIATED, null);
         this.sessionId = resolved;
         parser.attachSessionId(resolved);
         return resolved;
@@ -775,6 +801,44 @@ public class KimiAcpCliSession implements CliSession {
             persistentHandle = null;
             thinkingOptions = null;
         }
+    }
+
+    static SessionNegotiatedCapabilities degradedCapabilities(
+            SessionCapabilityDegradationReason reason) {
+        return new SessionNegotiatedCapabilities(
+                SessionCapabilityState.DEGRADED,
+                SessionCapabilityChannel.KIMI_ACP,
+                false,
+                false,
+                false,
+                true,
+                reason == null ? SessionCapabilityDegradationReason.ACP_RUNTIME_FAILED : reason);
+    }
+
+    static boolean hasThinkingCapability(ThinkingOptions options) {
+        return options != null && options.supportedValues() != null
+                && options.supportedValues().stream()
+                .anyMatch(value -> value != null && !KimiAcpProtocol.THINKING_OFF.equalsIgnoreCase(value));
+    }
+
+    static SessionNegotiatedCapabilities negotiatedCapabilities(ThinkingOptions options) {
+        return new SessionNegotiatedCapabilities(
+                SessionCapabilityState.NEGOTIATED,
+                SessionCapabilityChannel.KIMI_ACP,
+                hasThinkingCapability(options),
+                true,
+                false,
+                false,
+                null);
+    }
+
+    private void updateNegotiatedCapabilities(SessionCapabilityState state,
+                                              SessionCapabilityDegradationReason reason) {
+        if (state == SessionCapabilityState.DEGRADED) {
+            negotiatedCapabilities = degradedCapabilities(reason);
+            return;
+        }
+        negotiatedCapabilities = negotiatedCapabilities(thinkingOptions);
     }
 
     /** 清除长驻状态(进程死/握手失败/turn 失效时,下 turn 重建)。 */

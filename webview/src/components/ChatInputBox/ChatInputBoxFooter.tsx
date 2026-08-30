@@ -30,6 +30,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   dshPreset,
   onDshPresetChange,
   reasoningEffort,
+  sessionThinkingAvailable,
   onSubmit,
   onStop,
   onModeSelect,
@@ -70,6 +71,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
   dshPreset?: string;
   onDshPresetChange?: (preset: string) => void;
   reasoningEffort: ReasoningEffort;
+  sessionThinkingAvailable?: boolean;
   onSubmit: () => void;
   onStop?: () => void;
   onModeSelect?: (mode: PermissionMode) => void;
@@ -122,6 +124,7 @@ export const ChatInputBoxFooter = memo(function ChatInputBoxFooter({
         dshPreset={dshPreset}
         onDshPresetChange={onDshPresetChange}
         reasoningEffort={reasoningEffort}
+        sessionThinkingAvailable={sessionThinkingAvailable}
         onSubmit={onSubmit}
         onStop={onStop}
         onModeSelect={onModeSelect}

@@ -13,6 +13,7 @@ import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
@@ -201,6 +202,19 @@ public class CliSessionManager {
                 session.interrupt();
             }
         }
+    }
+
+    /** Returns capabilities without creating a missing CLI session. */
+    public SessionNegotiatedCapabilities capabilities(String tabId, String provider) {
+        if (tabId == null || provider == null || isDisposedTab(tabId)) {
+            return SessionNegotiatedCapabilities.unknown();
+        }
+        ConcurrentHashMap<String, CliSession> providerMap = sessions.get(tabId);
+        if (providerMap == null) {
+            return SessionNegotiatedCapabilities.unknown();
+        }
+        CliSession session = providerMap.get(provider);
+        return session == null ? SessionNegotiatedCapabilities.unknown() : session.capabilities();
     }
 
     public void disposeTab(String tabId) {

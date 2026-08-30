@@ -559,6 +559,8 @@ export interface ChatInputBoxProps {
   onProviderSelect?: (providerId: string) => void;
   /** Current reasoning effort */
   reasoningEffort?: ReasoningEffort;
+  /** Actual thinking capability negotiated by the current backend session. */
+  sessionThinkingAvailable?: boolean;
   /** Switch reasoning effort callback */
   onReasoningChange?: (effort: ReasoningEffort) => void;
   /** Toggle show-thinking (display toggle, all providers/modes) */
@@ -636,6 +638,8 @@ export interface ButtonAreaProps {
   currentProvider?: string;
   /** Current reasoning effort */
   reasoningEffort?: ReasoningEffort;
+  /** Actual thinking capability negotiated by the current backend session. */
+  sessionThinkingAvailable?: boolean;
   /** Current DSH preset (dsh provider only) */
   dshPreset?: string;
   /** DSH preset change callback */

@@ -9,6 +9,8 @@ import com.github.claudecodegui.cli.common.CliImagePromptInjections;
 import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.session.SessionCapabilityDegradationReason;
+import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -40,12 +42,26 @@ public class KimiRunOnceCliSession extends AbstractRunOnceCliSession {
     private static final Set<String> MODEL_SENTINELS = Set.of(
             "__config_default__", "auto", "default", "(default)", "config-default", "config_default");
 
+    private final SessionCapabilityDegradationReason degradationReason;
+
     public KimiRunOnceCliSession(String tabId) {
-        this(tabId, null);
+        this(tabId, null, SessionCapabilityDegradationReason.LEGACY_FALLBACK);
     }
 
     public KimiRunOnceCliSession(String tabId, McpGatewayService gatewayService) {
+        this(tabId, gatewayService, SessionCapabilityDegradationReason.LEGACY_FALLBACK);
+    }
+
+    public KimiRunOnceCliSession(String tabId, McpGatewayService gatewayService,
+                                 SessionCapabilityDegradationReason degradationReason) {
         super(ProviderType.KIMI, tabId, gatewayService);
+        this.degradationReason = degradationReason == null
+                ? SessionCapabilityDegradationReason.LEGACY_FALLBACK : degradationReason;
+    }
+
+    @Override
+    public SessionNegotiatedCapabilities capabilities() {
+        return SessionNegotiatedCapabilities.kimiLegacy(degradationReason, false);
     }
 
     @Override

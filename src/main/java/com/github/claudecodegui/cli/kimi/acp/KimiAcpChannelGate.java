@@ -3,6 +3,7 @@ package com.github.claudecodegui.cli.kimi.acp;
 import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.session.SessionCapabilityDegradationReason;
 import com.intellij.openapi.diagnostic.Logger;
 
 /**
@@ -39,24 +40,38 @@ public final class KimiAcpChannelGate {
      * 仅当 -D 开且 kimi 版本落在 features.acp [0.9.0, 0.38.0] 范围(或 higherVersionPolicy 允许更高)才返回 true。
      */
     public static boolean isAcpEligible() {
+        return eligibility().eligible();
+    }
+
+    /** Returns the same gate decision with a stable reason for runtime capability telemetry. */
+    public static Eligibility eligibility() {
         if (!isSystemEnabled()) {
-            return false;
+            return new Eligibility(false, SessionCapabilityDegradationReason.ACP_UNAVAILABLE);
         }
         try {
             String version = ProviderCliResolver.getCachedVersion(ProviderType.KIMI);
             if (version == null || version.isBlank()) {
-                // 版本未检测(可能 kimi 未安装或未触发检测):保守走 legacy。
-                // send 链路真正 send 时 ProviderCliResolver 会触发版本检测并缓存,
-                // 下一轮 send 即可命中;首轮 legacy 不损失功能(stream-json 仍可用)。
                 LOG.debug("[KimiAcpChannelGate] kimi version not cached yet; falling back to legacy stream-json");
-                return false;
+                return new Eligibility(false, SessionCapabilityDegradationReason.VERSION_PROBE_FAILED);
             }
-            return CliCompatibilityService.getInstance().evaluateFeature(ProviderType.KIMI, version, FEATURE_ID_ACP);
+            boolean eligible = CliCompatibilityService.getInstance()
+                    .evaluateFeature(ProviderType.KIMI, version, FEATURE_ID_ACP);
+            return eligible
+                    ? new Eligibility(true, null)
+                    : new Eligibility(false, SessionCapabilityDegradationReason.VERSION_UNSUPPORTED);
         } catch (LinkageError | Exception e) {
-            // LinkageError(NoClassDefFoundError 等)与异常一律降级 legacy,绝不抛穿 send 链。
             LOG.warn("[KimiAcpChannelGate] ACP eligibility check failed; falling back to legacy stream-json: " + e.getMessage());
-            return false;
+            return new Eligibility(false, SessionCapabilityDegradationReason.VERSION_PROBE_FAILED);
         }
+    }
+
+    public record Eligibility(boolean eligible, SessionCapabilityDegradationReason degradationReason) {
+    }
+
+    public static SessionCapabilityDegradationReason degradationReason() {
+        Eligibility result = eligibility();
+        return result.degradationReason() == null
+                ? SessionCapabilityDegradationReason.LEGACY_FALLBACK : result.degradationReason();
     }
 
     public static boolean isSystemEnabled() {

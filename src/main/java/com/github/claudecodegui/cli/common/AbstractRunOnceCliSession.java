@@ -135,6 +135,11 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     // ── 会话骨架(全部公共) ─────────────────────────────────────────────────────
 
     @Override
+    public com.github.claudecodegui.session.SessionNegotiatedCapabilities capabilities() {
+        return com.github.claudecodegui.session.SessionNegotiatedCapabilities.cli(true, true, false);
+    }
+
+    @Override
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
         userInterrupted.set(false);
         return CliSessionExecutor.runAsync(() -> {

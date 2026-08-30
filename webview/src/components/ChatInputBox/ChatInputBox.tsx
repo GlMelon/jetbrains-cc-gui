@@ -87,6 +87,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       onModelSelect,
       onProviderSelect,
       reasoningEffort = 'high',
+      sessionThinkingAvailable,
       onReasoningChange,
       codexFastMode = 'normal',
       onCodexFastModeChange,
@@ -722,6 +723,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           dshPreset={dshPreset}
           onDshPresetChange={onDshPresetChange}
           reasoningEffort={reasoningEffort}
+          sessionThinkingAvailable={sessionThinkingAvailable}
           codexFastMode={codexFastMode}
           onSubmit={handleSubmit}
           onStop={onStop}

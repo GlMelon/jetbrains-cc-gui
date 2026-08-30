@@ -1,5 +1,7 @@
 package com.github.claudecodegui.cli;
 
+import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
+
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -31,4 +33,9 @@ public interface CliSession {
      * 释放 CLI 会话资源（中断进程 + 清理临时文件等）。
      */
     void dispose();
+
+    /** Returns the runtime capability snapshot for this concrete session. */
+    default SessionNegotiatedCapabilities capabilities() {
+        return SessionNegotiatedCapabilities.unknown();
+    }
 }

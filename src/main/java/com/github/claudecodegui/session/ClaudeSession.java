@@ -261,6 +261,11 @@ public class ClaudeSession {
         return state.getChannelId();
     }
 
+    /** Returns the negotiated capabilities of the concrete runtime session. */
+    public SessionNegotiatedCapabilities getSessionCapabilities() {
+        return sendService.getSessionCapabilities(state.getChannelId(), state.getProvider());
+    }
+
     public boolean isLoading() {
         return state.isLoading();
     }

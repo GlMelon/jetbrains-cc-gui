@@ -1,9 +1,15 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.session.SessionCapabilityChannel;
+import com.github.claudecodegui.session.SessionCapabilityMetadataStore;
+import com.github.claudecodegui.session.SessionCapabilityState;
+import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonObject;
 import org.junit.Test;
+
+import java.nio.file.Files;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -65,6 +71,32 @@ public class HistorySessionsJsonEnhancerTest {
         JsonObject session = result.getAsJsonArray("sessions").get(0).getAsJsonObject();
         assertEquals("new", session.get("title").getAsString());
         assertTrue(session.get("hasCustomTitle").getAsBoolean());
+    }
+
+    @Test
+    public void enhanceHistoryWithSessionCapabilitiesAddsStoredSnapshot() throws Exception {
+        SessionCapabilityMetadataStore store = new SessionCapabilityMetadataStore(
+                Files.createTempDirectory("session-capabilities").resolve("metadata.json"));
+        store.save(ProviderType.KIMI.value(), "s1", new SessionNegotiatedCapabilities(
+                SessionCapabilityState.DEGRADED,
+                SessionCapabilityChannel.KIMI_LEGACY_STREAM_JSON,
+                false,
+                true,
+                false,
+                true,
+                null), 123L);
+
+        JsonObject result = GsonHolder.GSON.fromJson(
+                HistorySessionsJsonEnhancer.enhanceHistoryWithSessionCapabilities(
+                        "{\"success\":true,\"sessions\":[{\"sessionId\":\"s1\"},{\"sessionId\":\"s2\"}]}",
+                        ProviderType.KIMI.value(), store),
+                JsonObject.class);
+
+        JsonObject session = result.getAsJsonArray("sessions").get(0).getAsJsonObject();
+        assertTrue(session.get("sessionCapabilities").isJsonObject());
+        assertEquals("kimi_legacy_stream_json",
+                session.getAsJsonObject("sessionCapabilities").get("channel").getAsString());
+        assertFalse(result.getAsJsonArray("sessions").get(1).getAsJsonObject().has("sessionCapabilities"));
     }
 
     @Test

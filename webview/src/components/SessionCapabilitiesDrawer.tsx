@@ -18,6 +18,11 @@ export interface SessionCapabilitiesDrawerProps {
   onRefresh: () => void;
 }
 
+function capabilityAvailabilityLabel(value: boolean | null): string {
+  if (value === null) return 'unknown';
+  return value ? 'available' : 'unavailable';
+}
+
 function CapabilityState({ state }: { state: string }) {
   return (
     <span className={`session-capability-state is-${state || 'unknown'}`}>
@@ -217,6 +222,34 @@ export function SessionCapabilitiesDrawer({
           )}
           {data && (
             <>
+              <section className="session-capabilities-runtime" aria-label="Runtime capabilities">
+                <div className="session-capabilities-runtime-row">
+                  <span>Session state</span>
+                  <CapabilityState state={data.state} />
+                </div>
+                <div className="session-capabilities-runtime-row">
+                  <span>Channel</span>
+                  <strong>{data.channel}</strong>
+                </div>
+                <div className="session-capabilities-runtime-row">
+                  <span>Thinking</span>
+                  <strong>{capabilityAvailabilityLabel(data.thinkingAvailable)}</strong>
+                </div>
+                <div className="session-capabilities-runtime-row">
+                  <span>Tools</span>
+                  <strong>{capabilityAvailabilityLabel(data.toolsAvailable)}</strong>
+                </div>
+                <div className="session-capabilities-runtime-row">
+                  <span>Session MCP</span>
+                  <strong>{capabilityAvailabilityLabel(data.sessionMcpAvailable)}</strong>
+                </div>
+                {data.degraded && data.degradationReason && (
+                  <div className="session-capabilities-notice" role="status">
+                    <AlertIcon size={14} />
+                    <span>{data.degradationReason}</span>
+                  </div>
+                )}
+              </section>
               <div className="session-capabilities-summary-grid">
                 <div>
                   <strong>{mcp.length}</strong>

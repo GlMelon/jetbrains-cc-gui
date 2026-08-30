@@ -371,6 +371,11 @@ public class ClaudeCliSession implements CliSession {
                 .getAsString();
     }
 
+    @Override
+    public com.github.claudecodegui.session.SessionNegotiatedCapabilities capabilities() {
+        return com.github.claudecodegui.session.SessionNegotiatedCapabilities.cli(true, true, false);
+    }
+
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
         prepareForSend();
         return CliSessionExecutor.runAsync(() -> {

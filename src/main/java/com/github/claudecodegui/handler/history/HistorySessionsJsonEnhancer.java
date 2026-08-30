@@ -2,6 +2,8 @@ package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.handler.NodeJsServiceCaller;
 import com.github.claudecodegui.protocol.payload.HistoryCapabilitiesPayloadField;
+import com.github.claudecodegui.protocol.payload.SessionCapabilitiesPayloadField;
+import com.github.claudecodegui.session.SessionCapabilityMetadataStore;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -16,9 +18,16 @@ class HistorySessionsJsonEnhancer {
     static final String EMPTY_SESSIONS_JSON = "{\"success\":true,\"sessions\":[]}";
 
     private final NodeJsServiceCaller nodeJsServiceCaller;
+    private final SessionCapabilityMetadataStore capabilityMetadataStore;
 
     HistorySessionsJsonEnhancer(NodeJsServiceCaller nodeJsServiceCaller) {
+        this(nodeJsServiceCaller, SessionCapabilityMetadataStore.getInstance());
+    }
+
+    HistorySessionsJsonEnhancer(NodeJsServiceCaller nodeJsServiceCaller,
+                                SessionCapabilityMetadataStore capabilityMetadataStore) {
         this.nodeJsServiceCaller = nodeJsServiceCaller;
+        this.capabilityMetadataStore = capabilityMetadataStore;
     }
 
     String enhance(String provider, String rawJson, HistoryCapabilities capabilities) {
@@ -27,7 +36,41 @@ class HistorySessionsJsonEnhancer {
         String withFavorites = enhanceHistoryWithFavorites(normalizedJson, provider, favoritesJson);
         String titlesJson = loadTitlesJson();
         String withTitles = enhanceHistoryWithTitles(withFavorites, titlesJson);
-        return enhanceHistoryWithCapabilities(withTitles, capabilities);
+        String withSessionCapabilities = enhanceHistoryWithSessionCapabilities(
+                withTitles, provider, capabilityMetadataStore);
+        return enhanceHistoryWithCapabilities(withSessionCapabilities, capabilities);
+    }
+
+    static String enhanceHistoryWithSessionCapabilities(String historyJson,
+                                                         String currentProvider,
+                                                         SessionCapabilityMetadataStore metadataStore) {
+        String normalizedJson = normalizeSessionsJson(historyJson);
+        if (metadataStore == null) {
+            return normalizedJson;
+        }
+        try {
+            JsonObject history = GsonHolder.GSON.fromJson(normalizedJson, JsonObject.class);
+            JsonArray sessions = history.getAsJsonArray("sessions");
+            for (JsonElement element : sessions) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject session = element.getAsJsonObject();
+                JsonElement sessionIdElement = session.get("sessionId");
+                if (sessionIdElement == null || !sessionIdElement.isJsonPrimitive()) {
+                    continue;
+                }
+                JsonObject snapshot = metadataStore.find(currentProvider, sessionIdElement.getAsString());
+                if (snapshot != null) {
+                    session.add(SessionCapabilitiesPayloadField.HISTORY_SESSION_WIRE_KEY, snapshot);
+                }
+            }
+            return GsonHolder.GSON.toJson(history);
+        } catch (Exception e) {
+            LOG.warn("[HistoryHandler] Enhance historical session capabilities failed, return normalized data: "
+                    + e.getMessage());
+            return normalizedJson;
+        }
     }
 
     static String enhanceHistoryWithCapabilities(String historyJson, HistoryCapabilities capabilities) {

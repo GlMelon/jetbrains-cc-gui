@@ -1,4 +1,4 @@
-import type { HistoryCapabilitiesPayloadWire } from '../generated/protocol';
+import type { HistoryCapabilitiesPayloadWire, SessionCapabilitiesPayloadWire } from '../generated/protocol';
 
 export type ToolInput = Record<string, unknown>;
 
@@ -227,6 +227,8 @@ export interface HistorySessionSummary {
   agent?: string;
   fileSize?: number;
   entrypoint?: string; // Session entrypoint: 'cli', 'sdk-cli', 'claude-vscode', etc.
+  /** Runtime capabilities observed for this historical session, when available. */
+  sessionCapabilities?: SessionCapabilitiesPayloadWire;
 }
 
 export interface HistoryData {

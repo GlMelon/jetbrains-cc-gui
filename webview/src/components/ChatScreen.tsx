@@ -84,6 +84,8 @@ subagentHistoryCtxValue: Record<string, SubagentHistoryResponse>;
   onNavigateToProviderSettings: () => void;
   onProviderSelect: (providerId: string) => void;
   detailedOutputEnabled?: boolean;
+  /** Actual thinking capability negotiated by the current backend session. */
+  sessionThinkingAvailable?: boolean;
   avatarConfig?: AvatarConfig | null;
 
   sessionTitle: string;
@@ -136,6 +138,7 @@ export const ChatScreen = ({
   onNavigateToProviderSettings,
   onProviderSelect,
   detailedOutputEnabled = false,
+  sessionThinkingAvailable,
   avatarConfig,
   messageQueue,
   onRemoveFromQueue,
@@ -369,6 +372,7 @@ export const ChatScreen = ({
           onModelSelect={handleModelSelect}
           onProviderSelect={onProviderSelect}
           reasoningEffort={reasoningEffort}
+          sessionThinkingAvailable={sessionThinkingAvailable}
           onReasoningChange={handleReasoningChange}
           onShowThinkingEnabledChange={handleShowThinkingEnabledChange}
           streamingEnabled={streamingEnabledSetting}

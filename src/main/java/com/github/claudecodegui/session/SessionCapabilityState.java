@@ -5,7 +5,9 @@ import com.github.claudecodegui.protocol.ProtocolValue;
 /** Backend-owned state values used by the session capability snapshot. */
 public enum SessionCapabilityState implements ProtocolValue {
     UNKNOWN("unknown"),
-    DISCOVERED("discovered");
+    DISCOVERED("discovered"),
+    NEGOTIATED("negotiated"),
+    DEGRADED("degraded");
 
     private final String value;
 

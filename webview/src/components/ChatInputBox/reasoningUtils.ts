@@ -6,7 +6,12 @@ import {
   type ReasoningInfo,
 } from './types';
 
-export function isReasoningVisible(currentProvider?: string, selectedModel?: string): boolean {
+export function isReasoningVisible(
+  currentProvider?: string,
+  selectedModel?: string,
+  sessionThinkingAvailable?: boolean,
+): boolean {
+  if (sessionThinkingAvailable === false) return false;
   // A2(2026-06-23):claude 的 reasoning 能力以后端 registry 派生为准(空档位=不可见);
   // 其余 provider 默认可见(档位由下方通用规则给出)。
   if (currentProvider === 'claude' && selectedModel) {
@@ -57,12 +62,13 @@ export function useReasoningEffortGuard(
   onChange: (effort: ReasoningEffort) => void,
   selectedModel?: string,
   currentProvider?: string,
+  sessionThinkingAvailable?: boolean,
 ): {
   isVisible: boolean;
   availableLevels: ReasoningInfo[];
   currentLevel: ReasoningInfo | undefined;
 } {
-  const isVisible = isReasoningVisible(currentProvider, selectedModel);
+  const isVisible = isReasoningVisible(currentProvider, selectedModel, sessionThinkingAvailable);
   const availableLevels = useMemo(
     () => getAvailableReasoningLevels(currentProvider, selectedModel),
     [currentProvider, selectedModel],
@@ -70,13 +76,18 @@ export function useReasoningEffortGuard(
   const currentLevel = resolveCurrentReasoningLevel(value, availableLevels);
 
   useEffect(() => {
-    if (!isVisible || availableLevels.some((level) => level.id === value)) {
+    if (availableLevels.some((level) => level.id === value)) {
+      return;
+    }
+    // A concrete session capability is authoritative. Keep the stored effort
+    // on a valid level even when the selector is hidden by a degraded session.
+    if (!isVisible && sessionThinkingAvailable !== false) {
       return;
     }
     if (currentLevel) {
       onChange(currentLevel.id);
     }
-  }, [availableLevels, currentLevel, isVisible, onChange, value]);
+  }, [availableLevels, currentLevel, isVisible, onChange, sessionThinkingAvailable, value]);
 
   return { isVisible, availableLevels, currentLevel };
 }

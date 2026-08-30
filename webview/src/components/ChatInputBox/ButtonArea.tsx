@@ -91,6 +91,7 @@ export const ButtonArea = ({
   permissionMode = 'default',
   currentProvider = 'claude',
   reasoningEffort = 'high',
+  sessionThinkingAvailable,
   dshPreset = '',
   codexFastMode = 'normal',
   onSubmit,
@@ -344,6 +345,7 @@ export const ButtonArea = ({
           longContextEnabled={longContextEnabled}
           onLongContextChange={onLongContextChange}
           reasoningEffort={reasoningEffort}
+          sessionThinkingAvailable={sessionThinkingAvailable}
           onReasoningChange={handleReasoningChange}
           codexFastMode={codexFastMode}
           onCodexFastModeChange={handleCodexFastModeChange}
