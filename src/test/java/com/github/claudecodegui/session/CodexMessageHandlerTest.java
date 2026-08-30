@@ -520,6 +520,42 @@ public class CodexMessageHandlerTest {
     }
 
     @Test
+    public void duplicateUsageEventsReplaceInsteadOfAccumulating() {
+        SessionState state = new SessionState();
+        state.setModel("gpt-5.1");
+
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+        handler.onMessage("assistant", "{\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}");
+        String resultJson = "{\"type\":\"result\",\"subtype\":\"usage\",\"usage\":{"
+                + "\"input_tokens\":37000,\"output_tokens\":353,"
+                + "\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":36310}}";
+
+        handler.onMessage("result", resultJson);
+        handler.onMessage("result", resultJson);
+
+        Message message = state.getMessages().get(0);
+        var resultUsage = message.raw.getAsJsonObject("turnUsage");
+        assertEquals(690, resultUsage.get("input_tokens").getAsInt());
+        assertEquals(36310, resultUsage.get("cache_read_input_tokens").getAsInt());
+        assertEquals(353, resultUsage.get("output_tokens").getAsInt());
+
+        String usageJson = "{\"type\":\"usage\",\"usage\":{"
+                + "\"input_tokens\":100,\"output_tokens\":200,"
+                + "\"cache_creation_input_tokens\":10,\"cache_read_input_tokens\":50}}";
+        handler.onMessage("usage", usageJson);
+        handler.onMessage("usage", usageJson);
+
+        var directUsage = message.raw.getAsJsonObject("turnUsage");
+        assertEquals(100, directUsage.get("input_tokens").getAsInt());
+        assertEquals(50, directUsage.get("cache_read_input_tokens").getAsInt());
+        assertEquals(200, directUsage.get("output_tokens").getAsInt());
+    }
+
+    @Test
     public void resultMessageAcceptsCodexCachedInputTokenAlias() {
         SessionState state = new SessionState();
         state.setModel("gpt-5.1");

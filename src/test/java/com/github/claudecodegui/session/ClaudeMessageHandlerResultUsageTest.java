@@ -100,6 +100,24 @@ fakeSettings("{}")
     }
 
     @Test
+    public void duplicateResultUsageReplacesInsteadOfAccumulating() throws Exception {
+        Message msg = newAssistantMessageWithUsage(37, 353);
+        setCurrentAssistantMessage(msg);
+        String resultJson = "{\"type\":\"result\",\"subtype\":\"success\",\"usage\":{"
+                + "\"input_tokens\":1200,\"cache_creation_input_tokens\":4096,"
+                + "\"cache_read_input_tokens\":363100,\"output_tokens\":4560}}";
+
+        invokeHandleResult(resultJson);
+        invokeHandleResult(resultJson);
+
+        JsonObject turnUsage = msg.raw.getAsJsonObject("turnUsage");
+        assertEquals(1200, turnUsage.get("input_tokens").getAsInt());
+        assertEquals(4096, turnUsage.get("cache_creation_input_tokens").getAsInt());
+        assertEquals(363100, turnUsage.get("cache_read_input_tokens").getAsInt());
+        assertEquals(4560, turnUsage.get("output_tokens").getAsInt());
+    }
+
+    @Test
     public void billsTurnWithProviderMappedModelInsteadOfClaudeSlotId() throws Exception {
         Path config = Files.createTempFile("pricing-test", ".json");
         Files.writeString(config, "{\"customModelPricing\":{\"claude\":{\"deepseek-v4-flash\":{"
