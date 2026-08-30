@@ -4,6 +4,7 @@ import com.github.claudecodegui.session.runtime.RuntimeKey;
 import com.intellij.openapi.diagnostic.Logger;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.util.concurrency.AppExecutorUtil;
+import org.jetbrains.annotations.TestOnly;
 
 import java.io.File;
 import java.io.IOException;
@@ -369,6 +370,7 @@ public class ProcessManager {
         }
 
         activeChannelProcesses.clear();
+        channelStartTimes.clear();
         interruptedChannels.clear();
         startingChannels.clear();
         activeRuntimeProcesses.clear();
@@ -400,6 +402,22 @@ public class ProcessManager {
             }
         }
         return count;
+    }
+
+    @TestOnly
+    boolean isStaleChannelSweeperActiveForTest() {
+        ScheduledFuture<?> sweeper = staleChannelSweeperFuture;
+        return sweeper != null && !sweeper.isCancelled() && !sweeper.isDone();
+    }
+
+    @TestOnly
+    int getTrackedStateSizeForTest() {
+        return activeChannelProcesses.size()
+                + channelStartTimes.size()
+                + interruptedChannels.size()
+                + startingChannels.size()
+                + activeRuntimeProcesses.size()
+                + interruptedRuntimes.size();
     }
 
     /**

@@ -353,6 +353,12 @@ public class PlatformUtils {
                 if (!finished) {
                     killer.destroyForcibly();
                 }
+                if ((!finished || killer.exitValue() != 0) && process.isAlive()) {
+                    // taskkill may be blocked by the host policy even for a child we own.
+                    // Fall back to the Process API so lifecycle cleanup still terminates
+                    // the directly tracked process instead of silently reporting success.
+                    process.destroyForcibly();
+                }
             } else {
                 ProcessHandle handle = process.toHandle();
                 List<ProcessHandle> descendants = new ArrayList<>();
