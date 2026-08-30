@@ -65,6 +65,10 @@ export class ServerSupervisor {
     this.nextAttemptAt = 0;
     /** @type {boolean} */
     this.refreshing = false;
+    /** @type {boolean} */
+    this.stopping = false;
+    /** @type {Promise<void> | null} */
+    this.stopPromise = null;
     this.setHealth('STARTING');
   }
 
@@ -90,6 +94,7 @@ export class ServerSupervisor {
    * @returns {Promise<GatewayTool[]>}
    */
   async refresh() {
+    if (this.stopping) return this.tools;
     if (this.refreshing) return this.tools;
     if (Date.now() < this.nextAttemptAt) {
       // 退避冷却期内:不 spawn,返回现状(健康状态保持 BACKOFF/DEGRADED 不变)
@@ -111,6 +116,10 @@ export class ServerSupervisor {
         const newClient = createMcpClient(this.spec);
         try {
           await newClient.initialize();
+          if (this.stopping) {
+            await newClient.close();
+            return this.tools;
+          }
         } catch (err) {
           // initialize 失败(典型:npx 型 server 首次下载超过 15s 超时)时,createMcpClient 已在构造器内
           // spawn 的子进程必须先 close 再 rethrow——否则 newClient 无任何引用、优雅关停也杀不到它,
@@ -130,6 +139,7 @@ export class ServerSupervisor {
       // listTools() 返回 unknown[](MCP server tools/list 结果结构松散);此处收窄为 RawTool[]
       // 以访问 name/description/inputSchema(_schema)。运行时行为不变。
       const rawTools = /** @type {RawTool[]} */ (await client.listTools());
+      if (this.stopping) return this.tools;
       this.routeNames.clear();
       this.tools = rawTools.map((tool) => {
         const gatewayName = gatewayToolName(this.spec.sourceProvider, this.spec.serverId, tool.name);
@@ -140,11 +150,13 @@ export class ServerSupervisor {
           inputSchema: tool.inputSchema ?? tool.input_schema ?? { type: 'object' },
         };
       });
+      if (this.stopping) return this.tools;
       this.failureCount = 0;
       this.nextAttemptAt = 0; // 成功:清退避冷却,立即恢复
       this.setHealth('READY', null, Date.now());
       return this.tools;
     } catch (error) {
+      if (this.stopping) return this.tools;
       this.failureCount += 1;
       // 真指数退避:失败次数越多冷却越长,冷却期内不再 spawn(此前 BACKOFF 仅是标签,立即重 spawn)
       this.nextAttemptAt = Date.now() + backoffDelayMs(this.failureCount);
@@ -173,18 +185,24 @@ export class ServerSupervisor {
   }
 
   /**
-   * 关闭客户端并标记 STOPPED。
+   * 关闭客户端并标记 STOPPED。重复调用共享同一个关闭 Promise。
    *
-   * @returns {void}
+   * @returns {Promise<void>}
    */
   stop() {
-    try {
-      this.client?.close();
-    } catch {}
+    if (this.stopPromise) return this.stopPromise;
+    this.stopping = true;
+    const client = this.client;
     this.client = null;
     this.failureCount = 0;
     this.nextAttemptAt = 0;
-    this.setHealth('STOPPED');
+    this.stopPromise = Promise.resolve()
+      .then(() => client?.close())
+      .catch(() => {})
+      .then(() => {
+        this.setHealth('STOPPED');
+      });
+    return this.stopPromise;
   }
 
   /**
@@ -235,4 +253,3 @@ export function backoffDelayMs(failureCount) {
   const delay = BACKOFF_BASE_MS * Math.pow(2, failureCount - 1);
   return Math.min(delay, BACKOFF_MAX_MS);
 }
-

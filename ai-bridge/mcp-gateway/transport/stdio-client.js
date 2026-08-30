@@ -38,6 +38,7 @@ export class StdioMcpClient {
   /** @type {number | null} */ requestTimeoutMs;
   /** @type {import('node:child_process').ChildProcess} */ process;
   /** @type {FramedReader} */ reader;
+  /** @type {Promise<void> | null} */ closePromise;
 
   /**
    * @param {StdioMcpSpec} spec server 规格
@@ -46,6 +47,7 @@ export class StdioMcpClient {
   constructor(spec, { spawnFn } = {}) {
     this.spec = spec;
     this.pending = new Map();
+    this.closePromise = null;
     // ChildProcess 'error'(spawn ENOENT 等异步失败)若已触发,记录后让后续 request 立即失败,
     // 不再发请求。配合下面的 process.on('error') 避免 EventEmitter 无监听器 throw 成 uncaught
     // 杀掉整个 gateway 进程(单个坏 MCP 不应波及 gateway,见 plan §10 故障隔离)。
@@ -158,17 +160,38 @@ export class StdioMcpClient {
   }
 
   close() {
-    for (const pending of this.pending.values()) {
-      clearTimeout(pending.timer);
-    }
-    try {
-      const stdin = /** @type {import('node:stream').Writable} */ (this.process.stdin);
-      stdin.end();
-    } catch {}
-    try {
-      // Windows 下 MCP server 常经 cmd.exe 包装启动:杀整树,而非仅杀包装壳。
-      killChildTree(this.process, this.spec.serverId);
-    } catch {}
+    if (this.closePromise) return this.closePromise;
+    const error = new Error(`MCP client closed: ${this.spec.serverId}`);
+    this.rejectAll(error);
+    this.closePromise = new Promise((resolve) => {
+      if (this.process.exitCode != null || this.process.signalCode != null) {
+        resolve();
+        return;
+      }
+      let settled = false;
+      /** @type {NodeJS.Timeout} */
+      let timer;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      timer = setTimeout(finish, 1_000);
+      timer.unref?.();
+      this.process.once('exit', finish);
+      this.process.once('close', finish);
+      this.process.once('error', finish);
+      try {
+        const stdin = /** @type {import('node:stream').Writable} */ (this.process.stdin);
+        stdin.end();
+      } catch {}
+      try {
+        // Windows 下 MCP server 常经 cmd.exe 包装启动:杀整树,而非仅杀包装壳。
+        killChildTree(this.process, this.spec.serverId);
+      } catch {}
+    });
+    return this.closePromise;
   }
 
   /**

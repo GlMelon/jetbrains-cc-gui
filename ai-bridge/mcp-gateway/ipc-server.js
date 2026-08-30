@@ -14,9 +14,9 @@ import { HealthStore } from './health-store.js';
 
 export class IpcServer {
   /**
-   * @param {{ token: string; revisionStore: RevisionStore; healthStore: HealthStore; supervisors: Map<string, SupervisorEntry>; startedAt: number }} opts
+   * @param {{ token: string; revisionStore: RevisionStore; healthStore: HealthStore; supervisors: Map<string, SupervisorEntry>; startedAt: number; shutdownDeadlineMs?: number }} opts
    */
-  constructor({ token, revisionStore, healthStore, supervisors, startedAt }) {
+  constructor({ token, revisionStore, healthStore, supervisors, startedAt, shutdownDeadlineMs = 5_000 }) {
     /** @type {string} */
     this.token = token;
     /** @type {RevisionStore} */
@@ -29,8 +29,20 @@ export class IpcServer {
     this.startedAt = startedAt;
     /** @type {number} */
     this.latestRevision = 0;
+    /** @type {number} */
+    this.shutdownDeadlineMs = shutdownDeadlineMs;
+    /** @type {boolean} */
+    this.closing = false;
+    /** @type {Promise<void> | null} */
+    this.shutdownPromise = null;
+    /** @type {Set<import('node:net').Socket>} */
+    this.connections = new Set();
     /** @type {http.Server} */
     this.server = http.createServer((req, res) => this.handle(req, res));
+    this.server.on('connection', (socket) => {
+      this.connections.add(socket);
+      socket.on('close', () => this.connections.delete(socket));
+    });
   }
 
   /**
@@ -46,13 +58,42 @@ export class IpcServer {
   }
 
   /**
-   * @returns {void}
+   * Gracefully close supervisors and HTTP connections. Repeated calls share one
+   * shutdown promise; the deadline is the final guard before force-closing sockets.
+   *
+   * @returns {Promise<void>}
    */
   close() {
-    for (const supervisor of this.supervisors.values()) {
-      supervisor.stop();
-    }
-    this.server.close();
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.closing = true;
+    const stopPromise = Promise.allSettled(
+      [...this.supervisors.values()].map((supervisor) => Promise.resolve().then(() => supervisor.stop())),
+    );
+    /** @type {Promise<void>} */
+    const serverPromise = new Promise((resolve) => {
+      if (!this.server.listening) {
+        resolve();
+        return;
+      }
+      this.server.close(() => resolve());
+    });
+    /** @type {NodeJS.Timeout | undefined} */
+    let deadlineTimer;
+    /** @type {Promise<void>} */
+    const deadline = new Promise((resolve) => {
+      deadlineTimer = setTimeout(resolve, this.shutdownDeadlineMs);
+      deadlineTimer.unref?.();
+    });
+    this.shutdownPromise = Promise.race([Promise.all([stopPromise, serverPromise]), deadline])
+      .then(() => {
+        if (deadlineTimer) clearTimeout(deadlineTimer);
+        if (this.connections.size > 0) {
+          for (const socket of this.connections) socket.destroy();
+          this.connections.clear();
+        }
+      })
+      .then(() => undefined);
+    return this.shutdownPromise;
   }
 
   /**
@@ -63,6 +104,10 @@ export class IpcServer {
   async handle(req, res) {
     if (!requireToken(req, this.token)) {
       this.write(res, 401, { error: 'unauthorized' });
+      return;
+    }
+    if (this.closing) {
+      this.write(res, 503, { error: 'gateway shutting down' });
       return;
     }
     try {
@@ -95,8 +140,7 @@ export class IpcServer {
       if (req.method === 'POST' && req.url === '/stop') {
         this.write(res, 200, { ok: true });
         setTimeout(() => {
-          this.close();
-          process.exit(0);
+          void this.close().then(() => process.exit(0), () => process.exit(1));
         }, 20);
         return;
       }
@@ -111,6 +155,7 @@ export class IpcServer {
    * @returns {Promise<void>}
    */
   async applySnapshot(snapshot) {
+    if (this.closing) throw new Error('gateway shutting down');
     const revision = Number(snapshot.revision || 0);
     this.latestRevision = Math.max(this.latestRevision, revision);
     /** @type {Map<string, ServerSpecLike>} */
@@ -138,6 +183,7 @@ export class IpcServer {
     }
     const refreshes = [...this.supervisors.values()].map((supervisor) => supervisor.refresh());
     await Promise.allSettled(refreshes);
+    if (this.closing) throw new Error('gateway shutting down');
     this.revisionStore.put(revision, buildCatalog(revision, this.supervisors));
   }
 
@@ -171,7 +217,7 @@ export class IpcServer {
  */
 // 项12:HTTP 请求体字节上限,防超大请求体撑爆内存(与 FramedReader MAX_MESSAGE_BYTES 对称)。
 const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
-function readJson(req) {
+function readJson(/** @type {http.IncomingMessage} */ req) {
   return new Promise((resolve, reject) => {
     /** @type {Buffer[]} */
     const chunks = [];

@@ -34,11 +34,22 @@ writeStateFile(stateFile, {
 });
 console.log(`MCP Gateway listening on 127.0.0.1:${port}`);
 
+/** @type {Promise<void> | null} */
+let shutdownPromise = null;
+
 for (const signal of /** @type {NodeJS.Signals[]} */ (['SIGINT', 'SIGTERM'])) {
   process.on(signal, () => {
-    ipc.close();
-    removeStateFile(stateFile);
-    process.exit(0);
+    if (shutdownPromise) return;
+    shutdownPromise = ipc.close()
+      .then(() => {
+        removeStateFile(stateFile);
+        process.exit(0);
+      })
+      .catch((error) => {
+        console.error(`[WARN][mcp-gateway] graceful shutdown failed after ${signal}:`, error);
+        removeStateFile(stateFile);
+        process.exit(1);
+      });
   });
 }
 
