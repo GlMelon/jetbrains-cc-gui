@@ -31,6 +31,30 @@ public class ClaudeCliStreamParserTest {
     }
 
     @Test
+    public void textIsFlushedBeforeToolUseWhenTextBlockStopIsMissing() {
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        CliResult result = new CliResult();
+        StringBuilder assistantContent = new StringBuilder();
+        AtomicBoolean hadSendError = new AtomicBoolean(false);
+
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"text\"}}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                textDelta("**"),
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"content_block\":{\"type\":\"server_tool_use\",\"name\":\"web_search\"}}}",
+                callback, result, assistantContent, hadSendError, false);
+
+        assertEquals(2, callback.events.size());
+        assertEquals("content_delta", callback.events.get(0).type);
+        assertEquals("**", callback.events.get(0).content);
+        assertEquals("tool_use", callback.events.get(1).type);
+        assertEquals("**", assistantContent.toString());
+    }
+    @Test
     public void streamedToolInputDeltasFinalizeAtContentBlockStopAndDeduplicateSnapshot() {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
         RecordingCallback callback = new RecordingCallback();

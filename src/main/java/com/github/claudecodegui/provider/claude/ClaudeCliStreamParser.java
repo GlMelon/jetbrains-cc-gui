@@ -110,9 +110,13 @@ public class ClaudeCliStreamParser {
                         nextTextBlockIsAfterToolStructure = false;
                         pendingTextBlock.setLength(0);
                     } else {
+                        boolean toolStructure = CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)
+                                || CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType);
+                        if (toolStructure) {
+                            flushPendingTextBlock(callback, assistantContent, false);
+                        }
                         currentTextBlockRoute = TextBlockRoute.NONE;
-                        if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)
-                                || CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
+                        if (toolStructure) {
                             nextTextBlockIsAfterToolStructure = true;
                             if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)) {
                                 beginPendingToolUse(readIntField(event, CommonConstants.JSON_KEY_INDEX), block);
