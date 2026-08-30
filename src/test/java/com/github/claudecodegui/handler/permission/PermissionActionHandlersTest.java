@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.permission;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.permission.PermissionService;
 import com.google.gson.JsonObject;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -27,6 +28,11 @@ public class PermissionActionHandlersTest {
     @Before
     public void setUp() {
         handlers = new PermissionActionHandlers(contextStub());
+    }
+
+    @After
+    public void tearDown() {
+        handlers.dispose();
     }
 
     // --- Permission decision tests ---
@@ -141,7 +147,50 @@ public class PermissionActionHandlersTest {
         assertTrue(getPlanApprovalMap().isEmpty());
     }
 
+    @Test
+    public void clearPendingRequestsCancelsTrackedFrontendChecks() throws Exception {
+        Runnable check = () -> { };
+        getFrontendChecks().put("permission:stale", check);
+
+        handlers.clearPendingRequests();
+
+        assertTrue(getFrontendChecks().isEmpty());
+        assertEquals(0, handlers.getPendingRequestCount());
+    }
+
+    @Test
+    public void disposeClearsPendingRequestsAndIsIdempotent() throws Exception {
+        CompletableFuture<Integer> permissionFuture = new CompletableFuture<>();
+        CompletableFuture<JsonObject> askFuture = new CompletableFuture<>();
+        CompletableFuture<JsonObject> planFuture = new CompletableFuture<>();
+        injectPermissionFuture("dispose-permission", permissionFuture);
+        injectAskUserFuture("dispose-ask", askFuture);
+        injectPlanApprovalFuture("dispose-plan", planFuture);
+        getFrontendChecks().put("permission:dispose", () -> { });
+
+        handlers.dispose();
+        handlers.dispose();
+
+        assertEquals(PermissionService.PermissionResponse.DENY.getValue(),
+                permissionFuture.get(1, TimeUnit.SECONDS).intValue());
+        assertNull(askFuture.get(1, TimeUnit.SECONDS));
+        JsonObject planResult = planFuture.get(1, TimeUnit.SECONDS);
+        assertFalse(planResult.get("approved").getAsBoolean());
+        assertTrue(getPermissionMap().isEmpty());
+        assertTrue(getAskUserMap().isEmpty());
+        assertTrue(getPlanApprovalMap().isEmpty());
+        assertTrue(getFrontendChecks().isEmpty());
+        assertEquals(0, handlers.getPendingRequestCount());
+    }
+
     // --- Reflection helpers ---
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Runnable> getFrontendChecks() throws Exception {
+        Field f = PermissionActionHandlers.class.getDeclaredField("pendingFrontendChecks");
+        f.setAccessible(true);
+        return (Map<String, Runnable>) f.get(handlers);
+    }
 
     @SuppressWarnings("unchecked")
     private Map<String, CompletableFuture<Integer>> getPermissionMap() throws Exception {

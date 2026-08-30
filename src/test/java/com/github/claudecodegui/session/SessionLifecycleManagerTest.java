@@ -22,6 +22,7 @@ public class SessionLifecycleManagerTest {
         SessionLifecycleManager.prepareForSessionReset(host);
 
         assertTrue(host.invalidateSessionCallbacksCalled);
+        assertTrue(host.clearPendingPermissionRequestsCalled);
         assertTrue(host.resetTabStatusCalled);
         assertFalse(host.streamCoalescer.isStreamActive());
         assertEquals(List.of("clearMessages"), host.javaScriptCalls);
@@ -87,6 +88,7 @@ public class SessionLifecycleManagerTest {
             }
         });
         private boolean invalidateSessionCallbacksCalled;
+        private boolean clearPendingPermissionRequestsCalled;
         private boolean resetTabStatusCalled;
 
         @Override
@@ -116,7 +118,7 @@ public class SessionLifecycleManagerTest {
 
         @Override
         public void clearPendingPermissionRequests() {
-            throw new UnsupportedOperationException();
+            clearPendingPermissionRequestsCalled = true;
         }
 
         @Override
