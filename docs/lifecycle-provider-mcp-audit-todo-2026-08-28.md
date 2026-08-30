@@ -352,11 +352,28 @@
 
 **代办：**
 
-- [ ] `resetInstance()` 在清除 fallback 引用前先调用 dispose。
-- [ ] fallback 创建和启动长期资源时输出明确告警。
-- [ ] 尽量将 fallback 注册到可用的 Disposable owner。
-- [ ] 测试结束时断言 fallback 进程、sweeper 和 registry 均已清理。
-- [ ] 增加 fallback 实际启动资源后 reset 的回归测试。
+- [x] `resetInstance()` 在清除 fallback 引用前先调用 dispose。
+- [x] fallback 创建和启动长期资源时输出明确告警。
+- [x] 尽量将 fallback 注册到可用的 Disposable owner。
+- [x] 测试结束时断言 fallback 进程、sweeper 和 registry 均已清理。
+- [x] 增加 fallback 实际启动资源后 reset 的回归测试。
+
+#### 完成记录（2026-08-31）
+
+- 修改文件：
+  - `src/main/java/com/github/claudecodegui/bridge/NodeService.java`
+  - `src/main/java/com/github/claudecodegui/bridge/ProcessManager.java`
+  - `src/main/java/com/github/claudecodegui/util/PlatformUtils.java`
+  - `src/test/java/com/github/claudecodegui/bridge/NodeServiceFallbackLifecycleTest.java`
+- 设计说明：
+  - fallback 使用可脱离 IntelliJ Application 构造的 `EnvironmentConfigurator`，创建 stale-channel sweeper 时输出明确告警；Application Disposable owner 可用时立即注册，先无 owner 后可用的路径也会补注册。
+  - `resetInstance()` 和 platform service 接管路径统一通过 `Disposer.dispose()` 先释放 fallback；`NodeService.dispose()` 完成进程、sweeper 和 registry 清理并清除静态引用，避免测试/bootstrap 路径遗留长期资源。
+  - `ProcessManager.cleanupAllProcesses()` 补充清空 `channelStartTimes`；Windows `taskkill` 超时或失败时回退 Java Process API，确保受限宿主中仍能终止直接跟踪的子进程。
+- Provider 对称性检查：Claude、Codex、OpenCode、Grok、Kimi、Pi、OMP、DSH 均通过共享 `NodeService` / `ProcessManager` 生命周期基础设施受益，无 Provider 特例或有意差异。
+- 定向验证：`gradlew.bat test --tests "com.github.claudecodegui.bridge.NodeServiceFallbackLifecycleTest" --no-daemon` 通过；覆盖 owner dispose 和实际 Java 子进程启动后 reset，断言进程、sweeper、registry 与 fallback 引用全部归零。
+- Commit：
+  - `57480f59 fix(bridge): dispose fallback NodeService resources`
+  - `6be83809 test(bridge): cover fallback NodeService reset cleanup`
 
 **完成标准：**测试/异常 bootstrap 路径不遗留后台线程或进程。
 
@@ -478,7 +495,7 @@
 2. [x] **阶段 B：Gateway 非阻塞降级**——完成 P1-02，再验证 P2-03。
 3. [x] **阶段 C：Provider 能力和预热契约**——完成 P1-03、P1-04。
 4. [x] **阶段 D：实时/历史统一块**——完成 P1-05、P2-05。
-5. [ ] **阶段 E：短时资源滞留清理**——完成 P2-01、P2-02、P2-04。
+5. [x] **阶段 E：短时资源滞留清理**——完成 P2-01、P2-02、P2-04。
 6. [ ] **阶段 F：可观测性与文档**——完成 P3 项。
 
 每个阶段应独立提交，确保可单独 revert。功能、修复、重构、测试和文档按变更性质拆分 commit。
@@ -491,6 +508,7 @@
 
 - [ ] `ProcessManagerRuntimeKeyTest`
 - [ ] `ProcessManagerStaleChannelTest`
+- [x] `NodeServiceFallbackLifecycleTest`
 - [ ] `CliPersistentProcessRegistryTest`
 - [x] `McpGatewayProcessHandleTest`
 - [x] `McpGatewayServiceTest`
