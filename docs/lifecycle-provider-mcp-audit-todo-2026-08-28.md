@@ -325,12 +325,24 @@
 
 **代办：**
 
-- [ ] 将 shutdown 改为幂等 async 状态机。
-- [ ] `IpcServer.close()` 返回可等待的 Promise。
-- [ ] 等待所有 supervisor、transport 和 MCP 子进程退出。
-- [ ] 设置 shutdown deadline，超时再强制退出进程树。
-- [ ] 关闭期间拒绝新请求和新 supervisor 启动。
-- [ ] 增加 SIGTERM 后子 MCP 进程归零的定向测试。
+- [x] 将 shutdown 改为幂等 async 状态机。
+- [x] `IpcServer.close()` 返回可等待的 Promise。
+- [x] 等待所有 supervisor、transport 和 MCP 子进程退出。
+- [x] 设置 shutdown deadline，超时再强制退出进程树。
+- [x] 关闭期间拒绝新请求和新 supervisor 启动。
+- [x] 增加 SIGTERM 后子 MCP 进程归零的定向测试。
+
+**整改记录（2026-08-30）：**
+
+- 修改文件：`ai-bridge/mcp-gateway-server.js`、`ai-bridge/mcp-gateway/shutdown-controller.js`、`ai-bridge/mcp-gateway/ipc-server.js`、`ai-bridge/mcp-gateway/server-supervisor.js`、`ai-bridge/mcp-gateway/transport/stdio-client.js`、`ai-bridge/utils/kill-tree.js`，以及对应 Node 定向测试。
+- 设计说明：信号处理收口到幂等 async shutdown controller；`IpcServer.close()` 复用同一 Promise，先关闭请求入口并以 503 拒绝新请求，再等待 supervisor 和 transport 释放。supervisor 在 stopping 状态拒绝 refresh 创建新 client，stdio client 关闭 stdin、拒绝 pending request、确定性终止进程树并等待 exit；Windows `taskkill` 非零退出时回退直接 signal，并在短延迟后重试。
+- deadline 兜底：IPC shutdown 使用有界 deadline；超时后销毁残留 socket，stdio transport 使用有界等待并再次终止子进程树，避免异步 close 无限阻塞 Gateway 退出。
+- 定向测试：在 `ai-bridge` 目录运行 IPC shutdown/snapshot、server-supervisor shutdown、shutdown-controller、stdio transport 和 kill-tree 测试，23 tests 全部通过；定向 ESLint 通过。
+- Commit：
+  - `75277bb9 fix(ai-bridge): await gateway shutdown cleanup`
+  - `510b76e7 test(ai-bridge): cover gateway shutdown lifecycle`
+  - `13199f6e fix(ai-bridge): ensure signal shutdown clears MCP children`
+  - `86fa232a test(ai-bridge): verify signal-driven MCP child cleanup`
 
 **完成标准：**正常信号关闭优雅释放，deadline 后仍有确定性强杀兜底。
 
@@ -511,11 +523,11 @@ cd ai-bridge
 node --import tsx --test test/<直接相关测试文件>
 ```
 
-- [ ] `server-supervisor` 定向测试
-- [ ] IPC snapshot timing 测试
-- [ ] framing/http/stdio/transport 直接相关测试
-- [ ] 新增 SIGTERM shutdown deadline 测试
-- [ ] 新增 shutdown 后 MCP 子进程归零测试
+- [x] `server-supervisor` 定向测试
+- [x] IPC snapshot timing 测试
+- [x] framing/http/stdio/transport 直接相关测试
+- [x] 新增 SIGTERM shutdown deadline 测试
+- [x] 新增 shutdown 后 MCP 子进程归零测试
 
 ### 7.4 Webview
 
