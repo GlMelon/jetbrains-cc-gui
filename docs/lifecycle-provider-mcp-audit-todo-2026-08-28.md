@@ -496,11 +496,47 @@
 
 - [ ] 为 Project、Session、Turn、Gateway process 和 CLI process 增加可关联的 lifecycle/generation id。
 - [ ] 结构化记录 spawn、stdin close、stdout EOF、exit、terminate、rebuild、fallback、degraded。
-- [ ] 记录活跃 Node/CLI/MCP 子进程数量。
-- [ ] 记录 persistent registry size、淘汰次数和 rebuild cooldown 命中次数。
+- [x] 记录活跃 Node/CLI/MCP 子进程数量。
+- [x] 记录 persistent registry size、淘汰次数和 rebuild cooldown 命中次数。
 - [ ] 记录 pending permission/tool call/orphan tool result 数量。
-- [ ] 记录 Gateway restart 次数、cold-start 耗时、catalog-ready 耗时和 direct 降级次数。
-- [ ] 增加诊断命令或开发面板导出当前资源快照。
+- [x] 记录 Gateway restart 次数、cold-start 耗时、catalog-ready 耗时和 direct 降级次数。
+- [x] 增加诊断命令或开发面板导出当前资源快照。
+
+#### 完成记录
+
+- 修改文件：
+  - 后端指标：`CliPersistentProcessRegistry.java`、`McpGatewayService.java`、`ResourceDiagnosticsService.java`、`RuntimeResourceDiagnostics.java`。
+  - 快照协议：`NodeProcessActionHandlers.java`、`NodeProcessInfo.java`、`protocol/payload/NodeProcess*PayloadField.java`、`webview/scripts/generate-protocol-types.mjs`、`webview/src/utils/nodeProcessCapabilities.ts`。
+  - 开发面板：`webview/src/components/ChatInputBox/selectors/NodeProcessSelect.tsx` 与 10 个 locale 文件。
+  - 定向测试：`CliPersistentProcessRegistryTest.java`、`McpGatewayLifecycleTest.java`、`RuntimeResourceDiagnosticsTest.java`、`NodeProcessActionHandlersSerializationTest.java`、`generate-protocol-types.test.ts`、`NodeProcessSelect.diagnostics.test.tsx`。
+- 设计说明：
+  - `CliPersistentProcessRegistry.Diagnostics` 暴露 registry size、可用进程数、待重建数、淘汰次数和 rebuild cooldown 命中次数；计数器由 registry 权威路径更新。
+  - `McpGatewayService.Diagnostics` 暴露 lifecycle state、last failure、process generation、活跃进程数、refresh 状态、restart 次数、cold-start/catalog-ready 耗时和 direct 降级次数。
+  - Project scoped `ResourceDiagnosticsService` 统一聚合 Node、CLI、MCP 活跃进程数量及两类生命周期指标，`NodeProcessActionHandlers` 只负责将后端已聚合快照下发到现有 Node Process 面板。
+  - Java `NodeProcess*PayloadField` 枚举是 payload key SSOT；generator 生成 `NODE_PROCESS_KIND`、`NodeProcess*PayloadWire` 及完整嵌套结构，前端不再手写 snapshot/process/totals 类型，也不从 `processes` 数组重新推导资源指标。
+  - Gateway `lastFailure` 无失败时仍显式序列化为 `null`；snapshot 使用 `JsonObject.toString()`，避免普通 Gson `serializeNulls=false` 丢失契约字段。
+  - Node Process 面板只渲染后端下发的 active process、persistent registry 和 Gateway 值；lifecycle state 与 `-1` duration 保持原值展示，不在 Webview 解释业务语义。
+- Provider 对称性检查：本项只增加共享 registry/Gateway 观测、Project 级聚合和 Webview 展示，不修改 Claude、Codex、OpenCode、Grok、Kimi、Pi、OMP、DSH 的调用、取消、stdin、cwd 或进程复用路径，无 Provider 特例或有意差异。
+- 定向验证：
+  - `.\gradlew.bat test --tests "com.github.claudecodegui.cli.common.CliPersistentProcessRegistryTest" --tests "com.github.claudecodegui.mcp.McpGatewayLifecycleTest" --tests "com.github.claudecodegui.service.RuntimeResourceDiagnosticsTest" --tests "com.github.claudecodegui.handler.nodeprocess.NodeProcessActionHandlersSerializationTest" --no-daemon`：通过。
+  - `cd webview && npx vitest run test/__tests__/generate-protocol-types.test.ts`：1 file、27 tests 全部通过。
+  - `cd webview && npx vitest run test/components/ChatInputBox/selectors/NodeProcessSelect.diagnostics.test.tsx`：1 file、2 tests 全部通过。
+  - `cd webview && npx tsc --noEmit`：通过。
+  - 定向 ESLint（generator、Node process capability/component 及相关测试）：无 error；generator 保留 2 个既存 unused label warning，本项未扩大处理范围。
+  - Node locale JSON 解析与 `config.nodeProcesses.diagnostics` 六个 key 对称性检查：10 个 locale 全部通过。
+- Commit：
+  - `ec38399b feat(runtime): expose persistent registry diagnostics`
+  - `d78449a6 test(runtime): cover persistent registry diagnostics`
+  - `1b4f541e feat(mcp): expose gateway lifecycle diagnostics`
+  - `ebe02ebe test(mcp): cover gateway lifecycle diagnostics`
+  - `496ec218 feat(runtime): aggregate project resource diagnostics`
+  - `4017a5e4 test(runtime): cover project resource diagnostics`
+  - `52c0ea03 feat(protocol): generate node process snapshot payload types`
+  - `a46aec24 fix(protocol): preserve null gateway failure field`
+  - `c515f058 test(protocol): cover node process payload generation`
+  - `d686ae2b i18n(webview): add runtime diagnostics labels`
+  - `efa5b4cc feat(webview): show runtime resource diagnostics`
+  - `25b4e720 test(webview): cover runtime diagnostics rendering`
 
 ---
 
@@ -533,12 +569,14 @@
 - [ ] `ProcessManagerRuntimeKeyTest`
 - [ ] `ProcessManagerStaleChannelTest`
 - [x] `NodeServiceFallbackLifecycleTest`
-- [ ] `CliPersistentProcessRegistryTest`
+- [x] `CliPersistentProcessRegistryTest`
 - [x] `McpGatewayProcessHandleTest`
 - [x] `McpGatewayServiceTest`
 - [x] 新增 project dispose during prewarm 测试
 - [x] 新增 stale onExit generation 测试
 - [x] 新增 Gateway slow catalog/direct fallback 测试
+- [x] `RuntimeResourceDiagnosticsTest`
+- [x] `NodeProcessActionHandlersSerializationTest`
 
 示例命令：
 
@@ -591,6 +629,8 @@ npx tsc --noEmit
 - [x] `bridgeStartup.test.ts`
 - [x] `useThemeInit.test.ts`
 - [x] P3-01 前端改动执行 `tsc --noEmit` 与定向 ESLint
+- [x] P3-02 protocol generator 与 Node Process diagnostics 定向测试
+- [x] P3-02 前端改动执行 `tsc --noEmit` 与定向 ESLint
 - [ ] 无直接测试覆盖的孤立前端改动执行 `tsc --noEmit`
 
 ## 8. 每项整改完成记录模板
