@@ -11,40 +11,19 @@
 
 import { sendAction } from '../bridge/typed';
 import { UPSTREAM } from '../generated/protocol';
+import type {
+  NodeProcessDiagnosticsPayloadWire,
+  NodeProcessInfoPayloadWire,
+  NodeProcessSnapshotPayloadWire,
+  NodeProcessTotalsPayloadWire,
+} from '../generated/protocol';
 import { createCallbackChannel } from './createCallbackChannel';
 
-export type NodeProcessKind = 'DAEMON' | 'CHANNEL' | 'ORPHAN' | 'CLI_SESSION';
-
-export interface NodeProcessInfo {
-  id: string;
-  kind: NodeProcessKind;
-  provider?: string;
-  pid: number;
-  alive: boolean;
-  startedAt: number;
-  uptimeMs: number;
-  command?: string;
-  heapUsed?: number;
-  activeRequestCount: number;
-  channelId?: string;
-  sessionId?: string;
-  tabName?: string;
-  orphan: boolean;
-}
-
-export interface NodeProcessTotals {
-  daemon: number;
-  channel: number;
-  orphan: number;
-  cliSession: number;
-  all: number;
-}
-
-export interface NodeProcessSnapshot {
-  snapshotAt: number;
-  totals: NodeProcessTotals;
-  processes: NodeProcessInfo[];
-}
+export type NodeProcessKind = NodeProcessInfoPayloadWire['kind'];
+export type NodeProcessInfo = NodeProcessInfoPayloadWire;
+export type NodeProcessTotals = NodeProcessTotalsPayloadWire;
+export type NodeProcessRuntimeDiagnostics = NodeProcessDiagnosticsPayloadWire;
+export type NodeProcessSnapshot = NodeProcessSnapshotPayloadWire;
 
 export interface NodeProcessKillResult {
   pid?: number;

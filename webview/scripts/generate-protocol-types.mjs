@@ -124,6 +124,38 @@ const sessionCapabilitiesPayloadJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/payload/SessionCapabilitiesPayloadField.java',
 );
+const nodeProcessInfoJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/service/NodeProcessInfo.java',
+);
+const nodeProcessInfoPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessInfoPayloadField.java',
+);
+const nodeProcessTotalsPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessTotalsPayloadField.java',
+);
+const nodeProcessActiveProcessesPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessActiveProcessesPayloadField.java',
+);
+const nodeProcessPersistentRegistryPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessPersistentRegistryPayloadField.java',
+);
+const nodeProcessGatewayPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessGatewayPayloadField.java',
+);
+const nodeProcessDiagnosticsPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessDiagnosticsPayloadField.java',
+);
+const nodeProcessSnapshotPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessSnapshotPayloadField.java',
+);
 const codexProtectedEnvKeyJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/CodexProtectedEnvKey.java',
@@ -197,6 +229,14 @@ const REQUIRED_JAVA_SOURCES = [
   sessionMcpCapabilityPayloadJavaPath,
   sessionSkillCapabilityPayloadJavaPath,
   sessionCapabilitiesPayloadJavaPath,
+  nodeProcessInfoJavaPath,
+  nodeProcessInfoPayloadJavaPath,
+  nodeProcessTotalsPayloadJavaPath,
+  nodeProcessActiveProcessesPayloadJavaPath,
+  nodeProcessPersistentRegistryPayloadJavaPath,
+  nodeProcessGatewayPayloadJavaPath,
+  nodeProcessDiagnosticsPayloadJavaPath,
+  nodeProcessSnapshotPayloadJavaPath,
   codexProtectedEnvKeyJavaPath,
   mcpTransportTypeJavaPath,
   mcpServerStatusJavaPath,
@@ -299,6 +339,14 @@ ${(manifest.providerType ?? []).map((p) => `  ${p.name}: '${p.value}' as const,`
 } as const;
 
 export type ProviderType = typeof PROVIDER_TYPE[keyof typeof PROVIDER_TYPE];
+
+// ── Node Process Kind (business enum SSOT) ──
+
+export const NODE_PROCESS_KIND = {
+${(manifest.nodeProcessKind ?? []).map((kind) => `  ${kind.name}: '${kind.value}' as const,`).join('\n')}
+} as const;
+
+export type NodeProcessKind = typeof NODE_PROCESS_KIND[keyof typeof NODE_PROCESS_KIND];
 
 // ── Skill Scope (business enum SSOT) ──
 
@@ -523,6 +571,7 @@ function generateManifestFromJavaSources() {
     messageBlockToolStatus: parseJavaEnumProtocol(messageBlockToolStatusJavaPath),
     messageBlockToolIdSource: parseJavaEnumProtocol(messageBlockToolIdSourceJavaPath),
     providerType: parseJavaEnumProtocol(providerTypeJavaPath),
+    nodeProcessKind: parseJavaEnumProtocol(nodeProcessInfoJavaPath),
     skillScope: parseJavaEnumProtocol(skillScopeJavaPath),
     skillFieldControl: parseJavaEnumProtocol(skillFieldControlJavaPath),
     historyExportFormat: parseJavaEnumProtocol(historyExportFormatJavaPath),
@@ -561,6 +610,13 @@ function generateManifestFromJavaSources() {
       sessionMcpCapability: parsePayloadSchema(sessionMcpCapabilityPayloadJavaPath),
       sessionSkillCapability: parsePayloadSchema(sessionSkillCapabilityPayloadJavaPath),
       sessionCapabilities: parsePayloadSchema(sessionCapabilitiesPayloadJavaPath),
+      nodeProcessInfo: parsePayloadSchema(nodeProcessInfoPayloadJavaPath),
+      nodeProcessTotals: parsePayloadSchema(nodeProcessTotalsPayloadJavaPath),
+      nodeProcessActiveProcesses: parsePayloadSchema(nodeProcessActiveProcessesPayloadJavaPath),
+      nodeProcessPersistentRegistry: parsePayloadSchema(nodeProcessPersistentRegistryPayloadJavaPath),
+      nodeProcessGateway: parsePayloadSchema(nodeProcessGatewayPayloadJavaPath),
+      nodeProcessDiagnostics: parsePayloadSchema(nodeProcessDiagnosticsPayloadJavaPath),
+      nodeProcessSnapshot: parsePayloadSchema(nodeProcessSnapshotPayloadJavaPath),
     },
   };
 }
@@ -604,6 +660,10 @@ export type MessageBlockToolIdSource = string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const PROVIDER_TYPE: Record<string, string> = {};
 export type ProviderType = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const NODE_PROCESS_KIND: Record<string, string> = {};
+export type NodeProcessKind = string;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const SKILL_SCOPE: Record<string, string> = {};
@@ -709,6 +769,71 @@ export interface SessionCapabilitiesPayloadWire {
   mcpError: string | null;
   mcp: SessionMcpCapabilityPayloadWire[];
   skills: SessionSkillCapabilityPayloadWire[];
+}
+
+export interface NodeProcessInfoPayloadWire {
+  id: string;
+  kind: NodeProcessKind;
+  provider?: string;
+  pid: number;
+  alive: boolean;
+  startedAt: number;
+  uptimeMs: number;
+  command?: string;
+  heapUsed?: number;
+  activeRequestCount: number;
+  channelId?: string;
+  sessionId?: string;
+  tabName?: string;
+  orphan: boolean;
+}
+
+export interface NodeProcessTotalsPayloadWire {
+  daemon: number;
+  channel: number;
+  orphan: number;
+  cliSession: number;
+  all: number;
+}
+
+export interface NodeProcessActiveProcessesPayloadWire {
+  node: number;
+  cli: number;
+  mcp: number;
+  all: number;
+}
+
+export interface NodeProcessPersistentRegistryPayloadWire {
+  registrySize: number;
+  usableProcessCount: number;
+  pendingRebuildCount: number;
+  evictionCount: number;
+  rebuildCooldownHitCount: number;
+}
+
+export interface NodeProcessGatewayPayloadWire {
+  lifecycleState: string;
+  lastFailure: string | null;
+  processGeneration: number;
+  activeProcessCount: number;
+  refreshInFlight: boolean;
+  restartCount: number;
+  lastColdStartDurationMs: number;
+  lastCatalogReadyDurationMs: number;
+  directDegradedCount: number;
+}
+
+export interface NodeProcessDiagnosticsPayloadWire {
+  activeProcesses: NodeProcessActiveProcessesPayloadWire;
+  persistentRegistry: NodeProcessPersistentRegistryPayloadWire;
+  gateway: NodeProcessGatewayPayloadWire;
+}
+
+export interface NodeProcessSnapshotPayloadWire {
+  snapshotAt: number;
+  totals: NodeProcessTotalsPayloadWire;
+  processes: readonly NodeProcessInfoPayloadWire[];
+  diagnostics: NodeProcessDiagnosticsPayloadWire;
 }
 `;
 }

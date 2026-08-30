@@ -1,7 +1,16 @@
 package com.github.claudecodegui.handler.nodeprocess;
 
+import com.github.claudecodegui.cli.common.CliPersistentProcessRegistry;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.protocol.payload.NodeProcessActiveProcessesPayloadField;
+import com.github.claudecodegui.protocol.payload.NodeProcessDiagnosticsPayloadField;
+import com.github.claudecodegui.protocol.payload.NodeProcessGatewayPayloadField;
+import com.github.claudecodegui.protocol.payload.NodeProcessInfoPayloadField;
+import com.github.claudecodegui.protocol.payload.NodeProcessPersistentRegistryPayloadField;
+import com.github.claudecodegui.protocol.payload.NodeProcessSnapshotPayloadField;
+import com.github.claudecodegui.protocol.payload.NodeProcessTotalsPayloadField;
 import com.github.claudecodegui.service.NodeProcessInfo;
 import com.github.claudecodegui.service.NodeProcessRegistry;
 import com.github.claudecodegui.service.ResourceDiagnosticsService;
@@ -185,34 +194,36 @@ public class NodeProcessActionHandlers {
 
         JsonArray array = new JsonArray();
         for (NodeProcessInfo info : processes) {
-            JsonObject o = new JsonObject();
-            o.addProperty("id", info.getId());
-            o.addProperty("kind", info.getKind().name());
+            JsonObject processJson = new JsonObject();
+            processJson.addProperty(NodeProcessInfoPayloadField.ID.wireKey(), info.getId());
+            processJson.addProperty(NodeProcessInfoPayloadField.KIND.wireKey(), info.getKind().value());
             if (info.getProvider() != null) {
-                o.addProperty("provider", info.getProvider());
+                processJson.addProperty(NodeProcessInfoPayloadField.PROVIDER.wireKey(), info.getProvider());
             }
-            o.addProperty("pid", info.getPid());
-            o.addProperty("alive", info.isAlive());
-            o.addProperty("startedAt", info.getStartedAtMs());
-            o.addProperty("uptimeMs", info.getUptimeMs());
+            processJson.addProperty(NodeProcessInfoPayloadField.PID.wireKey(), info.getPid());
+            processJson.addProperty(NodeProcessInfoPayloadField.ALIVE.wireKey(), info.isAlive());
+            processJson.addProperty(NodeProcessInfoPayloadField.STARTED_AT.wireKey(), info.getStartedAtMs());
+            processJson.addProperty(NodeProcessInfoPayloadField.UPTIME_MS.wireKey(), info.getUptimeMs());
             if (info.getCommand() != null) {
-                o.addProperty("command", info.getCommand());
+                processJson.addProperty(NodeProcessInfoPayloadField.COMMAND.wireKey(), info.getCommand());
             }
             if (info.getHeapUsedBytes() >= 0) {
-                o.addProperty("heapUsed", info.getHeapUsedBytes());
+                processJson.addProperty(NodeProcessInfoPayloadField.HEAP_USED.wireKey(), info.getHeapUsedBytes());
             }
-            o.addProperty("activeRequestCount", info.getActiveRequestCount());
+            processJson.addProperty(
+                    NodeProcessInfoPayloadField.ACTIVE_REQUEST_COUNT.wireKey(),
+                    info.getActiveRequestCount());
             if (info.getChannelId() != null) {
-                o.addProperty("channelId", info.getChannelId());
+                processJson.addProperty(NodeProcessInfoPayloadField.CHANNEL_ID.wireKey(), info.getChannelId());
             }
             if (info.getSessionId() != null) {
-                o.addProperty("sessionId", info.getSessionId());
+                processJson.addProperty(NodeProcessInfoPayloadField.SESSION_ID.wireKey(), info.getSessionId());
             }
             if (info.getTabName() != null) {
-                o.addProperty("tabName", info.getTabName());
+                processJson.addProperty(NodeProcessInfoPayloadField.TAB_NAME.wireKey(), info.getTabName());
             }
-            o.addProperty("orphan", info.isOrphan());
-            array.add(o);
+            processJson.addProperty(NodeProcessInfoPayloadField.ORPHAN.wireKey(), info.isOrphan());
+            array.add(processJson);
 
             switch (info.getKind()) {
                 case DAEMON:
@@ -231,19 +242,94 @@ public class NodeProcessActionHandlers {
         }
 
         JsonObject totals = new JsonObject();
-        totals.addProperty("daemon", daemonCount);
-        totals.addProperty("channel", channelCount);
-        totals.addProperty("orphan", orphanCount);
-        totals.addProperty("cliSession", cliSessionCount);
-        totals.addProperty("all", processes.size());
+        totals.addProperty(NodeProcessTotalsPayloadField.DAEMON.wireKey(), daemonCount);
+        totals.addProperty(NodeProcessTotalsPayloadField.CHANNEL.wireKey(), channelCount);
+        totals.addProperty(NodeProcessTotalsPayloadField.ORPHAN.wireKey(), orphanCount);
+        totals.addProperty(NodeProcessTotalsPayloadField.CLI_SESSION.wireKey(), cliSessionCount);
+        totals.addProperty(NodeProcessTotalsPayloadField.ALL.wireKey(), processes.size());
 
         JsonObject root = new JsonObject();
-        root.addProperty("snapshotAt", now);
-        root.add("totals", totals);
-        root.add("processes", array);
-        root.add("diagnostics", gson.toJsonTree(
-                diagnostics == null ? RuntimeResourceDiagnostics.empty() : diagnostics));
+        root.addProperty(NodeProcessSnapshotPayloadField.SNAPSHOT_AT.wireKey(), now);
+        root.add(NodeProcessSnapshotPayloadField.TOTALS.wireKey(), totals);
+        root.add(NodeProcessSnapshotPayloadField.PROCESSES.wireKey(), array);
+        root.add(
+                NodeProcessSnapshotPayloadField.DIAGNOSTICS.wireKey(),
+                buildDiagnosticsJson(diagnostics));
         return gson.toJson(root);
+    }
+
+    private JsonObject buildDiagnosticsJson(RuntimeResourceDiagnostics diagnostics) {
+        RuntimeResourceDiagnostics fallback = RuntimeResourceDiagnostics.empty();
+        RuntimeResourceDiagnostics safeDiagnostics = diagnostics == null ? fallback : diagnostics;
+        RuntimeResourceDiagnostics.ActiveProcessCounts activeProcesses =
+                safeDiagnostics.activeProcesses() == null
+                        ? fallback.activeProcesses()
+                        : safeDiagnostics.activeProcesses();
+        CliPersistentProcessRegistry.Diagnostics persistentRegistry =
+                safeDiagnostics.persistentRegistry() == null
+                        ? fallback.persistentRegistry()
+                        : safeDiagnostics.persistentRegistry();
+        McpGatewayService.Diagnostics gateway = safeDiagnostics.gateway() == null
+                ? fallback.gateway()
+                : safeDiagnostics.gateway();
+
+        JsonObject activeProcessesJson = new JsonObject();
+        activeProcessesJson.addProperty(
+                NodeProcessActiveProcessesPayloadField.NODE.wireKey(), activeProcesses.node());
+        activeProcessesJson.addProperty(
+                NodeProcessActiveProcessesPayloadField.CLI.wireKey(), activeProcesses.cli());
+        activeProcessesJson.addProperty(
+                NodeProcessActiveProcessesPayloadField.MCP.wireKey(), activeProcesses.mcp());
+        activeProcessesJson.addProperty(
+                NodeProcessActiveProcessesPayloadField.ALL.wireKey(), activeProcesses.all());
+
+        JsonObject persistentRegistryJson = new JsonObject();
+        persistentRegistryJson.addProperty(
+                NodeProcessPersistentRegistryPayloadField.REGISTRY_SIZE.wireKey(),
+                persistentRegistry.registrySize());
+        persistentRegistryJson.addProperty(
+                NodeProcessPersistentRegistryPayloadField.USABLE_PROCESS_COUNT.wireKey(),
+                persistentRegistry.usableProcessCount());
+        persistentRegistryJson.addProperty(
+                NodeProcessPersistentRegistryPayloadField.PENDING_REBUILD_COUNT.wireKey(),
+                persistentRegistry.pendingRebuildCount());
+        persistentRegistryJson.addProperty(
+                NodeProcessPersistentRegistryPayloadField.EVICTION_COUNT.wireKey(),
+                persistentRegistry.evictionCount());
+        persistentRegistryJson.addProperty(
+                NodeProcessPersistentRegistryPayloadField.REBUILD_COOLDOWN_HIT_COUNT.wireKey(),
+                persistentRegistry.rebuildCooldownHitCount());
+
+        JsonObject gatewayJson = new JsonObject();
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.LIFECYCLE_STATE.wireKey(), gateway.lifecycleState());
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.LAST_FAILURE.wireKey(), gateway.lastFailure());
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.PROCESS_GENERATION.wireKey(), gateway.processGeneration());
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.ACTIVE_PROCESS_COUNT.wireKey(), gateway.activeProcessCount());
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.REFRESH_IN_FLIGHT.wireKey(), gateway.refreshInFlight());
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.RESTART_COUNT.wireKey(), gateway.restartCount());
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.LAST_COLD_START_DURATION_MS.wireKey(),
+                gateway.lastColdStartDurationMs());
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.LAST_CATALOG_READY_DURATION_MS.wireKey(),
+                gateway.lastCatalogReadyDurationMs());
+        gatewayJson.addProperty(
+                NodeProcessGatewayPayloadField.DIRECT_DEGRADED_COUNT.wireKey(),
+                gateway.directDegradedCount());
+
+        JsonObject diagnosticsJson = new JsonObject();
+        diagnosticsJson.add(
+                NodeProcessDiagnosticsPayloadField.ACTIVE_PROCESSES.wireKey(), activeProcessesJson);
+        diagnosticsJson.add(
+                NodeProcessDiagnosticsPayloadField.PERSISTENT_REGISTRY.wireKey(), persistentRegistryJson);
+        diagnosticsJson.add(NodeProcessDiagnosticsPayloadField.GATEWAY.wireKey(), gatewayJson);
+        return diagnosticsJson;
     }
 
     private void runAsync(Runnable work) {

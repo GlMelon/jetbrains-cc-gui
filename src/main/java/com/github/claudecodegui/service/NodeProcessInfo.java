@@ -23,10 +23,20 @@ package com.github.claudecodegui.service;
 public final class NodeProcessInfo {
 
     public enum Kind {
-        DAEMON,
-        CHANNEL,
-        ORPHAN,
-        CLI_SESSION
+        DAEMON("DAEMON"),
+        CHANNEL("CHANNEL"),
+        ORPHAN("ORPHAN"),
+        CLI_SESSION("CLI_SESSION");
+
+        private final String value;
+
+        Kind(String value) {
+            this.value = value;
+        }
+
+        public String value() {
+            return value;
+        }
     }
 
     /** Synthetic identifier — used by the panel to dedupe entries across snapshots. */
