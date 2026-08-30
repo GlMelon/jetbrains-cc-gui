@@ -19,7 +19,7 @@ import { spawnSync } from 'child_process';
  *
  * - Windows: `taskkill /F /T /PID <pid>` force-kills the tree (including a
  *   cmd.exe wrapper's children); falls back to child.kill() when no pid is
- *   available or taskkill itself fails to launch.
+ *   available or taskkill cannot terminate the process tree.
  * - Unix: SIGTERM to the child's process group (requires detached spawn);
  *   falls back to signaling the single process.
  *
@@ -38,13 +38,13 @@ export function killChildTree(child, label) {
       const pid = child.pid;
       if (pid) {
         try {
-          spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
+          const result = spawnSync('taskkill', ['/F', '/T', '/PID', String(pid)], {
             stdio: 'ignore',
             timeout: 5000,
           });
-          return;
+          if (!result.error && result.status === 0) return;
         } catch (_) {
-          // taskkill failed to launch — fall through to the direct kill
+          // Fall through to a direct signal when taskkill cannot run.
         }
       }
       child.kill('SIGTERM');

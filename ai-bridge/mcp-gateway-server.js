@@ -3,7 +3,8 @@
 import { IpcServer } from './mcp-gateway/ipc-server.js';
 import { RevisionStore } from './mcp-gateway/revision-store.js';
 import { HealthStore } from './mcp-gateway/health-store.js';
-import { writeStateFile, removeStateFile } from './mcp-gateway/state-file.js';
+import { writeStateFile } from './mcp-gateway/state-file.js';
+import { installGatewayShutdown } from './mcp-gateway/shutdown-controller.js';
 
 const args = parseArgs(process.argv.slice(2));
 const stateFile = args['state-file'];
@@ -34,26 +35,7 @@ writeStateFile(stateFile, {
 });
 console.log(`MCP Gateway listening on 127.0.0.1:${port}`);
 
-/** @type {Promise<void> | null} */
-let shutdownPromise = null;
-
-for (const signal of /** @type {NodeJS.Signals[]} */ (['SIGINT', 'SIGTERM'])) {
-  process.on(signal, () => {
-    if (shutdownPromise) return;
-    shutdownPromise = ipc.close()
-      .then(() => {
-        removeStateFile(stateFile);
-        process.exit(0);
-      })
-      .catch((error) => {
-        console.error(`[WARN][mcp-gateway] graceful shutdown failed after ${signal}:`, error);
-        removeStateFile(stateFile);
-        process.exit(1);
-      });
-  });
-}
-
-process.on('exit', () => removeStateFile(stateFile));
+installGatewayShutdown({ ipc, stateFile });
 
 /**
  * 解析 `--key value` 形式的命令行参数。

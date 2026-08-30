@@ -170,15 +170,29 @@ export class StdioMcpClient {
       }
       let settled = false;
       /** @type {NodeJS.Timeout} */
-      let timer;
+      let retryTimer;
+      /** @type {NodeJS.Timeout} */
+      let deadlineTimer;
       const finish = () => {
         if (settled) return;
         settled = true;
-        clearTimeout(timer);
+        clearTimeout(retryTimer);
+        clearTimeout(deadlineTimer);
         resolve();
       };
-      timer = setTimeout(finish, 1_000);
-      timer.unref?.();
+      retryTimer = setTimeout(() => {
+        try {
+          killChildTree(this.process, this.spec.serverId);
+        } catch {}
+      }, 500);
+      retryTimer.unref?.();
+      deadlineTimer = setTimeout(() => {
+        try {
+          killChildTree(this.process, this.spec.serverId);
+        } catch {}
+        finish();
+      }, 2_000);
+      deadlineTimer.unref?.();
       this.process.once('exit', finish);
       this.process.once('close', finish);
       this.process.once('error', finish);
