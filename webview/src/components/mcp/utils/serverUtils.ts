@@ -4,6 +4,7 @@
  */
 
 import type { McpServer, McpServerStatusInfo } from '../types';
+import { MCP_SERVER_STATUS } from '../../../generated/protocol';
 
 // ============================================================================
 // Icon color configuration
@@ -97,13 +98,11 @@ export function getStatusText(
   }
 
   switch (status) {
-    case 'connected':
+    case MCP_SERVER_STATUS.CONNECTED:
       return t('mcp.statusConnected');
-    case 'failed':
+    case MCP_SERVER_STATUS.FAILED:
       return t('mcp.statusFailed');
-    case 'needs-auth':
-      return t('mcp.statusNeedsAuth');
-    case 'pending':
+    case MCP_SERVER_STATUS.PENDING:
       return t('mcp.statusPending');
     default:
       return t('mcp.statusUnknown');

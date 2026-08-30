@@ -80,7 +80,7 @@ describe('useServerData terminal MCP status handling', () => {
     act(() => {
       window.updateMcpServerStatus?.(JSON.stringify([{
         name: server.name,
-        status: 'needs-auth',
+        status: 'failed',
       }]));
     });
 

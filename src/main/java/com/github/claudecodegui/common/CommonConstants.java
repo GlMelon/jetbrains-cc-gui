@@ -471,7 +471,9 @@ public final class CommonConstants {
     public static final String SESSION_STATUS_ERROR = "error";
 
     // ===== MCP 传输类型 =====
-    // MCP 服务器配置的传输协议类型（stdio/http/sse）
+    // MCP 服务器配置的传输协议类型（stdio/http/sse）。⚠️ 须保持字面量(下游有 switch-case 需要
+    // 编译期常量);与 protocol.McpTransportType / McpServerStatus 的值一致性由
+    // McpProtocolEnumSymmetryTest 守门,前端类型经 generate-protocol-types.mjs 从枚举生成。
 
     /** MCP 服务器传输类型：标准输入输出 */
     public static final String MCP_TRANSPORT_STDIO = "stdio";

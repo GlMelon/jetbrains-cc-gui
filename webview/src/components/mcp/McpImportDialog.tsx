@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpImportPreviewResponse, McpServer } from '../../types/mcp';
 import { sendAction, subscribeEvent } from '../../bridge/typed';
-import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
+import { UPSTREAM, DOWNSTREAM, MCP_TRANSPORT } from '../../generated/protocol';
 import { UnifiedLoader } from '../UnifiedLoader';
 import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../shared/BaseDialog';
 import { ClickSpark } from '../react-bits';
@@ -140,7 +140,7 @@ export function McpImportDialog({ currentProvider = 'claude', existingIds = [], 
                   <div className="mcp-import-item-info">
                     <div className="mcp-import-item-title-row">
                       <span className="mcp-import-item-name">{item.server.name || item.finalId}</span>
-                      <span className="mcp-import-type-badge">{item.server.server?.type || 'stdio'}</span>
+                      <span className="mcp-import-type-badge">{item.server.server?.type || MCP_TRANSPORT.STDIO}</span>
                       {item.renamed && (
                         <span className="mcp-import-renamed">{t('mcp.import.renamedFrom', { id: item.originalId })}</span>
                       )}

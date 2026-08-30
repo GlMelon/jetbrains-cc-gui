@@ -1,11 +1,14 @@
 package com.github.claudecodegui.mcp;
 
+import com.github.claudecodegui.protocol.McpContainerRunner;
+import com.github.claudecodegui.protocol.McpPackageRunner;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -35,9 +38,25 @@ public final class McpCommandRiskEvaluator {
     private McpCommandRiskEvaluator() {
     }
 
-    /** 已知安全的 package runner，可在不标 unverified 的情况下调用。迁自 McpRegistryEntryMapper。 */
-    public static final Set<String> KNOWN_RUNNERS = new HashSet<>(Arrays.asList(
-        "npx", "uvx", "uv", "pnpm", "pnpx", "bunx", "node", "deno", "python", "python3", "docker", "podman"));
+    /**
+     * 已知安全的 runner，可在不标 unverified 的情况下调用。迁自 McpRegistryEntryMapper。
+     * package/container 两组由 protocol.McpPackageRunner / McpContainerRunner 派生
+     * (与前端 packageRunner.ts 经生成管线同源);本地脚本 runner(node/deno/python/python3)
+     * 为后端专属词表,前端不消费。
+     */
+    public static final Set<String> KNOWN_RUNNERS = buildKnownRunners();
+
+    private static Set<String> buildKnownRunners() {
+        Set<String> runners = new HashSet<>();
+        for (McpPackageRunner runner : McpPackageRunner.values()) {
+            runners.add(runner.value());
+        }
+        for (McpContainerRunner runner : McpContainerRunner.values()) {
+            runners.add(runner.value());
+        }
+        runners.addAll(Arrays.asList("node", "deno", "python", "python3"));
+        return Collections.unmodifiableSet(runners);
+    }
 
     /** Shell 解释器——作为 MCP server command 即等同授予任意命令执行能力，一律拒绝。 */
     public static final Set<String> SHELL_RUNNERS = new HashSet<>(Arrays.asList(

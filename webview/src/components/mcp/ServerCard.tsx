@@ -5,6 +5,7 @@
  */
 
 import type { McpServer, McpServerStatusInfo } from '../../types/mcp';
+import { MCP_SERVER_STATUS } from '../../generated/protocol';
 import type { ServerRefreshState, ServerToolsState, McpTool } from './types';
 import { getServerStatusInfo, getStatusText, getIconColor, getServerInitial, isServerEnabled } from './utils';
 import { ServerToolsPanel, isEmptyToolsResult } from './ServerToolsPanel';
@@ -19,9 +20,8 @@ function getStatusPillClass(
 ): string {
   if (!isServerEnabled(server, isCodexMode)) return 'muted';
   switch (status) {
-    case 'connected': return 'ok';
-    case 'failed': return 'err';
-    case 'needs-auth': return 'warn';
+    case MCP_SERVER_STATUS.CONNECTED: return 'ok';
+    case MCP_SERVER_STATUS.FAILED: return 'err';
     default: return 'muted'; // pending / unknown
   }
 }
@@ -72,11 +72,11 @@ export function ServerCard({
   const statusInfo = getServerStatusInfo(server, serverStatus);
   const status = statusInfo?.status;
   const effectiveStatus: McpServerStatusInfo['status'] | undefined =
-    status === 'pending' && (toolsInfo?.tools?.length ?? 0) > 0
-      ? 'connected'
+    status === MCP_SERVER_STATUS.PENDING && (toolsInfo?.tools?.length ?? 0) > 0
+      ? MCP_SERVER_STATUS.CONNECTED
       : status;
   const enabled = isServerEnabled(server, isCodexMode);
-  const isConnected = effectiveStatus === 'connected';
+  const isConnected = effectiveStatus === MCP_SERVER_STATUS.CONNECTED;
 
   const iconStyle: React.CSSProperties = { background: getIconColor(server.id) };
   const statusPillClass = getStatusPillClass(server, effectiveStatus, isCodexMode);
@@ -244,5 +244,5 @@ export function hasEmptyToolsWarning(
   toolsInfo: ServerToolsState[string] | undefined,
   enabled: boolean,
 ): boolean {
-  return enabled && status === 'connected' && isEmptyToolsResult(toolsInfo);
+  return enabled && status === MCP_SERVER_STATUS.CONNECTED && isEmptyToolsResult(toolsInfo);
 }

@@ -5,12 +5,11 @@
 
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { McpServer, McpPreset } from '../../types/mcp';
+import type { McpServer } from '../../types/mcp';
 import { sendAction, subscribeEvent } from '../../bridge/typed';
-import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
+import { UPSTREAM, DOWNSTREAM, MCP_SERVER_STATUS } from '../../generated/protocol';
 import { McpServerDialog } from './McpServerDialog';
 import { McpMarketDialog } from './McpMarketDialog';
-import { McpPresetDialog } from './McpPresetDialog';
 import { McpImportDialog } from './McpImportDialog';
 import { McpHelpDialog } from './McpHelpDialog';
 import { McpConfirmDialog } from './McpConfirmDialog';
@@ -159,8 +158,8 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
   // Dialog state
   const [showServerDialog, setShowServerDialog] = useState(false);
   const [showMarketDialog, setShowMarketDialog] = useState(false);
+  // 市场选中 server → 预填 McpServerDialog(isPreset 预填新建模式)期间暂存的 server
   const [pendingPresetServer, setPendingPresetServer] = useState<McpServer | null>(null);
-  const [showPresetDialog, setShowPresetDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showHelpDialog, setShowHelpDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -428,34 +427,6 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     });
   }, [editingServer, messagePrefix, addToast, t, loadServers, requirePackageApproval]);
 
-  // Select preset
-  const handleSelectPreset = useCallback((preset: McpPreset) => {
-    const server: McpServer = {
-      id: preset.id,
-      name: preset.name,
-      description: preset.description,
-      tags: preset.tags,
-      server: { ...preset.server },
-      apps: {
-        claude: !isCodexMode,
-        codex: isCodexMode,
-      },
-      homepage: preset.homepage,
-      docs: preset.docs,
-      enabled: true,
-    };
-    requirePackageApproval(server, () => {
-      sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
-      addToast(`${t('mcp.added')} ${preset.name}`, 'success');
-
-      setTimeout(() => {
-        loadServers();
-      }, 100);
-
-      setShowPresetDialog(false);
-    });
-  }, [isCodexMode, messagePrefix, addToast, t, loadServers, requirePackageApproval]);
-
   // Handle import servers from external config (e.g. Copilot MCP config)
   // B3/SEC-06:批量导入命中包管理 / 容器 runner 时弹汇总确认,确认后逐个 ADD
   const handleImportServers = useCallback((servers: McpServer[]) => {
@@ -524,8 +495,8 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     servers.forEach(s => {
       if (!isServerEnabled(s, isCodexMode)) { disabled++; return; }
       const st = getServerStatusInfo(s, serverStatus)?.status;
-      if (st === 'connected') connected++;
-      else if (st === 'failed' || st === 'needs-auth') error++;
+      if (st === MCP_SERVER_STATUS.CONNECTED) connected++;
+      else if (st === MCP_SERVER_STATUS.FAILED) error++;
     });
     return { connected, error, disabled, total: servers.length };
   }, [servers, serverStatus, isCodexMode]);
@@ -680,13 +651,6 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
           isCodexMode={isCodexMode}
           onClose={() => setShowMarketDialog(false)}
           onSelect={handleSelectFromMarket}
-        />
-      )}
-
-      {showPresetDialog && (
-        <McpPresetDialog
-          onClose={() => setShowPresetDialog(false)}
-          onSelect={handleSelectPreset}
         />
       )}
 

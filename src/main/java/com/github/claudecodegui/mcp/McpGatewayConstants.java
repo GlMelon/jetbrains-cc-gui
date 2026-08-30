@@ -57,6 +57,9 @@ public final class McpGatewayConstants {
     public static final String ARG_PROJECT_PATH = "--project-path";
 
     public static final int SNAPSHOT_SCHEMA_VERSION = 1;
+    // ⚠️ transport/state 须保持字面量(下游有 switch-case 需要编译期常量);与
+    // protocol.McpTransportType / McpGatewayState 的值一致性由 McpProtocolEnumSymmetryTest
+    // 守门,state 值另与 ai-bridge server-supervisor.js 上报字面量逐字对齐。
     public static final String TRANSPORT_STDIO = "stdio";
     public static final String TRANSPORT_HTTP = "http";
     public static final String TRANSPORT_SSE = "sse";

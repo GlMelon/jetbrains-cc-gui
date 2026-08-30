@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { McpServer, McpServerSpec } from '../../types/mcp';
 import { sendAction, subscribeEvent } from '../../bridge/typed';
-import { UPSTREAM, DOWNSTREAM } from '../../generated/protocol';
+import { UPSTREAM, DOWNSTREAM, MCP_MARKET_ERROR_CODE, MCP_TRANSPORT } from '../../generated/protocol';
 import {
   searchMcpMarket,
   getMcpMarketDetail,
@@ -34,27 +34,27 @@ function buildServerSpec(detail: McpMarketDetailResult): McpServerSpec | null {
   const url = conn.mcpUrl || conn.url || conn.deploymentUrl;
   if (detail.remote) {
     if (!url) return null;
-    return { type: 'http', url, headers: {} };
+    return { type: MCP_TRANSPORT.HTTP, url, headers: {} };
   }
   if (conn.command) {
     const args = Array.isArray(conn.args) ? conn.args : (conn.args ? [conn.args] : []);
-    return { type: 'stdio', command: conn.command, args, env: conn.env || {} };
+    return { type: MCP_TRANSPORT.STDIO, command: conn.command, args, env: conn.env || {} };
   }
   // 非 remote 但无 command,若有 url 退化 http
   if (url) {
-    return { type: 'http', url, headers: {} };
+    return { type: MCP_TRANSPORT.HTTP, url, headers: {} };
   }
   return null;
 }
 
-/** 错误码 → i18n 文案。 */
+/** 错误码 → i18n 文案(词表 SSOT:生成常量 MCP_MARKET_ERROR_CODE)。 */
 function mapErrorMessage(code: string | undefined, fallback: string, t: (k: string, o?: Record<string, unknown>) => string): string {
   switch (code) {
-    case 'MISSING_API_KEY': return t('mcp.market.errorKeyMissing');
-    case 'INVALID_API_KEY': return t('mcp.market.errorKeyInvalid');
-    case 'NETWORK_ERROR': return t('mcp.market.errorNetwork');
-    case 'TIMEOUT': return t('mcp.market.errorTimeout');
-    case 'PARSE_ERROR': return t('mcp.market.errorParse');
+    case MCP_MARKET_ERROR_CODE.MISSING_API_KEY: return t('mcp.market.errorKeyMissing');
+    case MCP_MARKET_ERROR_CODE.INVALID_API_KEY: return t('mcp.market.errorKeyInvalid');
+    case MCP_MARKET_ERROR_CODE.NETWORK_ERROR: return t('mcp.market.errorNetwork');
+    case MCP_MARKET_ERROR_CODE.TIMEOUT: return t('mcp.market.errorTimeout');
+    case MCP_MARKET_ERROR_CODE.PARSE_ERROR: return t('mcp.market.errorParse');
     default:
       // HTTP_401/403 已在前置逻辑转 INVALID_API_KEY;其他 HTTP_xxx(5xx 等)用通用文案带状态码
       if (code && code.startsWith('HTTP_')) {
@@ -64,7 +64,7 @@ function mapErrorMessage(code: string | undefined, fallback: string, t: (k: stri
   }
 }
 
-// 哈希配色(复用 McpPresetDialog 配色逻辑,保持卡片视觉一致)
+// 哈希配色(市场卡片按 id 哈希取色,保持视觉一致)
 const ICON_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#6366F1'];
 function getIconColor(id: string): string {
   let hash = 0;
@@ -85,7 +85,7 @@ function safeParse(raw: unknown): { hasKey?: boolean; masked?: string } | null {
 /**
  * MCP 市场(Smithery Registry)搜索 + 安装弹窗。
  *
- * <p>仿 {@link McpPresetDialog} 裸 div + 卡片模式(同目录视觉一致)。
+ * <p>裸 div + 卡片模式(与同目录其他 Dialog 视觉一致)。
  * 内嵌 Smithery API Key 配置(广播模式:GET/SET_SMITHERY_API_KEY → CONFIG_SMITHERY_API_KEY,
  * 无 __requestId,组件内 subscribeEvent 监听状态)。
  *
@@ -122,7 +122,7 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
 
   const handleSearch = useCallback(async (q: string, p = 1) => {
     if (!keyStatus.hasKey) {
-      setError({ message: t('mcp.market.errorKeyMissing'), code: 'MISSING_API_KEY' });
+      setError({ message: t('mcp.market.errorKeyMissing'), code: MCP_MARKET_ERROR_CODE.MISSING_API_KEY });
       setShowKeyInput(true);
       return;
     }
@@ -132,7 +132,8 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
     const result = await searchMcpMarket(q, p, 20);
     setLoading(false);
     if (result.error) {
-      const isKeyErr = result.errorCode === 'MISSING_API_KEY' || result.errorCode === 'INVALID_API_KEY';
+      const isKeyErr = result.errorCode === MCP_MARKET_ERROR_CODE.MISSING_API_KEY
+        || result.errorCode === MCP_MARKET_ERROR_CODE.INVALID_API_KEY;
       // 搜索失败:非 key 类错误(网络/超时/HTTP)挂重试闭包重新搜索,key 类错误走 key 输入引导不挂重试
       setError({
         message: mapErrorMessage(result.errorCode, result.error, t),
@@ -177,7 +178,7 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
       id,
       name: server.displayName || server.qualifiedName || id,
       description: server.description || '',
-      tags: [server.remote ? 'remote' : 'stdio', 'smithery'],
+      tags: [server.remote ? 'remote' : MCP_TRANSPORT.STDIO, 'smithery'],
       server: spec,
       apps: { claude: !isCodexMode, codex: isCodexMode },
       homepage: server.homepage,

@@ -1347,7 +1347,6 @@
     "serverVersion": "서버 버전",
     "statusConnected": "연결됨",
     "statusFailed": "연결 실패",
-    "statusNeedsAuth": "인증 필요",
     "statusPending": "연결 중...",
     "statusUnknown": "알 수 없음",
     "logs": {
@@ -1367,7 +1366,7 @@
       "firstLoad": "첫 로드, 서버 목록을 가져오는 중...",
       "loadedServersSuccess": "서버 목록 로드됨: {{count}}개 서버 발견",
       "loadedServersFailed": "서버 목록 로드 실패: {{error}}",
-      "statusUpdateComplete": "상태 업데이트 완료: {{total}}개 서버 ({{connected}}개 연결됨, {{failed}}개 실패, {{pending}}개 대기 중, {{needsAuth}}개 인증 필요)",
+      "statusUpdateComplete": "상태 업데이트 완료: {{total}}개 서버 ({{connected}}개 연결됨, {{failed}}개 실패, {{pending}}개 대기 중)",
       "loadedStatusFailed": "서버 상태 로드 실패: {{error}}",
       "cleared": "새로고침 로그 지움",
       "refreshingAll": "모든 MCP 서버 새로고침 중...",
@@ -1380,15 +1379,7 @@
       "forceRefreshTools": "도구 강제 새로고침",
       "connected": "연결됨",
       "failed": "연결 실패",
-      "needsAuth": "인증 필요",
       "unknownError": "알 수 없는 오류"
-    },
-    "presets": {
-      "fetch": "웹 페이지 스크래핑을 위한 웹 콘텐츠 가져오기 도구",
-      "time": "시간 및 시간대 유틸리티",
-      "memory": "지식 그래프 및 메모리 저장 도구",
-      "sequentialThinking": "순차적 사고 및 추론 도구",
-      "context7": "문서 검색 및 컨텍스트 검색 도구"
     },
     "help": {
       "title": "MCP란?",

@@ -1249,7 +1249,6 @@
     "serverVersion": "サーバーバージョン",
     "statusConnected": "接続済み",
     "statusFailed": "接続失敗",
-    "statusNeedsAuth": "認証が必要",
     "statusPending": "接続中...",
     "statusUnknown": "不明",
     "logs": {
@@ -1269,7 +1268,7 @@
       "firstLoad": "First load, fetching server list...",
       "loadedServersSuccess": "Loaded server list: {{count}} servers found",
       "loadedServersFailed": "Failed to load server list: {{error}}",
-      "statusUpdateComplete": "Status update complete: {{total}} servers ({{connected}} connected, {{failed}} failed, {{pending}} pending, {{needsAuth}} need auth)",
+      "statusUpdateComplete": "Status update complete: {{total}} servers ({{connected}} connected, {{failed}} failed, {{pending}} pending)",
       "loadedStatusFailed": "Failed to load server status: {{error}}",
       "cleared": "Refresh logs cleared",
       "refreshingAll": "Refreshing all MCP servers...",
@@ -1282,15 +1281,7 @@
       "forceRefreshTools": "Force refresh tools",
       "connected": "Connected",
       "failed": "Connection failed",
-      "needsAuth": "Authentication required",
       "unknownError": "Unknown error"
-    },
-    "presets": {
-      "fetch": "Webコンテンツ取得ツール、Webページをスクレイピング",
-      "time": "時刻とタイムゾーンユーティリティ",
-      "memory": "ナレッジグラフとメモリストレージツール",
-      "sequentialThinking": "連続思考と推論ツール",
-      "context7": "ドキュメント検索とコンテキスト取得ツール"
     },
     "help": {
       "title": "MCPとは？",

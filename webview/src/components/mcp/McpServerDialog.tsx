@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MCP_PACKAGE_RUNNER, MCP_TRANSPORT } from '../../generated/protocol';
 import type { McpServer, McpServerSpec } from '../../types/mcp';
 import { InfoIcon, XCircleIcon } from '../Icons';
 import { UnifiedLoader } from '../UnifiedLoader';
@@ -23,11 +24,12 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
   const [parseError, setParseError] = useState('');
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
+  // 示例占位符中的 runner 词取自生成常量(插值),与后端 KNOWN_RUNNERS 词表同源。
   const claudePlaceholder = `// demo:
 // {
 //   "mcpServers": {
 //     "example-server": {
-//       "command": "npx",
+//       "command": "${MCP_PACKAGE_RUNNER.NPX}",
 //       "args": [
 //         "-y",
 //         "mcp-server-example"
@@ -40,7 +42,7 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
 // {
 //   "mcpServers": {
 //     "context7": {
-//       "command": "npx",
+//       "command": "${MCP_PACKAGE_RUNNER.NPX}",
 //       "args": ["-y", "@upstash/context7-mcp"],
 //       "env": {
 //         "CONTEXT7_API_KEY": "your-api-key"
@@ -112,7 +114,10 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
           const serverConfig = config as any;
           const serverSpec = {
             ...serverConfig,
-            type: serverConfig.type || (serverConfig.command ? 'stdio' : serverConfig.url ? 'http' : 'stdio'),
+            // 推断默认值仅前端预填(后端 McpGatewayConfigCollector.normalizeTransport 仍会归一);
+            // 字面量 SSOT 为生成常量 MCP_TRANSPORT。
+            type: serverConfig.type
+              || (serverConfig.command ? MCP_TRANSPORT.STDIO : serverConfig.url ? MCP_TRANSPORT.HTTP : MCP_TRANSPORT.STDIO),
           };
           delete serverSpec.name;
           servers.push({
@@ -125,7 +130,7 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
         }
       } else if (parsed.command || parsed.url) {
         const id = `server-${Date.now()}`;
-        const serverSpec = { ...parsed, type: parsed.type || (parsed.command ? 'stdio' : 'http') };
+        const serverSpec = { ...parsed, type: parsed.type || (parsed.command ? MCP_TRANSPORT.STDIO : MCP_TRANSPORT.HTTP) };
         delete serverSpec.name;
         servers.push({
           id,

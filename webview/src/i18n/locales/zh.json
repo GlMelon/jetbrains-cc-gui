@@ -1651,7 +1651,6 @@
     "serverVersion": "服务器版本",
     "statusConnected": "已连接",
     "statusFailed": "连接失败",
-    "statusNeedsAuth": "需要认证",
     "statusPending": "连接中...",
     "statusUnknown": "未知",
     "statsError": "错误",
@@ -1674,7 +1673,7 @@
       "firstLoad": "首次加载，正在获取服务器列表...",
       "loadedServersSuccess": "加载服务器列表成功：找到 {{count}} 个服务器",
       "loadedServersFailed": "加载服务器列表失败：{{error}}",
-      "statusUpdateComplete": "服务器状态更新完成：{{total}} 个服务器 ({{connected}} 已连接, {{failed}} 失败, {{pending}} 待定, {{needsAuth}} 需要认证)",
+      "statusUpdateComplete": "服务器状态更新完成：{{total}} 个服务器 ({{connected}} 已连接, {{failed}} 失败, {{pending}} 待定)",
       "loadedStatusFailed": "加载服务器状态失败：{{error}}",
       "cleared": "刷新日志已清空",
       "refreshingAll": "开始刷新所有 MCP 服务器...",
@@ -1687,15 +1686,7 @@
       "forceRefreshTools": "强制刷新工具",
       "connected": "连接成功",
       "failed": "连接失败",
-      "needsAuth": "需要认证",
       "unknownError": "未知错误"
-    },
-    "presets": {
-      "fetch": "Web 内容获取工具，可以抓取网页内容",
-      "time": "时间和时区工具",
-      "memory": "知识图谱和记忆存储工具",
-      "sequentialThinking": "顺序思考和推理工具",
-      "context7": "文档搜索和上下文检索工具"
     },
     "help": {
       "title": "什么是 MCP?",

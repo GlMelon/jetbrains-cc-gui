@@ -1,16 +1,18 @@
 /**
  * MCP 命令 runner 与包名解析(B3/SEC-06 前端预拦截)。
  *
- * 与后端 McpCommandRiskEvaluator 的 KNOWN_RUNNERS 对齐:npx/uvx 等"包管理型 runner"
- * 后端只校验 runner 是否已知(放行),从不解析包名——这是 SEC-06 漏洞。本模块在前端
- * 为包管理型 / 容器型 runner 提取"将安装/运行的包(或镜像)名",供二次确认弹窗展示。
+ * 与后端 McpCommandRiskEvaluator 的 KNOWN_RUNNERS 同源:runner 词表 SSOT 在 Java enum
+ * (McpPackageRunner / McpContainerRunner),经 generate-protocol-types.mjs 生成到
+ * protocol.ts,此后端只校验 runner 是否已知(放行),从不解析包名——这是 SEC-06 漏洞。
+ * 本模块在前端为包管理型 / 容器型 runner 提取"将安装/运行的包(或镜像)名",供二次确认弹窗展示。
  */
+import { MCP_CONTAINER_RUNNER, MCP_PACKAGE_RUNNER } from '../../generated/protocol';
 import type { McpServerSpec } from '../../types/mcp';
 
-/** 包管理型 runner:会从网络拉取并执行任意包 */
-const PACKAGE_RUNNERS = ['npx', 'uvx', 'uv', 'pnpm', 'pnpx', 'bunx'];
-/** 容器型 runner:会拉取并运行任意镜像 */
-const CONTAINER_RUNNERS = ['docker', 'podman'];
+/** 包管理型 runner:会从网络拉取并执行任意包(与后端 McpCommandRiskEvaluator 同源) */
+const PACKAGE_RUNNERS: string[] = Object.values(MCP_PACKAGE_RUNNER);
+/** 容器型 runner:会拉取并运行任意镜像(与后端 McpCommandRiskEvaluator 同源) */
+const CONTAINER_RUNNERS: string[] = Object.values(MCP_CONTAINER_RUNNER);
 
 export interface PackageRunnerInfo {
   runner: string;

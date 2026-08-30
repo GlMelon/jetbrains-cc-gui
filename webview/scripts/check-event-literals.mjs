@@ -161,6 +161,39 @@ function parseDownstream(protocolSrc) {
   return { valueToKeys, count: entries.length };
 }
 
+/**
+ * MCP 业务词表(P2-MCP 收敛):这些生成常量的 value(如 'stdio' / 'connected')在 MCP
+ * 消费目录中以裸字面量写出即构成第二真相源,应引用 MCP_TRANSPORT.* / MCP_SERVER_STATUS.* 等。
+ *
+ * 与 DOWNSTREAM 不同,词表值多为通用英文词('http'/'connected'),为避免全局误报,
+ * 扫描范围限定在 MCP 消费目录(MCP_SCAN_DIRS)。
+ */
+const MCP_WORD_TABLES = [
+  'MCP_TRANSPORT',
+  'MCP_SERVER_STATUS',
+  'MCP_GATEWAY_STATE',
+  'MCP_PACKAGE_RUNNER',
+  'MCP_CONTAINER_RUNNER',
+  'MCP_MARKET_ERROR_CODE',
+];
+
+/** MCP 词表扫描范围(相对 webview/src;文件或目录);此范围外的同形字面量不受本守门约束。 */
+const MCP_SCAN_PATHS = ['components/mcp', join('types', 'mcp.ts')];
+
+function parseMcpWordTables(protocolSrc) {
+  const tables = [];
+  for (const constantName of MCP_WORD_TABLES) {
+    const entries = parseGeneratedProtocolConstant(protocolSrc, constantName);
+    const valueToKeys = new Map();
+    for (const entry of entries) {
+      if (!valueToKeys.has(entry.value)) valueToKeys.set(entry.value, []);
+      valueToKeys.get(entry.value).push(entry.name);
+    }
+    tables.push({ constantName, valueToKeys, count: entries.length });
+  }
+  return tables;
+}
+
 function validateProtocolConsistency(protocolSrc) {
   const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf-8'));
   if (!Array.isArray(manifest.upstream) || !Array.isArray(manifest.downstream)) {
@@ -374,14 +407,34 @@ function main() {
       const hits = scanFile(f, valueToKeys);
       for (const h of hits) {
         if (isAllowlisted(relPath, h.value)) continue;
-        drifts.push({ relPath, ...h });
+        drifts.push({ relPath, ...h, table: 'DOWNSTREAM' });
+      }
+    }
+
+    // MCP 业务词表扫描:仅扫 MCP 消费路径(通用词如 'http' 全局扫描会误报)。
+    const mcpTables = parseMcpWordTables(protocolSrc);
+    const mcpPaths = MCP_SCAN_PATHS.map((d) => join(SRC_DIR, d));
+    const mcpFiles = mcpPaths.flatMap((p) => {
+      if (!exists(p)) return [];
+      return statSync(p).isDirectory() ? collectTargetFiles(p) : [p];
+    });
+    let mcpWordCount = 0;
+    for (const table of mcpTables) {
+      mcpWordCount += table.count;
+      for (const f of mcpFiles) {
+        const relPath = relative(ROOT, f).replace(/\\/g, '/');
+        const hits = scanFile(f, table.valueToKeys);
+        for (const h of hits) {
+          if (isAllowlisted(relPath, h.value)) continue;
+          drifts.push({ relPath, ...h, table: table.constantName });
+        }
       }
     }
 
     if (drifts.length === 0) {
       if (!isQuiet) {
         console.log(
-          `[check-event-literals] ✓ 三方协议一致且无字面量漂移。扫描 ${files.length} 个文件,DOWNSTREAM 共 ${count} 条。`,
+          `[check-event-literals] ✓ 三方协议一致且无字面量漂移。扫描 ${files.length} 个文件,DOWNSTREAM 共 ${count} 条;MCP 词表扫描 ${mcpFiles.length} 个文件,共 ${mcpWordCount} 个词。`,
         );
       }
       return;
@@ -391,17 +444,18 @@ function main() {
       a.relPath === b.relPath ? a.line - b.line : a.relPath < b.relPath ? -1 : 1,
     );
 
-    console.error('[check-event-literals] ✗ 发现协议字面量漂移(应使用 DOWNSTREAM.* 引用):');
+    console.error('[check-event-literals] ✗ 发现协议字面量漂移(应使用 SSOT 常量引用):');
     for (const d of drifts) {
+      const prefix = d.table === 'DOWNSTREAM' ? 'DOWNSTREAM' : d.table;
       const suggestion = d.keys.length === 1
-        ? `DOWNSTREAM.${d.keys[0]}`
-        : d.keys.map((k) => `DOWNSTREAM.${k}`).join(' 或 ');
+        ? `${prefix}.${d.keys[0]}`
+        : d.keys.map((k) => `${prefix}.${k}`).join(' 或 ');
       console.error(
         `  ${d.relPath}:${d.line}  ${d.quote}${d.value}${d.quote}  →  ${suggestion}`,
       );
     }
     console.error('');
-    console.error(`共 ${drifts.length} 处漂移。请替换为 DOWNSTREAM.* 引用以保持 SSOT。`);
+    console.error(`共 ${drifts.length} 处漂移。请替换为 SSOT 常量引用(DOWNSTREAM.* / MCP_*.*)以保持单一真相源。`);
     console.error('详见:AGENTS.md 总则三 / docs/comprehensive-optimization-directions.md §A8。');
     process.exitCode = 1;
   } catch (error) {

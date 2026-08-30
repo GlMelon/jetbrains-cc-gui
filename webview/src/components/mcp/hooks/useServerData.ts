@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { subscribeEvent, sendAction } from '../../../bridge/typed';
-import { DOWNSTREAM, UPSTREAM } from '../../../generated/protocol';
+import { DOWNSTREAM, MCP_SERVER_STATUS, UPSTREAM } from '../../../generated/protocol';
 import { registerLegacyAlias } from '../../../bridge';
 import type { McpServer, McpServerStatusInfo, ServerToolsState, RefreshLog, CacheKeys } from '../types';
 import { clearToolsCache, readCache, readToolsCache, writeCache } from '../utils';
@@ -18,7 +18,9 @@ interface UseServerDataOptions {
   onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
 }
 
-const TERMINAL_STATUSES = new Set(['failed', 'needs-auth', 'disabled']);
+// 终态词表(connected 之外的已定局状态);词表 SSOT 为生成常量 MCP_SERVER_STATUS
+// (needs-auth 为无生产者的 SDK 时代幽灵值,已随收敛删除)。
+const TERMINAL_STATUSES = new Set<string>([MCP_SERVER_STATUS.FAILED, MCP_SERVER_STATUS.DISABLED]);
 
 /**
  * Java may never answer a status query (node spawn hangs, bridge not ready,
@@ -387,10 +389,9 @@ export function useServerData({
         writeCache(cacheKeys.STATUS, statusList);
 
         const statusCount = {
-          connected: statusList.filter(s => s.status === 'connected').length,
-          failed: statusList.filter(s => s.status === 'failed').length,
-          pending: statusList.filter(s => s.status === 'pending').length,
-          needsAuth: statusList.filter(s => s.status === 'needs-auth').length
+          connected: statusList.filter(s => s.status === MCP_SERVER_STATUS.CONNECTED).length,
+          failed: statusList.filter(s => s.status === MCP_SERVER_STATUS.FAILED).length,
+          pending: statusList.filter(s => s.status === MCP_SERVER_STATUS.PENDING).length
         };
 
         onLog(
@@ -398,8 +399,7 @@ export function useServerData({
             total: statusList.length,
             connected: statusCount.connected,
             failed: statusCount.failed,
-            pending: statusCount.pending,
-            needsAuth: statusCount.needsAuth
+            pending: statusCount.pending
           }),
           statusCount.failed > 0 ? 'warning' : 'success'
         );

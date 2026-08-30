@@ -120,6 +120,30 @@ const codexProtectedEnvKeyJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/CodexProtectedEnvKey.java',
 );
+const mcpTransportTypeJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/McpTransportType.java',
+);
+const mcpServerStatusJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/McpServerStatus.java',
+);
+const mcpGatewayStateJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/McpGatewayState.java',
+);
+const mcpPackageRunnerJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/McpPackageRunner.java',
+);
+const mcpContainerRunnerJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/McpContainerRunner.java',
+);
+const mcpMarketErrorCodeJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/McpMarketErrorCode.java',
+);
 const commonConstantsJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/common/CommonConstants.java',
@@ -164,6 +188,12 @@ const REQUIRED_JAVA_SOURCES = [
   sessionSkillCapabilityPayloadJavaPath,
   sessionCapabilitiesPayloadJavaPath,
   codexProtectedEnvKeyJavaPath,
+  mcpTransportTypeJavaPath,
+  mcpServerStatusJavaPath,
+  mcpGatewayStateJavaPath,
+  mcpPackageRunnerJavaPath,
+  mcpContainerRunnerJavaPath,
+  mcpMarketErrorCodeJavaPath,
   commonConstantsJavaPath,
   permissionDialogTimeoutSettingsJavaPath,
 ];
@@ -283,6 +313,44 @@ ${(manifest.codexProtectedEnvKey ?? []).map((k) => `  ${k.name}: '${k.value}' as
 } as const;
 
 export type CodexProtectedEnvKey = typeof CODEX_PROTECTED_ENV_KEY[keyof typeof CODEX_PROTECTED_ENV_KEY];
+
+// ── MCP word tables (transport / server status / gateway state / runners / market errorCode) ──
+
+export const MCP_TRANSPORT = {
+${(manifest.mcpTransport ?? []).map((t) => `  ${t.name}: '${t.value}' as const,`).join('\n')}
+} as const;
+
+export type McpTransport = typeof MCP_TRANSPORT[keyof typeof MCP_TRANSPORT];
+
+export const MCP_SERVER_STATUS = {
+${(manifest.mcpServerStatus ?? []).map((s) => `  ${s.name}: '${s.value}' as const,`).join('\n')}
+} as const;
+
+export type McpServerStatus = typeof MCP_SERVER_STATUS[keyof typeof MCP_SERVER_STATUS];
+
+export const MCP_GATEWAY_STATE = {
+${(manifest.mcpGatewayState ?? []).map((s) => `  ${s.name}: '${s.value}' as const,`).join('\n')}
+} as const;
+
+export type McpGatewayState = typeof MCP_GATEWAY_STATE[keyof typeof MCP_GATEWAY_STATE];
+
+export const MCP_PACKAGE_RUNNER = {
+${(manifest.mcpPackageRunner ?? []).map((r) => `  ${r.name}: '${r.value}' as const,`).join('\n')}
+} as const;
+
+export type McpPackageRunner = typeof MCP_PACKAGE_RUNNER[keyof typeof MCP_PACKAGE_RUNNER];
+
+export const MCP_CONTAINER_RUNNER = {
+${(manifest.mcpContainerRunner ?? []).map((r) => `  ${r.name}: '${r.value}' as const,`).join('\n')}
+} as const;
+
+export type McpContainerRunner = typeof MCP_CONTAINER_RUNNER[keyof typeof MCP_CONTAINER_RUNNER];
+
+export const MCP_MARKET_ERROR_CODE = {
+${(manifest.mcpMarketErrorCode ?? []).map((c) => `  ${c.name}: '${c.value}' as const,`).join('\n')}
+} as const;
+
+export type McpMarketErrorCode = typeof MCP_MARKET_ERROR_CODE[keyof typeof MCP_MARKET_ERROR_CODE];
 
 // ── Int Constants (business defaults SSOT, C5) ──
 
@@ -432,6 +500,12 @@ function generateManifestFromJavaSources() {
     historyExportFormat: parseJavaEnumProtocol(historyExportFormatJavaPath),
     codexHistoryPageMode: parseJavaEnumProtocol(codexHistoryPageModeJavaPath),
     codexProtectedEnvKey: parseJavaEnumProtocol(codexProtectedEnvKeyJavaPath),
+    mcpTransport: parseJavaEnumProtocol(mcpTransportTypeJavaPath),
+    mcpServerStatus: parseJavaEnumProtocol(mcpServerStatusJavaPath),
+    mcpGatewayState: parseJavaEnumProtocol(mcpGatewayStateJavaPath),
+    mcpPackageRunner: parseJavaEnumProtocol(mcpPackageRunnerJavaPath),
+    mcpContainerRunner: parseJavaEnumProtocol(mcpContainerRunnerJavaPath),
+    mcpMarketErrorCode: parseJavaEnumProtocol(mcpMarketErrorCodeJavaPath),
     intConstants: [
       ...parseIntConstants(
         readFileSync(commonConstantsJavaPath, 'utf-8'),
@@ -510,6 +584,30 @@ export type HistoryExportFormat = string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const CODEX_PROTECTED_ENV_KEY: Record<string, string> = {};
 export type CodexProtectedEnvKey = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MCP_TRANSPORT: Record<string, string> = {};
+export type McpTransport = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MCP_SERVER_STATUS: Record<string, string> = {};
+export type McpServerStatus = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MCP_GATEWAY_STATE: Record<string, string> = {};
+export type McpGatewayState = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MCP_PACKAGE_RUNNER: Record<string, string> = {};
+export type McpPackageRunner = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MCP_CONTAINER_RUNNER: Record<string, string> = {};
+export type McpContainerRunner = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MCP_MARKET_ERROR_CODE: Record<string, string> = {};
+export type McpMarketErrorCode = string;
 
 // C5 int constants — stub 默认值与后端一致(从 Java 重新生成获取真值)
 export const DEFAULT_CONTEXT_WINDOW = 200000 as const;

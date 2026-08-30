@@ -6,7 +6,12 @@
  * Two configuration sources are supported:
  * 1. cc-switch format: ~/.cc-switch/config.json (primary)
  * 2. Claude native format: ~/.claude.json (compatible)
+ *
+ * 协议词表(transport/status)SSOT 在 Java enum(McpTransportType/McpServerStatus),
+ * 经 generate-protocol-types.mjs 生成到 ../generated/protocol,此处仅引用。
  */
+
+import type { McpServerStatus, McpTransport } from '../generated/protocol';
 
 /**
  * MCP server connection specification
@@ -14,7 +19,7 @@
  */
 export interface McpServerSpec {
   /** Connection type, defaults to stdio */
-  type?: 'stdio' | 'http' | 'sse';
+  type?: McpTransport;
 
   // stdio type fields
   /** Command to execute (required for stdio type) */
@@ -72,28 +77,13 @@ export interface McpServer {
 }
 
 /**
- * MCP preset configuration
- */
-export interface McpPreset {
-  id: string;
-  name: string;
-  description?: string;
-  tags?: string[];
-  server: McpServerSpec;
-  homepage?: string;
-  docs?: string;
-}
-
-
-
-/**
  * MCP server connection status info (from Claude SDK)
  */
 export interface McpServerStatusInfo {
   /** Server name */
   name: string;
-  /** Connection status */
-  status: 'connected' | 'failed' | 'needs-auth' | 'pending' | 'disabled';
+  /** Connection status(词表 SSOT:Java McpServerStatus;needs-auth 为无生产者的 SDK 时代幽灵值,已删) */
+  status: McpServerStatus;
   /** Server info (available on successful connection) */
   serverInfo?: {
     name: string;

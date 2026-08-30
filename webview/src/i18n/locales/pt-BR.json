@@ -1400,7 +1400,6 @@
     "serverVersion": "Versão do Servidor",
     "statusConnected": "Conectado",
     "statusFailed": "Falha na Conexão",
-    "statusNeedsAuth": "Necessita Autenticação",
     "statusPending": "Conectando...",
     "statusUnknown": "Desconhecido",
     "logs": {
@@ -1420,7 +1419,7 @@
       "firstLoad": "Primeiro carregamento, buscando lista de servidores...",
       "loadedServersSuccess": "Lista de servidores carregada: {{count}} servidores encontrados",
       "loadedServersFailed": "Falha ao carregar lista de servidores: {{error}}",
-      "statusUpdateComplete": "Atualização de status completa: {{total}} servidores ({{connected}} conectados, {{failed}} falhos, {{pending}} pendentes, {{needsAuth}} precisam de auth)",
+      "statusUpdateComplete": "Atualização de status completa: {{total}} servidores ({{connected}} conectados, {{failed}} falhos, {{pending}} pendentes)",
       "loadedStatusFailed": "Falha ao carregar status do servidor: {{error}}",
       "cleared": "Logs de atualização limpos",
       "refreshingAll": "Atualizando todos os servidores MCP...",
@@ -1433,15 +1432,7 @@
       "forceRefreshTools": "Atualizar ferramentas forçadamente",
       "connected": "Conectado",
       "failed": "Falha na conexão",
-      "needsAuth": "Autenticação necessária",
       "unknownError": "Erro desconhecido"
-    },
-    "presets": {
-      "fetch": "Ferramenta de busca de conteúdo web para raspagem de páginas",
-      "time": "Utilitários de tempo e fuso horário",
-      "memory": "Ferramenta de grafo de conhecimento e armazenamento em memória",
-      "sequentialThinking": "Ferramenta de raciocínio sequencial",
-      "context7": "Ferramenta de busca de documentos e recuperação de contexto"
     },
     "help": {
       "title": "O que é MCP?",
