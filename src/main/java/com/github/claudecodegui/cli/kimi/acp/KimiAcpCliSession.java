@@ -32,7 +32,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * kimi ACP 通道会话:直 spawn {@code kimi acp}(ACP server over stdio),不继承
@@ -71,6 +73,8 @@ public class KimiAcpCliSession implements CliSession {
 
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
+    private final AtomicLong turnSequence = new AtomicLong();
+    private volatile long activeTurnId;
     private volatile String sessionId;
 
     // ── 长驻(一进程多 turn) ──────────────────────────────────────────────────
@@ -99,6 +103,8 @@ public class KimiAcpCliSession implements CliSession {
     @Override
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
         userInterrupted.set(false);
+        long turnId = turnSequence.incrementAndGet();
+        activeTurnId = turnId;
         return CliSessionExecutor.runAsync(() -> {
             StringBuilder diagnostic = new StringBuilder();
             try {
@@ -131,8 +137,11 @@ public class KimiAcpCliSession implements CliSession {
                     callback.onComplete(false, null, err);
                 }
             } finally {
-                activeHandle = null;
-                userInterrupted.set(false);
+                if (activeTurnId == turnId) {
+                    activeHandle = null;
+                    activeTurnId = 0L;
+                    userInterrupted.set(false);
+                }
             }
         });
     }
@@ -774,6 +783,7 @@ public class KimiAcpCliSession implements CliSession {
         if (conn != null && conn.isAlive() && sid != null) {
             try {
                 conn.sendSessionCancel(sid);
+                scheduleCancelFallback(activeTurnId, conn, activeHandle);
                 return;
             } catch (Exception e) {
                 LOG.warn("[KimiAcpCliSession][" + tabId + "] session/cancel failed, falling back to process interrupt", e);
@@ -784,6 +794,26 @@ public class KimiAcpCliSession implements CliSession {
         if (h != null) {
             h.interrupt();
         }
+    }
+
+    /**
+     * ACP cancel 是无响应 notification。若 provider 未在短预算内结束当前 turn，
+     * 强杀对应进程树，避免等待 15 分钟 prompt timeout 导致 streaming/loading 永久悬挂。
+     * turnId + handle 双重校验防止上一轮迟到 fallback 误杀已复用同一长驻进程的新轮次。
+     */
+    private void scheduleCancelFallback(long turnId, KimiAcpConnection conn, CliProcessHandle handle) {
+        CompletableFuture.delayedExecutor(CliConstants.CLI_INTERRUPT_FALLBACK_MS, TimeUnit.MILLISECONDS)
+                .execute(() -> {
+                    if (turnId == 0L || activeTurnId != turnId || !userInterrupted.get()
+                            || persistentConn != conn || activeHandle != handle) {
+                        return;
+                    }
+                    LOG.warn("[KimiAcpCliSession][" + tabId + "] session/cancel fallback after "
+                            + CliConstants.CLI_INTERRUPT_FALLBACK_MS + "ms; terminating process tree");
+                    if (handle != null) {
+                        handle.interrupt();
+                    }
+                });
     }
 
     @Override
