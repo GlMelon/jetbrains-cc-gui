@@ -43,6 +43,16 @@ public final class CliPersistentProcessRegistry implements Disposable {
 
     private static final Logger LOG = Logger.getInstance(CliPersistentProcessRegistry.class);
 
+    /** Immutable observability snapshot for the project-scoped persistent process registry. */
+    public record Diagnostics(
+            int registrySize,
+            int usableProcessCount,
+            int pendingRebuildCount,
+            long evictionCount,
+            long rebuildCooldownHitCount
+    ) {
+    }
+
     /** 槽位键:与 CliSessionManager 的 tabId → provider 二级结构对齐。 */
     private record SlotKey(String tabId, String provider) {
     }
@@ -70,6 +80,12 @@ public final class CliPersistentProcessRegistry implements Disposable {
 
     /** 注册表生命周期代数:dispose 后使所有未完成后台任务失效。 */
     private final AtomicLong lifecycleEpoch = new AtomicLong();
+
+    /** 项目生命周期内因容量压力成功淘汰的长驻进程总数。 */
+    private final AtomicLong evictionCount = new AtomicLong();
+
+    /** 项目生命周期内因 rebuild cooldown 拒绝 acquire/rebuild 的总次数。 */
+    private final AtomicLong rebuildCooldownHitCount = new AtomicLong();
 
     /** release/dispose 与后台任务提交槽位之间的提交闸门。 */
     private final Object lifecycleLock = new Object();
@@ -279,6 +295,16 @@ public final class CliPersistentProcessRegistry implements Disposable {
         return infos;
     }
 
+    /** Returns a lock-free point-in-time diagnostics snapshot for support tooling. */
+    public Diagnostics diagnostics() {
+        return new Diagnostics(
+                slots.size(),
+                countUsableSlots(),
+                pendingRebuilds.size(),
+                evictionCount.get(),
+                rebuildCooldownHitCount.get());
+    }
+
     /**
      * 立即回收所有 IDLE 长驻进程(行为开关关闭副作用)。
      * STREAMING 轮不打断——进行中的回复自然收尾后由周期空闲扫描兜底回收。
@@ -399,6 +425,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
             }
         }
         if (removed) {
+            evictionCount.incrementAndGet();
             LOG.info("[CliPersistentProcessRegistry] evicting least-recently-used IDLE process (capacity pressure): tab="
                     + oldest.getKey().tabId() + ", provider=" + oldest.getKey().provider());
             oldest.getValue().process.closeGracefully(CliConstants.CLI_DISPOSE_CLOSE_TIMEOUT_MS);
@@ -407,8 +434,12 @@ public final class CliPersistentProcessRegistry implements Disposable {
         return false;
     }
 
-    /** 该键是否处于重建冷却窗口。 */
+    /** 该键是否处于重建冷却窗口，并记录实际被 cooldown 拒绝的操作。 */
     private boolean isCoolingDown(SlotKey key) {
+        return isCoolingDown(key, true);
+    }
+
+    private boolean isCoolingDown(SlotKey key, boolean recordHit) {
         RebuildHealth health = rebuildHealth.get(key);
         if (health == null) {
             return false;
@@ -417,6 +448,9 @@ public final class CliPersistentProcessRegistry implements Disposable {
             return false;
         }
         if (health.cooldownUntilMs > System.currentTimeMillis()) {
+            if (recordHit) {
+                rebuildCooldownHitCount.incrementAndGet();
+            }
             return true;
         }
         rebuildHealth.remove(key, health);
@@ -425,7 +459,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
 
     /** 测试观测钩子:指定 tab+provider 是否处于重建冷却窗口。 */
     boolean isRebuildCoolingDown(String tabId, String provider) {
-        return isCoolingDown(new SlotKey(tabId, provider));
+        return isCoolingDown(new SlotKey(tabId, provider), false);
     }
 
     /** 带健康度记账的 spawn:成功清零失败计数,失败累计并在达上限时开启冷却窗口。 */
