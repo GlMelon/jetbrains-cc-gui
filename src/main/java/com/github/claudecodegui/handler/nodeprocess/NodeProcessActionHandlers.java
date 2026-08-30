@@ -18,6 +18,7 @@ import com.github.claudecodegui.service.RuntimeResourceDiagnostics;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -255,7 +256,7 @@ public class NodeProcessActionHandlers {
         root.add(
                 NodeProcessSnapshotPayloadField.DIAGNOSTICS.wireKey(),
                 buildDiagnosticsJson(diagnostics));
-        return gson.toJson(root);
+        return root.toString();
     }
 
     private JsonObject buildDiagnosticsJson(RuntimeResourceDiagnostics diagnostics) {
@@ -303,8 +304,12 @@ public class NodeProcessActionHandlers {
         JsonObject gatewayJson = new JsonObject();
         gatewayJson.addProperty(
                 NodeProcessGatewayPayloadField.LIFECYCLE_STATE.wireKey(), gateway.lifecycleState());
-        gatewayJson.addProperty(
-                NodeProcessGatewayPayloadField.LAST_FAILURE.wireKey(), gateway.lastFailure());
+        if (gateway.lastFailure() == null) {
+            gatewayJson.add(NodeProcessGatewayPayloadField.LAST_FAILURE.wireKey(), JsonNull.INSTANCE);
+        } else {
+            gatewayJson.addProperty(
+                    NodeProcessGatewayPayloadField.LAST_FAILURE.wireKey(), gateway.lastFailure());
+        }
         gatewayJson.addProperty(
                 NodeProcessGatewayPayloadField.PROCESS_GENERATION.wireKey(), gateway.processGeneration());
         gatewayJson.addProperty(
