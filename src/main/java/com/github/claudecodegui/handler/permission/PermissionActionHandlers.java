@@ -7,8 +7,10 @@ import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.util.Alarm;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
@@ -18,15 +20,22 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 
 /**
  * Permission action handlers container.
  * Holds shared state (pending request maps) and provides dialog-showing methods
  * for PermissionService, as well as response-handling methods for typed handlers.
  */
-public class PermissionActionHandlers {
+public class PermissionActionHandlers implements Disposable {
 
     private static final Logger LOG = Logger.getInstance(PermissionActionHandlers.class);
+    private static final String PERMISSION_REQUEST_KEY_PREFIX = "permission:";
+    private static final String ASK_USER_REQUEST_KEY_PREFIX = "ask-user:";
+    private static final String PLAN_APPROVAL_REQUEST_KEY_PREFIX = "plan-approval:";
+    private static final int FRONTEND_READY_MAX_WAIT_ATTEMPTS = 50;
+    private static final int FRONTEND_READY_RETRY_DELAY_MILLIS = 200;
 
     // --- Safety net scheduler (testable) ---
 
@@ -46,6 +55,11 @@ public class PermissionActionHandlers {
 
     private final HandlerContext context;
     private final SafetyNetScheduler safetyNetScheduler;
+    private final Disposable lifecycleDisposable = Disposer.newDisposable("PermissionActionHandlers");
+    private final Alarm frontendReadyAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, lifecycleDisposable);
+    private final Map<String, Runnable> pendingFrontendChecks = new ConcurrentHashMap<>();
+    private final AtomicLong requestGeneration = new AtomicLong();
+    private volatile boolean disposed;
 
     // --- Pending request maps ---
 
@@ -77,6 +91,10 @@ public class PermissionActionHandlers {
     // --- Safety net helpers ---
 
     long getSafetyNetTimeoutSeconds() {
+        if (context == null) {
+            return CodemossSettingsService.DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS
+                    + CodemossSettingsService.PERMISSION_SAFETY_NET_BUFFER_SECONDS;
+        }
         CodemossSettingsService settingsService = context.getSettingsService();
         if (settingsService == null) {
             return CodemossSettingsService.DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS
@@ -104,8 +122,15 @@ public class PermissionActionHandlers {
      * Show the frontend permission dialog.
      */
     public CompletableFuture<Integer> showFrontendPermissionDialog(String toolName, JsonObject inputs) {
+        if (disposed || context == null) {
+            return CompletableFuture.completedFuture(PermissionService.PermissionResponse.DENY.getValue());
+        }
+
         String channelId = UUID.randomUUID().toString();
         CompletableFuture<Integer> future = new CompletableFuture<>();
+        String requestKey = PERMISSION_REQUEST_KEY_PREFIX + channelId;
+        Object expectedSession = context != null ? context.getSession() : null;
+        long generation = requestGeneration.get();
 
         LOG.info("[PERM_SHOW] showFrontendPermissionDialog called: channelId=" + channelId + ", toolName=" + toolName);
 
@@ -123,26 +148,25 @@ public class PermissionActionHandlers {
             String escapedJson = escapeJs(requestJson);
 
             ApplicationManager.getApplication().invokeLater(() -> {
+                if (!isRequestActive(requestKey, future, expectedSession, generation,
+                        () -> pendingPermissionRequests.get(channelId) == future)) {
+                    return;
+                }
                 LOG.info("[PERM_SHOW] Executing JS to show dialog for channelId=" + channelId);
                 showDialogWithFrontendCheck(
                     () -> "window.showPermissionDialog('" + escapedJson + "');",
-                    () -> "(function retryShowDialog(retries) { " +
-                        "  if (window.showPermissionDialog) { " +
-                        "    window.showPermissionDialog('" + escapedJson + "'); " +
-                        "  } else if (retries > 0) { " +
-                        "    setTimeout(function() { retryShowDialog(retries - 1); }, 200); " +
-                        "  } else { " +
-                        "    console.error('[PERM_DEBUG][JS] FAILED: showPermissionDialog not available!'); " +
-                        "  } " +
-                        "})(30);",
-                    "[PERM_SHOW]"
+                    () -> "if (window.showPermissionDialog) { " +
+                        "window.showPermissionDialog('" + escapedJson + "'); " +
+                        "} else { console.error('[PERM_DEBUG][JS] FAILED: showPermissionDialog not available!'); }",
+                    "[PERM_SHOW]", requestKey, future, expectedSession, generation,
+                    () -> pendingPermissionRequests.get(channelId) == future
                 );
             });
 
             scheduleSafetyNet(future, () -> {
                 if (future.complete(PermissionService.PermissionResponse.DENY.getValue())) {
                     LOG.warn("[PERM_SHOW] Safety-net timeout fired (webview unreachable) for channelId=" + channelId);
-                    pendingPermissionRequests.remove(channelId);
+                    pendingPermissionRequests.remove(channelId, future);
                 }
             });
 
@@ -159,12 +183,22 @@ public class PermissionActionHandlers {
      * Show AskUserQuestion dialog.
      */
     public CompletableFuture<JsonObject> showAskUserQuestionDialog(String requestId, JsonObject questionsData) {
+        if (disposed || context == null) {
+            return CompletableFuture.completedFuture(new JsonObject());
+        }
+
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
+        String requestKey = ASK_USER_REQUEST_KEY_PREFIX + requestId;
+        Object expectedSession = context != null ? context.getSession() : null;
+        long generation = requestGeneration.get();
 
         LOG.debug("[ASK_USER_QUESTION][SHOW_DIALOG] Starting showAskUserQuestionDialog");
         LOG.debug("[ASK_USER_QUESTION][SHOW_DIALOG] requestId=" + requestId);
 
-        pendingAskUserQuestionRequests.put(requestId, future);
+        CompletableFuture<JsonObject> previous = pendingAskUserQuestionRequests.put(requestId, future);
+        if (previous != null) {
+            previous.complete(null);
+        }
 
         try {
             Gson gson = GsonHolder.GSON;
@@ -172,25 +206,24 @@ public class PermissionActionHandlers {
             String escapedJson = escapeJs(requestJson);
 
             ApplicationManager.getApplication().invokeLater(() -> {
+                if (!isRequestActive(requestKey, future, expectedSession, generation,
+                        () -> pendingAskUserQuestionRequests.get(requestId) == future)) {
+                    return;
+                }
                 showDialogWithFrontendCheck(
                     () -> "window.showAskUserQuestionDialog('" + escapedJson + "');",
-                    () -> "(function retryShowAskUserQuestion(retries) { " +
-                        "  if (window.showAskUserQuestionDialog) { " +
-                        "    window.showAskUserQuestionDialog('" + escapedJson + "'); " +
-                        "  } else if (retries > 0) { " +
-                        "    setTimeout(function() { retryShowAskUserQuestion(retries - 1); }, 200); " +
-                        "  } else { " +
-                        "    console.error('[ASK_USER_QUESTION][JS] FAILED: showAskUserQuestionDialog not available!'); " +
-                        "  } " +
-                        "})(30);",
-                    "[ASK_USER_QUESTION][SHOW_DIALOG]"
+                    () -> "if (window.showAskUserQuestionDialog) { " +
+                        "window.showAskUserQuestionDialog('" + escapedJson + "'); " +
+                        "} else { console.error('[ASK_USER_QUESTION][JS] FAILED: showAskUserQuestionDialog not available!'); }",
+                    "[ASK_USER_QUESTION][SHOW_DIALOG]", requestKey, future, expectedSession, generation,
+                    () -> pendingAskUserQuestionRequests.get(requestId) == future
                 );
             });
 
             scheduleSafetyNet(future, () -> {
                 if (future.complete(new JsonObject())) {
                     LOG.warn("[ASK_USER_QUESTION][SHOW_DIALOG] Safety-net timeout fired (webview unreachable) for requestId=" + requestId);
-                    pendingAskUserQuestionRequests.remove(requestId);
+                    pendingAskUserQuestionRequests.remove(requestId, future);
                 }
             });
 
@@ -207,12 +240,26 @@ public class PermissionActionHandlers {
      * Show PlanApproval dialog.
      */
     public CompletableFuture<JsonObject> showPlanApprovalDialog(String requestId, JsonObject planData) {
+        if (disposed || context == null) {
+            JsonObject rejected = new JsonObject();
+            rejected.addProperty("approved", false);
+            rejected.addProperty("targetMode", CommonConstants.PERMISSION_MODE_DEFAULT);
+            rejected.addProperty("message", "Permission handler disposed");
+            return CompletableFuture.completedFuture(rejected);
+        }
+
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
+        String requestKey = PLAN_APPROVAL_REQUEST_KEY_PREFIX + requestId;
+        Object expectedSession = context != null ? context.getSession() : null;
+        long generation = requestGeneration.get();
 
         LOG.debug("[PLAN_APPROVAL][SHOW_DIALOG] Starting showPlanApprovalDialog");
         LOG.debug("[PLAN_APPROVAL][SHOW_DIALOG] requestId=" + requestId);
 
-        pendingPlanApprovalRequests.put(requestId, future);
+        CompletableFuture<JsonObject> previous = pendingPlanApprovalRequests.put(requestId, future);
+        if (previous != null) {
+            previous.complete(null);
+        }
 
         try {
             Gson gson = GsonHolder.GSON;
@@ -220,18 +267,17 @@ public class PermissionActionHandlers {
             String escapedJson = escapeJs(requestJson);
 
             ApplicationManager.getApplication().invokeLater(() -> {
+                if (!isRequestActive(requestKey, future, expectedSession, generation,
+                        () -> pendingPlanApprovalRequests.get(requestId) == future)) {
+                    return;
+                }
                 showDialogWithFrontendCheck(
                     () -> "window.showPlanApprovalDialog('" + escapedJson + "');",
-                    () -> "(function retryShowPlanApproval(retries) { " +
-                        "  if (window.showPlanApprovalDialog) { " +
-                        "    window.showPlanApprovalDialog('" + escapedJson + "'); " +
-                        "  } else if (retries > 0) { " +
-                        "    setTimeout(function() { retryShowPlanApproval(retries - 1); }, 200); " +
-                        "  } else { " +
-                        "    console.error('[PLAN_APPROVAL][JS] FAILED: showPlanApprovalDialog not available!'); " +
-                        "  } " +
-                        "})(30);",
-                    "[PLAN_APPROVAL][SHOW_DIALOG]"
+                    () -> "if (window.showPlanApprovalDialog) { " +
+                        "window.showPlanApprovalDialog('" + escapedJson + "'); " +
+                        "} else { console.error('[PLAN_APPROVAL][JS] FAILED: showPlanApprovalDialog not available!'); }",
+                    "[PLAN_APPROVAL][SHOW_DIALOG]", requestKey, future, expectedSession, generation,
+                    () -> pendingPlanApprovalRequests.get(requestId) == future
                 );
             });
 
@@ -242,7 +288,7 @@ public class PermissionActionHandlers {
                 timeoutResponse.addProperty("message", "Plan approval timed out");
                 if (future.complete(timeoutResponse)) {
                     LOG.warn("[PLAN_APPROVAL][SHOW_DIALOG] Safety-net timeout fired (webview unreachable) for requestId=" + requestId);
-                    pendingPlanApprovalRequests.remove(requestId);
+                    pendingPlanApprovalRequests.remove(requestId, future);
                 }
             });
 
@@ -362,34 +408,91 @@ public class PermissionActionHandlers {
      */
     public void clearPendingRequests() {
         LOG.info("[PERM_CLEAR] Clearing all pending permission requests");
+        requestGeneration.incrementAndGet();
+        cancelAllFrontendChecks();
 
         int permissionCount = pendingPermissionRequests.size();
         int askUserCount = pendingAskUserQuestionRequests.size();
         int planCount = pendingPlanApprovalRequests.size();
 
         for (Map.Entry<String, CompletableFuture<Integer>> entry : pendingPermissionRequests.entrySet()) {
-            entry.getValue().complete(PermissionService.PermissionResponse.DENY.getValue());
+            if (pendingPermissionRequests.remove(entry.getKey(), entry.getValue())) {
+                entry.getValue().complete(PermissionService.PermissionResponse.DENY.getValue());
+            }
         }
-        pendingPermissionRequests.clear();
 
         for (Map.Entry<String, CompletableFuture<JsonObject>> entry : pendingAskUserQuestionRequests.entrySet()) {
-            entry.getValue().complete(null);
+            if (pendingAskUserQuestionRequests.remove(entry.getKey(), entry.getValue())) {
+                entry.getValue().complete(null);
+            }
         }
-        pendingAskUserQuestionRequests.clear();
 
         for (Map.Entry<String, CompletableFuture<JsonObject>> entry : pendingPlanApprovalRequests.entrySet()) {
-            JsonObject rejected = new JsonObject();
-            rejected.addProperty("approved", false);
-            rejected.addProperty("message", "Session changed");
-            entry.getValue().complete(rejected);
+            if (pendingPlanApprovalRequests.remove(entry.getKey(), entry.getValue())) {
+                JsonObject rejected = new JsonObject();
+                rejected.addProperty("approved", false);
+                rejected.addProperty("message", "Session changed");
+                entry.getValue().complete(rejected);
+            }
         }
-        pendingPlanApprovalRequests.clear();
 
         LOG.info("[PERM_CLEAR] Cleared: " + permissionCount + " permission, " +
                  askUserCount + " askUser, " + planCount + " plan requests");
     }
 
     // --- Internal helpers ---
+
+    /**
+     * Return the number of requests that are still waiting for a frontend response.
+     * This is intentionally package-visible so lifecycle tests can observe that
+     * session switches and disposal do not leave pending requests behind.
+     */
+    int getPendingRequestCount() {
+        return pendingPermissionRequests.size()
+                + pendingAskUserQuestionRequests.size()
+                + pendingPlanApprovalRequests.size();
+    }
+
+    @Override
+    public void dispose() {
+        if (disposed) {
+            return;
+        }
+        disposed = true;
+        clearPendingRequests();
+        frontendReadyAlarm.cancelAllRequests();
+        Disposer.dispose(lifecycleDisposable);
+    }
+
+    private boolean isRequestActive(
+            String requestKey,
+            CompletableFuture<?> future,
+            Object expectedSession,
+            long generation,
+            BooleanSupplier requestStillPending) {
+        if (disposed || future.isDone() || requestGeneration.get() != generation
+                || !requestStillPending.getAsBoolean()) {
+            return false;
+        }
+        if (context == null) {
+            return false;
+        }
+        return !context.isDisposed() && context.getSession() == expectedSession;
+    }
+
+    private void cancelAllFrontendChecks() {
+        for (Map.Entry<String, Runnable> entry : pendingFrontendChecks.entrySet()) {
+            if (pendingFrontendChecks.remove(entry.getKey(), entry.getValue())) {
+                frontendReadyAlarm.cancelRequest(entry.getValue());
+            }
+        }
+    }
+
+    private void cancelFrontendCheck(String requestKey, Runnable checkAndShow) {
+        if (pendingFrontendChecks.remove(requestKey, checkAndShow)) {
+            frontendReadyAlarm.cancelRequest(checkAndShow);
+        }
+    }
 
     private void notifyPermissionDenied() {
         if (deniedCallback != null) {
@@ -400,33 +503,44 @@ public class PermissionActionHandlers {
     private void showDialogWithFrontendCheck(
             java.util.function.Supplier<String> directJsSupplier,
             java.util.function.Supplier<String> fallbackJsSupplier,
-            String logPrefix) {
-        final int maxWaitAttempts = 50;
-        final Alarm alarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD);
+            String logPrefix,
+            String requestKey,
+            CompletableFuture<?> future,
+            Object expectedSession,
+            long generation,
+            BooleanSupplier requestStillPending) {
 
         Runnable checkAndShow = new Runnable() {
             private int waitAttempts = 0;
 
             @Override
             public void run() {
+                if (!isRequestActive(requestKey, future, expectedSession, generation, requestStillPending)) {
+                    cancelFrontendCheck(requestKey, this);
+                    return;
+                }
                 if (context.isFrontendReady()) {
                     LOG.debug(logPrefix + " Frontend ready, showing dialog directly");
+                    cancelFrontendCheck(requestKey, this);
                     context.executeJavaScriptOnEDT(directJsSupplier.get());
-                } else if (waitAttempts < maxWaitAttempts) {
+                } else if (waitAttempts < FRONTEND_READY_MAX_WAIT_ATTEMPTS) {
                     waitAttempts++;
                     LOG.debug(logPrefix + " Frontend not ready, waiting... attempt " + waitAttempts);
-                    alarm.addRequest(this, 200);
+                    frontendReadyAlarm.addRequest(this, FRONTEND_READY_RETRY_DELAY_MILLIS);
                 } else {
                     LOG.warn(logPrefix + " Frontend not ready after max wait attempts, trying JavaScript fallback");
+                    cancelFrontendCheck(requestKey, this);
                     context.executeJavaScriptOnEDT(fallbackJsSupplier.get());
                 }
             }
         };
 
+        pendingFrontendChecks.put(requestKey, checkAndShow);
+        future.whenComplete((ignored, error) -> cancelFrontendCheck(requestKey, checkAndShow));
         checkAndShow.run();
     }
 
     private String escapeJs(String json) {
-        return context.escapeJs(json);
+        return context != null ? context.escapeJs(json) : json;
     }
 }

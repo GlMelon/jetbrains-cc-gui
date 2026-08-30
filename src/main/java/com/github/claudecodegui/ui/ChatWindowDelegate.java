@@ -364,6 +364,7 @@ public class ChatWindowDelegate {
     private final DelegateHost host;
     private PromptActionHandlers promptHandlers; // B2 迁移: 需要 dispose 停止 FileWatcher
     private EnhancePromptActionHandler enhancePromptActionHandler;
+    private PermissionActionHandlers permissionActionHandlers;
     private HistoryRefreshService historyRefreshService;
     private TabAnswerStatus currentTabStatus = TabAnswerStatus.IDLE;
     private ProviderType currentTabProviderType = null;
@@ -817,12 +818,12 @@ nodeService.setSessionId(sessionId);
         typedHandlers.add(new SortOpenCodeProvidersActionHandler(providerHandlers));
 
         // Permission: shared state container + 3 typed handlers
-        PermissionActionHandlers permissionHandlers = new PermissionActionHandlers(handlerContext);
-        permissionHandlers.setPermissionDeniedCallback(host::interruptDueToPermissionDenial);
-        host.setPermissionHandler(permissionHandlers);
-        typedHandlers.add(new PermissionDecisionActionHandler(permissionHandlers));
-        typedHandlers.add(new AskUserQuestionResponseActionHandler(permissionHandlers));
-        typedHandlers.add(new PlanApprovalResponseActionHandler(permissionHandlers));
+        permissionActionHandlers = new PermissionActionHandlers(handlerContext);
+        permissionActionHandlers.setPermissionDeniedCallback(host::interruptDueToPermissionDenial);
+        host.setPermissionHandler(permissionActionHandlers);
+        typedHandlers.add(new PermissionDecisionActionHandler(permissionActionHandlers));
+        typedHandlers.add(new AskUserQuestionResponseActionHandler(permissionActionHandlers));
+        typedHandlers.add(new PlanApprovalResponseActionHandler(permissionActionHandlers));
 
         // History action handlers (B4 迁移: HistoryHandler 非孤儿,按 B2 范式迁移;SessionLoadCallback 接入容器)
         HistoryActionHandlers historyHandlers = new HistoryActionHandlers(handlerContext);
@@ -1231,12 +1232,13 @@ nodeService.setSessionId(sessionId);
         if (promptHandlers != null) {
             promptHandlers.dispose();
         }
+        if (permissionActionHandlers != null) {
+            permissionActionHandlers.dispose();
+            permissionActionHandlers = null;
+        }
         if (historyRefreshService != null) {
             historyRefreshService.dispose();
             historyRefreshService = null;
         }
     }
 }
-
-
-

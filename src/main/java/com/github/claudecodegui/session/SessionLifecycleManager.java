@@ -36,6 +36,7 @@ public class SessionLifecycleManager {
 
     static void prepareForSessionReset(SessionHost host) {
         host.invalidateSessionCallbacks();
+        host.clearPendingPermissionRequests();
         host.getStreamCoalescer().resetStreamState();
         host.resetTabStatus();
         host.callJavaScript("clearMessages");
@@ -191,7 +192,6 @@ public class SessionLifecycleManager {
                          + ", provider=" + previousProvider + ", model=" + previousModel);
 
         prepareForSessionReset(host);
-        host.clearPendingPermissionRequests();
         host.clearPermissionDecisionMemory();
 
         CompletableFuture<Void> interruptFuture = oldSession != null
@@ -509,7 +509,6 @@ public class SessionLifecycleManager {
     }
 
     private void completeNewSessionBootstrap(ClaudeSession newSession, String workingDirectory, String successLogPrefix) {
-        host.clearPendingPermissionRequests();
         host.clearPermissionDecisionMemory();
         host.setSession(newSession);
         host.getHandlerContext().setSession(newSession);
