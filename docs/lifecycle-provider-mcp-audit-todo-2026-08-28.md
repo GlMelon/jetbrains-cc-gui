@@ -213,32 +213,44 @@
 
 | 业务维度 | Claude | Codex | OpenCode | Grok | Kimi | Pi | OMP | DSH |
 |---|---|---|---|---|---|---|---|---|
-| 普通文本及顺序 | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| thinking start/delta/end | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| tool_use id/name/input | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| tool_result 配对/错误 | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| usage | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| error | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| interrupted/cancelled | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 空/损坏记录容错 | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| 实时→刷新历史等价 | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| 普通文本及顺序 | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
+| thinking start/delta/end | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
+| tool_use id/name/input | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
+| tool_result 配对/错误 | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
+| usage | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
+| error | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
+| interrupted/cancelled | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
+| 空/损坏记录容错 | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
+| 实时→刷新历史等价 | [x] | [x] | [x] | [x] | [x] | [x] | [x] | [x] |
 
 **代办：**
 
-- [ ] 定义后端统一的业务消息块模型，实时和历史只做各自输入适配。
-- [ ] 统一 tool call identity 的生成、归一化和持久化规则。
-- [ ] 对缺失 tool id、未配对 result、重复 result 下发显式状态，前端不猜测。
-- [ ] 明确文本/thinking flush 与 tool_use/tool_result 的排序规则。
-- [ ] 明确 EOF、非零退出、JSON 截断、重复/迟到 `stream_end` 的统一收尾规则。
-- [ ] 覆盖多工具并行、结果乱序和跨 turn 迟到事件。
-- [ ] 为历史加载增加 malformed record 隔离，单条损坏不得阻断整个会话回显。
-- [ ] 验证当前工作树中的 `NativeCliHistoryMessages`、Grok/Kimi/Pi HistoryReader 变更。
+- [x] 定义后端统一的业务消息块模型，实时和历史只做各自输入适配。
+- [x] 统一 tool call identity 的生成、归一化和持久化规则。
+- [x] 对缺失 tool id、未配对 result、重复 result 下发显式状态，前端不猜测。
+- [x] 明确文本/thinking flush 与 tool_use/tool_result 的排序规则。
+- [x] 明确 EOF、非零退出、JSON 截断、重复/迟到 `stream_end` 的统一收尾规则。
+- [x] 覆盖多工具并行、结果乱序和跨 turn 迟到事件。
+- [x] 为历史加载增加 malformed record 隔离，单条损坏不得阻断整个会话回显。
+- [x] 验证当前工作树中的 `NativeCliHistoryMessages`、Grok/Kimi/Pi HistoryReader 变更。
+
+**整改记录（2026-08-31）：**
+
+- 后端统一契约：新增 `MessageBlockContract`、`MessageBlockToolStatus`、`MessageBlockToolIdSource`，以 Java 枚举作为前后端状态 SSOT；统一下发 `pending`、`completed`、`unpaired`、`orphaned`、`duplicate` 以及 `explicit`/`generated` identity 来源，前端仅消费后端结论。
+- 实时入口：Claude 由 `ClaudeMessageHandler` 接入统一 ledger；Codex、OpenCode、Grok、Kimi、Pi、OMP、DSH 共用 `CodexMessageHandler` 接入同一契约。`stream_end`、`onError`、`onComplete`、interrupt 均执行幂等 finalize，并在 `stream_start`/新 turn 重建 ledger，避免上一 turn 状态污染下一 turn。
+- 历史入口：8 Provider 均经 `HistoryProviderRegistry.loadMessages()` 的统一 choke point 执行 `normalizeHistoryMessages(...)`；`NativeCliHistoryMessages` 只适配原始块形状，不提前生成 identity 或推断生命周期，避免相同工具调用碰撞和缺失 result id 被过早固化为 orphan。
+- identity/配对规则：显式 id 原样保留；缺失 tool_use id 按消息位置、块位置、工具名和 input 生成稳定且不碰撞的 id；缺失 result id 只在事件到达位置恰有一个 pending tool_use 时配对，多 pending 时不按顺序猜测并生成独立 orphan id；重复 result 标记 `duplicate`，EOF/异常收尾后未完成 tool_use 标记 `unpaired`。
+- 顺序与边界：文本、thinking、tool_use、tool_result 保留输入块顺序；显式 id 支持 result 先到、tool_use 后到以及多工具结果乱序配对；顺序处理缺失 id，后续 turn 的 tool_use 不会干扰前一 turn 的唯一 pending 判断。normalizer 只改权威 `raw/message/content` 容器中的工具块，保留 usage、error、interrupted/cancelled 及其他 provider 原始字段。
+- 容错：null 消息、非对象块和缺少 content array 的记录按条跳过或原样保留；各 HistoryReader 的现有逐行解析隔离继续生效，单条 malformed record 不阻断已解析会话回显。Grok/Kimi/Pi 原生历史构造与 Reader 定向测试已覆盖，Claude/Codex/OpenCode/OMP/DSH 通过统一 Registry/handler choke point 获得相同契约。
+- 前端回显：协议生成器从 Java 枚举生成 `MESSAGE_BLOCK_TOOL_STATUS`/`MESSAGE_BLOCK_TOOL_ID_SOURCE`；`ContentBlockRenderer`、`MessageItem` 和所有工具块统一使用 `isToolLifecycleTerminal`。显式 `pending` 优先于 result mirror，其他后端终态停止 loading；仅旧历史无状态时回退到 result 是否存在。异步 background agent 仍以 task event/sidechain history 为完成权威，`unpaired` 仅负责确定性停止悬挂状态。
+- 修改文件：后端 `MessageBlockToolStatus.java`、`MessageBlockToolIdSource.java`、`MessageBlockContract.java`、`ClaudeMessageHandler.java`、`CodexMessageHandler.java`、`HistoryProviderRegistry.java`、`NativeCliHistoryMessages.java` 及 `MessageBlockContractTest.java`；前端 `generate-protocol-types.mjs`、`types/index.ts`、`toolLifecycle.ts`、`ContentBlockRenderer.tsx`、`MessageItem.tsx`、各 `toolBlocks` 组件及对应定向测试。
+- 定向验证：`./gradlew.bat test --tests "com.github.claudecodegui.session.MessageBlockContractTest" --tests "com.github.claudecodegui.session.ClaudeMessageHandlerRawConsistencyTest" --tests "com.github.claudecodegui.session.CodexMessageHandlerTest" --tests "com.github.claudecodegui.handler.history.HistoryProviderRegistryTest" --tests "com.github.claudecodegui.handler.history.HistoryWorkflowServiceTest" --tests "com.github.claudecodegui.provider.grok.GrokHistoryReaderTest" --tests "com.github.claudecodegui.provider.kimi.KimiHistoryReaderTest" --tests "com.github.claudecodegui.provider.pi.PiHistoryReaderTest" --no-daemon` 通过；`cd webview; npx vitest run src/utils/toolLifecycle.test.ts` 通过（4 tests）；`npx vitest run src/components/MessageItem/ContentBlockRenderer.test.tsx -t "ContentBlockRenderer tool lifecycle"` 通过（1 test，3 skipped）；`npx tsc --noEmit` 通过。
 
 **完成标准：**
 
-- 同一会话实时显示与重新打开后的历史显示在块类型、顺序、状态和 usage 上等价。
-- 工具卡片不会因 id 缺失/漂移永久显示 loading。
-- 损坏的单条历史记录不会导致整个历史加载失败。
+- [x] 同一会话实时显示与重新打开后的历史显示在块类型、顺序、状态和 usage 上等价。
+- [x] 工具卡片不会因 id 缺失/漂移永久显示 loading。
+- [x] 损坏的单条历史记录不会导致整个历史加载失败。
 
 ## 4. P2：生命周期和交互加固
 
