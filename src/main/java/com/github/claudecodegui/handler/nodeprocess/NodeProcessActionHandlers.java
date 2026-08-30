@@ -4,6 +4,8 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.service.NodeProcessInfo;
 import com.github.claudecodegui.service.NodeProcessRegistry;
+import com.github.claudecodegui.service.ResourceDiagnosticsService;
+import com.github.claudecodegui.service.RuntimeResourceDiagnostics;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -49,12 +51,16 @@ public class NodeProcessActionHandlers {
             try {
                 NodeProcessRegistry registry = NodeProcessRegistry.getInstance(context.getProject());
                 List<NodeProcessInfo> processes = registry.snapshot();
-                String json = buildProcessListJson(processes);
+                RuntimeResourceDiagnostics diagnostics = ResourceDiagnosticsService
+                        .getInstance(context.getProject())
+                        .snapshot(processes);
+                String json = buildProcessListJson(processes, diagnostics);
                 pushUpdate(json);
             } catch (Exception e) {
                 LOG.warn("[NodeProcessHandler] get_node_processes failed: " + e.getMessage(), e);
                 // Push empty list so the UI doesn't hang forever
-                pushUpdate(buildProcessListJson(Collections.emptyList()));
+                pushUpdate(buildProcessListJson(
+                        Collections.emptyList(), RuntimeResourceDiagnostics.empty()));
             }
         });
     }
@@ -167,7 +173,10 @@ public class NodeProcessActionHandlers {
     // Serialization
     // ============================================================================
 
-    private String buildProcessListJson(List<NodeProcessInfo> processes) {
+    String buildProcessListJson(
+            List<NodeProcessInfo> processes,
+            RuntimeResourceDiagnostics diagnostics
+    ) {
         long now = System.currentTimeMillis();
         int daemonCount = 0;
         int channelCount = 0;
@@ -232,6 +241,8 @@ public class NodeProcessActionHandlers {
         root.addProperty("snapshotAt", now);
         root.add("totals", totals);
         root.add("processes", array);
+        root.add("diagnostics", gson.toJsonTree(
+                diagnostics == null ? RuntimeResourceDiagnostics.empty() : diagnostics));
         return gson.toJson(root);
     }
 
