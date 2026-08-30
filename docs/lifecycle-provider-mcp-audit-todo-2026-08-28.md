@@ -285,16 +285,23 @@
 
 **代办：**
 
-- [ ] 使用 `useRef` 保存 timeout 句柄。
-- [ ] 新操作开始前取消旧 timeout。
-- [ ] effect cleanup/unmount 时清理 timeout。
-- [ ] 引入 operation token/id，旧回调不得修改新操作状态。
-- [ ] 后端响应到达时立即结束对应 operation，不依赖固定 timeout。
-- [ ] 增加 unmount、连续点击、响应乱序测试。
+- [x] 使用 `useRef` 保存 timeout 句柄。
+- [x] 新操作开始前取消旧 timeout。
+- [x] effect cleanup/unmount 时清理 timeout。
+- [x] 引入 operation token/id，旧回调不得修改新操作状态。
+- [x] 后端响应到达时立即结束对应 operation，不依赖固定 timeout。
+- [x] 增加 unmount、连续点击、响应乱序测试。
+
+**整改记录（2026-08-31）：**
+
+- 修改文件：`webview/src/components/settings/DshProviderSection/index.tsx`、`src/main/java/com/github/claudecodegui/handler/dsh/DshHostActionHandlers.java`、`webview/src/global.d.ts`，以及 `webview/test/components/settings/DshProviderSection/DshProviderSection.test.tsx`。
+- 设计说明：前端以 `useRef` 持有当前 operation、operation id 和 timeout 句柄；启动新操作时先清理旧 timer，响应仅能结束匹配 operation id 的 busy 状态，组件卸载时取消 timer 并拒绝迟到 callback。后端从请求 payload 读取 `operationId`，在异步状态响应中原样回传，形成请求—响应配对；发送失败也会立即结束当前 operation。
+- 定向测试：`cd webview && npx vitest run test/components/settings/DshProviderSection/DshProviderSection.test.tsx` 通过（3 tests）；`gradlew.bat compileJava --no-daemon` 通过。`tsc -p tsconfig.test.json --noEmit` 仍受既有测试/源码不同步错误影响，未扩大修复范围。
+- Commit：
+  - `f4313e4f fix(dsh): guard host operation timeouts`
+  - `9652b171 test(dsh): cover host operation lifecycle`
 
 **完成标准：**组件卸载后无迟到 state update，旧操作 timeout 不影响新操作。
-
----
 
 ### P2-03 Node Gateway 信号关闭语义可能不完整
 
