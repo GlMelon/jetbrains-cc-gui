@@ -171,6 +171,33 @@ const REFRESH_BUTTON_STYLE: React.CSSProperties = {
   padding: '2px 6px',
 };
 
+const DIAGNOSTICS_STYLE: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '3px',
+  padding: '6px 12px',
+  color: 'var(--text-secondary)',
+  borderBottom: '1px solid var(--dropdown-border)',
+  overflowWrap: 'anywhere',
+};
+
+const DIAGNOSTICS_TITLE_STYLE: React.CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+};
+
+const DIAGNOSTICS_ROW_STYLE: React.CSSProperties = {
+  fontSize: '10px',
+  lineHeight: 1.35,
+};
+
+const DIAGNOSTICS_FAILURE_STYLE: React.CSSProperties = {
+  ...DIAGNOSTICS_ROW_STYLE,
+  color: 'var(--error-color, #d9534f)',
+};
+
 const DROPDOWN_SIDE_OVERLAP_PX = 30;
 const DROPDOWN_VIEWPORT_PADDING_PX = 8;
 const DROPDOWN_MIN_WIDTH_PX = 260;
@@ -416,6 +443,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
 
   const orphanCount = grouped.orphan.length;
   const totalCount = snapshot?.totals.all ?? 0;
+  const diagnostics = snapshot?.diagnostics;
 
   const markPending = useCallback((pid: number) => {
     setPendingPids((prev) => {
@@ -648,6 +676,54 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
           {loading ? <SpinLoader variant="ring" size={14} color="currentColor" /> : <span className="codicon codicon-refresh" />}
         </button>
       </div>
+
+      {diagnostics ? (
+        <div style={DIAGNOSTICS_STYLE} data-testid="node-process-diagnostics">
+          <div style={DIAGNOSTICS_TITLE_STYLE}>
+            {t('config.nodeProcesses.diagnostics.title')}
+          </div>
+          <div style={DIAGNOSTICS_ROW_STYLE}>
+            {t('config.nodeProcesses.diagnostics.activeProcesses', {
+              node: diagnostics.activeProcesses.node,
+              cli: diagnostics.activeProcesses.cli,
+              mcp: diagnostics.activeProcesses.mcp,
+              all: diagnostics.activeProcesses.all,
+            })}
+          </div>
+          <div style={DIAGNOSTICS_ROW_STYLE}>
+            {t('config.nodeProcesses.diagnostics.persistentRegistry', {
+              size: diagnostics.persistentRegistry.registrySize,
+              usable: diagnostics.persistentRegistry.usableProcessCount,
+              pending: diagnostics.persistentRegistry.pendingRebuildCount,
+              evictions: diagnostics.persistentRegistry.evictionCount,
+              cooldownHits: diagnostics.persistentRegistry.rebuildCooldownHitCount,
+            })}
+          </div>
+          <div style={DIAGNOSTICS_ROW_STYLE}>
+            {t('config.nodeProcesses.diagnostics.gateway', {
+              state: diagnostics.gateway.lifecycleState,
+              generation: diagnostics.gateway.processGeneration,
+              active: diagnostics.gateway.activeProcessCount,
+              restarts: diagnostics.gateway.restartCount,
+            })}
+          </div>
+          <div style={DIAGNOSTICS_ROW_STYLE}>
+            {t('config.nodeProcesses.diagnostics.gatewayTimings', {
+              coldStart: diagnostics.gateway.lastColdStartDurationMs,
+              catalogReady: diagnostics.gateway.lastCatalogReadyDurationMs,
+              degraded: diagnostics.gateway.directDegradedCount,
+            })}
+          </div>
+          {diagnostics.gateway.lastFailure !== null
+            && diagnostics.gateway.lastFailure !== undefined ? (
+              <div style={DIAGNOSTICS_FAILURE_STYLE}>
+                {t('config.nodeProcesses.diagnostics.lastFailure', {
+                  error: diagnostics.gateway.lastFailure,
+                })}
+              </div>
+            ) : null}
+        </div>
+      ) : null}
 
       {loading && !snapshot ? (
         <div style={EMPTY_STATE_STYLE}>
