@@ -41,6 +41,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service(Service.Level.PROJECT)
 public final class McpGatewayService implements Disposable {
     private static final Logger LOG = Logger.getInstance(McpGatewayService.class);
+
+    /** Immutable project-scoped diagnostics snapshot for support tooling. */
+    public record Diagnostics(
+            String lifecycleState,
+            String lastFailure,
+            long processGeneration,
+            int activeProcessCount,
+            boolean refreshInFlight,
+            long restartCount,
+            long lastColdStartDurationMs,
+            long lastCatalogReadyDurationMs,
+            long directDegradedCount
+    ) {
+    }
+
     private static final SecureRandom RANDOM = new SecureRandom();
     /**
      * 复用判定窗口:gateway 进程活着但 /status 可能尚未 ready(预热线程正在 cold-start 的竞态)
@@ -91,6 +106,14 @@ public final class McpGatewayService implements Disposable {
     private volatile String lastKnownProjectPath;
     /** 最近 N 次 gateway 进程意外退出时间戳(epoch ms),供 {@link McpGatewayProcessHandle#isRestartStorm} 判风暴。 */
     private final Deque<Long> exitTimestamps = new ArrayDeque<>();
+    /** Successful process starts after the initial generation. */
+    private long restartCount;
+    /** Latest successful process cold-start duration, or -1 before the first success. */
+    private long lastColdStartDurationMs = -1L;
+    /** Latest successful catalog collection/publication duration, or -1 before the first success. */
+    private long lastCatalogReadyDurationMs = -1L;
+    /** Accepted direct-config degradation events during this project lifecycle. */
+    private long directDegradedCount;
 
     public McpGatewayService(@NotNull Project project) {
         this.project = project;
@@ -318,10 +341,14 @@ public final class McpGatewayService implements Disposable {
         throwIfOperationInvalid(expectedOperationGeneration);
         ensureStarted(projectPath, expectedOperationGeneration);
         throwIfOperationInvalid(expectedOperationGeneration);
+        long catalogStartNanos = System.nanoTime();
         setLifecycleState(McpGatewayLifecycleState.CATALOG_LOADING, null);
         applySnapshot(projectPath, expectedOperationGeneration);
         throwIfOperationInvalid(expectedOperationGeneration);
-        setLifecycleState(McpGatewayLifecycleState.READY, null);
+        synchronized (lock) {
+            lastCatalogReadyDurationMs = elapsedMillis(catalogStartNanos, System.nanoTime());
+            setLifecycleState(McpGatewayLifecycleState.READY, null);
+        }
     }
     /** Slow IO is deliberately outside {@link #lock}; only candidate publication is serialized. */
     void applySnapshot(String projectPath) throws Exception {
@@ -423,6 +450,7 @@ public final class McpGatewayService implements Disposable {
                 return;
             }
             lifecycleState = McpGatewayLifecycleState.DEGRADED_DIRECT;
+            directDegradedCount++;
             if (diagnostic != null && !diagnostic.isBlank()) {
                 lastFailure = diagnostic;
             }
@@ -434,6 +462,29 @@ public final class McpGatewayService implements Disposable {
 
     public String lastFailure() {
         return lastFailure;
+    }
+
+    public Diagnostics diagnostics() {
+        synchronized (lock) {
+            int activeProcessCount = 0;
+            if (processHandle != null && processHandle.isAlive()) {
+                activeProcessCount++;
+            }
+            if (startingProcessHandle != null && startingProcessHandle.isAlive()
+                    && startingProcessHandle != processHandle) {
+                activeProcessCount++;
+            }
+            return new Diagnostics(
+                    lifecycleState.value(),
+                    lastFailure,
+                    processGeneration,
+                    activeProcessCount,
+                    refreshFlight != null && !refreshFlight.isDone(),
+                    restartCount,
+                    lastColdStartDurationMs,
+                    lastCatalogReadyDurationMs,
+                    directDegradedCount);
+        }
     }
 
     public String statusJson() {
@@ -545,6 +596,7 @@ public final class McpGatewayService implements Disposable {
         command.add(McpGatewayConstants.ARG_PROJECT_PATH);
         command.add(projectPath != null ? projectPath : "");
 
+        long coldStartStartNanos = System.nanoTime();
         McpGatewayProcessHandle startedHandle = null;
         boolean committed = false;
         long generation;
@@ -555,8 +607,12 @@ public final class McpGatewayService implements Disposable {
                 if (operationGeneration != expectedOperationGeneration || isLifecycleDisposed()) {
                     throw new IllegalStateException("MCP Gateway operation superseded");
                 }
-                generation = ++processGeneration;
+                long previousGeneration = processGeneration;
                 startedHandle = McpGatewayProcessHandle.start(command);
+                generation = ++processGeneration;
+                if (previousGeneration > 0L) {
+                    restartCount++;
+                }
                 startingProcessHandle = startedHandle;
             }
             McpGatewayProcessHandle callbackHandle = startedHandle;
@@ -579,6 +635,7 @@ public final class McpGatewayService implements Disposable {
                 processHandle = startedHandle;
                 startingProcessHandle = null;
                 bridgeClient = startedClient;
+                lastColdStartDurationMs = elapsedMillis(coldStartStartNanos, System.nanoTime());
                 setLifecycleState(McpGatewayLifecycleState.IPC_READY, null);
                 committed = true;
             }
