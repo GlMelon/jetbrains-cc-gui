@@ -469,6 +469,7 @@ public class CodexMessageHandler implements MessageCallback {
             boolean hasToolUse = rawHasToolUse(currentAssistantMessage.raw);
             boolean shouldNotifyMessageUpdate = !isStreaming || hasToolUse;
             if (shouldNotifyMessageUpdate) {
+                toolLedger.synchronizeMessages(state.getMessagesReference());
                 callbackHandler.notifyMessageUpdate(state.getMessages());
             }
 

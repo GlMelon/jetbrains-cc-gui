@@ -58,6 +58,50 @@ public class MessageBlockContractTest {
     }
 
     @Test
+    public void liveResultBeforeToolUseEventuallyPairsBothBlocks() {
+        MessageBlockContract.ToolLedger ledger = new MessageBlockContract.ToolLedger();
+        JsonObject result = ledger.normalizeToolResult(result("call-1", "ok", false));
+        JsonObject resultEnvelope = userMessage(result.deepCopy());
+
+        JsonObject use = ledger.normalizeToolUse(toolUse("call-1", "search", "q"), "live-1");
+        JsonObject useEnvelope = assistantMessageWithRaw(rawWithBlocks(use.deepCopy()));
+        ledger.synchronizeEnvelope(resultEnvelope);
+        ledger.synchronizeEnvelope(useEnvelope);
+
+        JsonObject synchronizedResult = rawBlocks(resultEnvelope).get(0).getAsJsonObject();
+        JsonObject synchronizedUse = rawBlocks(useEnvelope).get(0).getAsJsonObject();
+        assertEquals(MessageBlockToolStatus.COMPLETED.value(),
+                synchronizedResult.get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertTrue(synchronizedResult.get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+        assertEquals(MessageBlockToolStatus.COMPLETED.value(),
+                synchronizedUse.get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertTrue(synchronizedUse.get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+    }
+
+    @Test
+    public void liveParallelToolResultsRemainIsolatedWhenArrivingOutOfOrder() {
+        MessageBlockContract.ToolLedger ledger = new MessageBlockContract.ToolLedger();
+        JsonObject firstUse = ledger.normalizeToolUse(toolUse("call-1", "search", "q1"), "live-1");
+        JsonObject secondUse = ledger.normalizeToolUse(toolUse("call-2", "search", "q2"), "live-2");
+        JsonObject useEnvelope = assistantMessageWithRaw(rawWithBlocks(
+                firstUse.deepCopy(), secondUse.deepCopy()));
+
+        ledger.normalizeToolResult(result("call-2", "second", false));
+        ledger.normalizeToolResult(result("call-1", "first", false));
+        ledger.synchronizeEnvelope(useEnvelope);
+
+        JsonArray synchronizedUses = rawBlocks(useEnvelope);
+        assertEquals(MessageBlockToolStatus.COMPLETED.value(), synchronizedUses.get(0).getAsJsonObject()
+                .get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertTrue(synchronizedUses.get(0).getAsJsonObject()
+                .get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+        assertEquals(MessageBlockToolStatus.COMPLETED.value(), synchronizedUses.get(1).getAsJsonObject()
+                .get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertTrue(synchronizedUses.get(1).getAsJsonObject()
+                .get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+    }
+
+    @Test
     public void orphanAndDuplicateResultsHaveExplicitStatus() {
         MessageBlockContract.ToolLedger ledger = new MessageBlockContract.ToolLedger();
         ledger.normalizeToolUse(toolUse("call-1", "search", "q"), "live-1");

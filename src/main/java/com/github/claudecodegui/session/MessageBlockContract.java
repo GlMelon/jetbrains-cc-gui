@@ -91,8 +91,7 @@ public final class MessageBlockContract {
                 Collection<String> pendingCandidates
         ) {
             JsonObject input = source == null ? new JsonObject() : source;
-            String suppliedId = firstString(input, CommonConstants.JSON_KEY_TOOL_USE_ID,
-                    "toolCallId", "tool_call_id", CommonConstants.JSON_KEY_ID);
+            String suppliedId = toolResultId(input);
             boolean generatedId = MessageBlockToolIdSource.GENERATED.value().equals(
                     firstString(input, KEY_TOOL_ID_SOURCE));
             boolean reuseGeneratedId = generatedId && hasText(suppliedId);
@@ -104,8 +103,8 @@ public final class MessageBlockContract {
                 id = generatedResultIdentity(input, ++generatedResultSequence);
             }
 
+            boolean duplicate = !completedResultIds.add(id);
             boolean known = toolUseIds.contains(id);
-            boolean duplicate = known && !completedResultIds.add(id);
             String content = contentString(input.get(CommonConstants.JSON_KEY_CONTENT));
             if (content == null) {
                 content = contentString(input.get(CommonConstants.JSON_KEY_RESULT));
@@ -147,14 +146,18 @@ public final class MessageBlockContract {
                     continue;
                 }
                 JsonObject block = element.getAsJsonObject();
-                if (!CommonConstants.BLOCK_TYPE_TOOL_USE.equals(
-                        stringValue(block.get(CommonConstants.JSON_KEY_TYPE)))) {
-                    continue;
-                }
-                String id = firstString(block, CommonConstants.JSON_KEY_ID,
-                        CommonConstants.JSON_KEY_TOOL_USE_ID);
-                if (hasText(id)) {
-                    applyToolUseStatus(block, id);
+                String type = stringValue(block.get(CommonConstants.JSON_KEY_TYPE));
+                if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(type)) {
+                    String id = firstString(block, CommonConstants.JSON_KEY_ID,
+                            CommonConstants.JSON_KEY_TOOL_USE_ID);
+                    if (hasText(id)) {
+                        applyToolUseStatus(block, id);
+                    }
+                } else if (CommonConstants.BLOCK_TYPE_TOOL_RESULT.equals(type)) {
+                    String id = toolResultId(block);
+                    if (hasText(id)) {
+                        applyToolResultStatus(block, id);
+                    }
                 }
             }
         }
@@ -201,6 +204,19 @@ public final class MessageBlockContract {
                             : MessageBlockToolStatus.PENDING;
             block.addProperty(KEY_TOOL_STATUS, status.value());
             block.addProperty(KEY_PAIRED, completed);
+        }
+
+        private void applyToolResultStatus(JsonObject block, String id) {
+            boolean paired = toolUseIds.contains(id);
+            boolean duplicate = MessageBlockToolStatus.DUPLICATE.value().equals(
+                    firstString(block, KEY_TOOL_STATUS));
+            MessageBlockToolStatus status = duplicate
+                    ? MessageBlockToolStatus.DUPLICATE
+                    : paired
+                            ? MessageBlockToolStatus.COMPLETED
+                            : MessageBlockToolStatus.ORPHANED;
+            block.addProperty(KEY_TOOL_STATUS, status.value());
+            block.addProperty(KEY_PAIRED, paired);
         }
     }
 
@@ -272,6 +288,10 @@ public final class MessageBlockContract {
         return normalized;
     }
 
+    private static String toolResultId(JsonObject block) {
+        return firstString(block, CommonConstants.JSON_KEY_TOOL_USE_ID,
+                "toolCallId", "tool_call_id", CommonConstants.JSON_KEY_ID);
+    }
     private static JsonObject authoritativeContentOwner(JsonObject envelope) {
         if (envelope == null) {
             return null;

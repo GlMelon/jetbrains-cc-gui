@@ -578,6 +578,7 @@ public class ClaudeMessageHandler implements MessageCallback {
             // represent. Pure thinking/text progress is already rendered via deltas
             // and is finalized by stream_end.
             if (shouldNotifyMessageUpdate) {
+                toolLedger.synchronizeMessages(state.getMessagesReference());
                 callbackHandler.notifyMessageUpdate(state.getMessages());
             }
 

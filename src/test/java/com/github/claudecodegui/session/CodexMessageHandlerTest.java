@@ -2,6 +2,7 @@ package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.provider.common.CliResult;
+import com.github.claudecodegui.protocol.MessageBlockToolStatus;
 import com.github.claudecodegui.session.ClaudeSession.Message;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -771,6 +772,34 @@ public class CodexMessageHandlerTest {
         assertEquals("tool_result", blocks.get(0).getAsJsonObject().get("type").getAsString());
         assertEquals("tool-1", blocks.get(0).getAsJsonObject().get("tool_use_id").getAsString());
         assertEquals(1, callback.messageUpdateCount);
+    }
+
+    @Test
+    public void resultBeforeToolUseEventuallyPairsBothLiveMessages() {
+        SessionState state = new SessionState();
+        CallbackHandler callbackHandler = new CallbackHandler();
+        callbackHandler.setCallback(new RecordingCallback());
+
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+        handler.onMessage("tool_result", "{\"type\":\"tool_result\",\"tool_use_id\":\"tool-1\",\"content\":\"done\",\"is_error\":false}");
+        handler.onMessage("tool_use", "{\"type\":\"tool_use\",\"id\":\"tool-1\",\"name\":\"Edit\",\"input\":{\"file_path\":\"Plant.java\"}}");
+
+        assertEquals(2, state.getMessages().size());
+        com.google.gson.JsonObject resultBlock = state.getMessages().get(0).raw
+                .getAsJsonObject("message")
+                .getAsJsonArray("content")
+                .get(0).getAsJsonObject();
+        com.google.gson.JsonObject useBlock = state.getMessages().get(1).raw
+                .getAsJsonObject("message")
+                .getAsJsonArray("content")
+                .get(0).getAsJsonObject();
+
+        assertEquals(MessageBlockToolStatus.COMPLETED.value(),
+                resultBlock.get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertTrue(resultBlock.get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+        assertEquals(MessageBlockToolStatus.COMPLETED.value(),
+                useBlock.get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertTrue(useBlock.get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
     }
 
     @Test
