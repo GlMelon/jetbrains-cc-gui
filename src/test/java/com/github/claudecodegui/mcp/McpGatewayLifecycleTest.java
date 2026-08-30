@@ -140,6 +140,33 @@ public class McpGatewayLifecycleTest {
 
         assertEquals("successful recovery should clear the previous failure", null, service.lastFailure());
     }
+
+    @Test
+    public void diagnosticsStartEmptyAndTrackAcceptedDirectDegradation() throws Exception {
+        McpGatewayService service = new McpGatewayService(new McpGatewayServiceTest.StubCollector(),
+                new CountingClient());
+
+        McpGatewayService.Diagnostics initial = service.diagnostics();
+        assertEquals(McpGatewayLifecycleState.STOPPED.value(), initial.lifecycleState());
+        assertEquals(0L, initial.processGeneration());
+        assertEquals(0, initial.activeProcessCount());
+        assertEquals(false, initial.refreshInFlight());
+        assertEquals(0L, initial.restartCount());
+        assertEquals(-1L, initial.lastColdStartDurationMs());
+        assertEquals(-1L, initial.lastCatalogReadyDurationMs());
+        assertEquals(0L, initial.directDegradedCount());
+
+        invokeLifecycleState(service, McpGatewayLifecycleState.IPC_READY, null);
+        invokeMarkDegradedDirect(service, 0L, "send timeout");
+        invokeMarkDegradedDirect(service, 0L, "second timeout");
+        invokeMarkDegradedDirect(service, -1L, "stale timeout");
+
+        McpGatewayService.Diagnostics degraded = service.diagnostics();
+        assertEquals(McpGatewayLifecycleState.DEGRADED_DIRECT.value(), degraded.lifecycleState());
+        assertEquals("second timeout", degraded.lastFailure());
+        assertEquals(2L, degraded.directDegradedCount());
+    }
+
     @Test
     public void staleExitCallbackRequiresMatchingHandleAndGeneration() throws IOException {
         String source = Files.readString(Path.of(
@@ -158,6 +185,10 @@ public class McpGatewayLifecycleTest {
         assertTrue(source.contains("SEND_READY_TIMEOUT.toMillis()"));
         assertTrue(source.contains("pending.cancel(true)"));
         assertTrue(source.contains("task.cancel(true)"));
+        assertTrue(source.contains("long previousGeneration = processGeneration;"));
+        assertTrue(source.contains("restartCount++;"));
+        assertTrue(source.contains("lastColdStartDurationMs = elapsedMillis"));
+        assertTrue(source.contains("lastCatalogReadyDurationMs = elapsedMillis"));
     }
 
     private static Object getField(Object target, String name) throws Exception {
@@ -186,7 +217,14 @@ public class McpGatewayLifecycleTest {
         method.setAccessible(true);
         method.invoke(service, state, failure);
     }
-    private static final class BlockingCollector extends McpGatewayConfigCollector {
+
+    private static void invokeMarkDegradedDirect(McpGatewayService service, long generation,
+                                                  String diagnostic) throws Exception {
+        var method = McpGatewayService.class.getDeclaredMethod("markDegradedDirect",
+                CompletableFuture.class, long.class, String.class);
+        method.setAccessible(true);
+        method.invoke(service, null, generation, diagnostic);
+    }    private static final class BlockingCollector extends McpGatewayConfigCollector {
         private final CountDownLatch entered = new CountDownLatch(1);
         private final CountDownLatch release = new CountDownLatch(1);
 
