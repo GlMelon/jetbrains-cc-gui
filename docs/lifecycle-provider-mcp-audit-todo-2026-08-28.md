@@ -337,18 +337,68 @@
 
 **定向场景：**
 
-- [ ] `thinking_start → thinking_delta* → text` 正常关闭 thinking。
-- [ ] thinking start 后无 delta 也能正确结束。
-- [ ] text 后进入 tool_use 前先 flush 文本。
-- [ ] tool input 增量能在 tool_use end 时收口。
-- [ ] tool_result 先到、tool_use 后到时可最终配对。
-- [ ] 多工具并行、结果乱序不互相覆盖。
-- [ ] tool_result 永不到时显示明确超时/中断状态，不永久 loading。
-- [ ] stdout EOF、非零退出、JSON 截断都能结束 streaming 状态。
-- [ ] `stream_end` 丢失时由会话层补发且只补一次。
-- [ ] `stream_end` 重复/迟到不会结束新 turn。
-- [ ] cancel/interrupt 会确定性终止进程树并关闭思考区、工具区 loading。
-- [ ] usage 不因重复事件重复累加。
+- [x] `thinking_start → thinking_delta* → text` 正常关闭 thinking。
+- [x] thinking start 后无 delta 也能正确结束。
+- [x] text 后进入 tool_use 前先 flush 文本。
+- [x] tool input 增量能在 tool_use end 时收口。
+- [x] tool_result 先到、tool_use 后到时可最终配对。
+- [x] 多工具并行、结果乱序不互相覆盖。
+- [x] tool_result 永不到时显示明确超时/中断状态，不永久 loading。
+- [x] stdout EOF、非零退出、JSON 截断都能结束 streaming 状态。
+- [x] `stream_end` 丢失时由会话层补发且只补一次。
+- [x] `stream_end` 重复/迟到不会结束新 turn。
+- [x] cancel/interrupt 会确定性终止进程树并关闭思考区、工具区 loading。
+- [x] usage 不因重复事件重复累加。
+
+#### 完成记录（2026-08-31）
+
+- 修改文件：
+  - `src/main/java/com/github/claudecodegui/session/ClaudeMessageHandler.java`
+  - `src/main/java/com/github/claudecodegui/session/CodexMessageHandler.java`
+  - `src/main/java/com/github/claudecodegui/cli/kimi/acp/KimiAcpCliSession.java`
+  - `src/test/java/com/github/claudecodegui/session/ClaudeMessageHandlerDedupTest.java`
+  - `src/test/java/com/github/claudecodegui/session/ClaudeMessageHandlerResultUsageTest.java`
+  - `src/test/java/com/github/claudecodegui/session/CodexMessageHandlerTest.java`
+  - `src/test/java/com/github/claudecodegui/provider/claude/ClaudeCliStreamParserTest.java`
+  - `src/test/java/com/github/claudecodegui/cli/common/CliTerminationSymmetryTest.java`
+- 设计说明：
+  - 将 thinking、文本、tool_use、tool_result、usage 和 `stream_end` 的异常收尾统一为幂等操作；完成、interrupt、EOF、非零退出、解析异常均关闭对应 streaming/thinking/tool loading 状态。
+  - 工具块使用稳定 identity 和显式终态；增量 tool input 在结束时收口，乱序/迟到/重复结果不覆盖其他工具或新 turn，未配对工具最终标记为 `unpaired` 而不永久 loading。
+  - Claude persistent、one-shot CLI、公共 run-once、channel 会话均已有进程树终止路径；Kimi ACP 的 `session/cancel` 保留长驻连接，同时增加 `CLI_INTERRUPT_FALLBACK_MS` 超时后通过 `CliProcessHandle` 强杀进程树，并以 turn id/连接/handle 校验防止迟到回调误杀新 turn。
+  - 重复 usage 事件采用替换而非累加，避免同一回合重复计费或显示错误。
+- Provider 对称性检查：
+  - Claude：one-shot/persistent 均有 interrupt、EOF/非零退出收尾和 thinking/tool finalize。
+  - Codex：one-shot 复用 `CliProcessHandle`，非零退出走 `onError + onComplete(false)`，重复 usage 不累加。
+  - OpenCode：复用 `AbstractRunOnceCliSession` 的 stdout drain、非零退出和进程树 interrupt 收尾。
+  - Grok：复用 `AbstractRunOnceCliSession`，工具历史尾随监视器在最终 drain 后收口。
+  - Kimi：run-once 复用公共基类；ACP stdout/stderr 均 drain，`session/cancel` 有短时强杀 fallback，连接 EOF 拒绝 pending 请求。
+  - Pi：复用 `AbstractRunOnceCliSession` 的 EOF、非零退出、截断和 interrupt 保护。
+  - OMP：经 `ChannelCliSession` 走共享 channel 进程生命周期与进程树 interrupt。
+  - DSH：经 `ChannelCliSession` 走共享 channel 进程生命周期与进程树 interrupt。
+- 定向测试：
+  - 命令：`./gradlew.bat test --tests "com.github.claudecodegui.session.CodexMessageHandlerTest" --tests "com.github.claudecodegui.session.ClaudeMessageHandlerDedupTest" --no-daemon`
+  - 结果：通过。
+  - 命令：`./gradlew.bat test --tests "com.github.claudecodegui.session.ClaudeMessageHandlerResultUsageTest.duplicateResultUsageReplacesInsteadOfAccumulating" --tests "com.github.claudecodegui.session.CodexMessageHandlerTest.duplicateUsageEventsReplaceInsteadOfAccumulating" --no-daemon`
+  - 结果：通过；同测试类中另有两个既有失败与本次改动无关，未扩大修复范围。
+  - 命令：`./gradlew.bat test --tests "com.github.claudecodegui.cli.kimi.acp.KimiAcpCapabilityTest" --tests "com.github.claudecodegui.cli.kimi.acp.KimiAcpThinkingNegotiationTest" --no-daemon`
+  - 结果：通过。
+  - 命令：`./gradlew.bat test --tests "com.github.claudecodegui.cli.common.CliTerminationSymmetryTest" --no-daemon`
+  - 结果：通过；使用源码契约检查覆盖真实进程树无法安全纳入单元测试的对称性要求。
+- 有意差异/豁免：
+  - Kimi ACP 是长驻 JSON-RPC 连接，优先发送 `session/cancel` 以保留连接；与 one-shot provider 无条件杀进程不同。该差异源于连接模型，并由短时 fallback 强杀进程树提供等价失控保护。
+  - 未启动真实 Provider 进程树做取消测试，避免测试误杀宿主/子进程；通过 `CliTerminationSymmetryTest` 对共享终止实现、8 个工厂装配和 EOF/非零退出回调做源码契约兜底。
+- Commit：
+  - `7c5296a0 feat(session): unify live and history tool block lifecycle`
+  - `0b02dbd4 feat(webview): render backend tool lifecycle status`
+  - `bde905ec docs(audit): record unified message block remediation`
+  - `c5c4e8a2 fix(claude): finalize incremental tool input blocks`
+  - `19ae6651 fix(session): ignore stale response turn callbacks`
+  - `2f7e40ab fix(session): reconcile out-of-order tool results`
+  - `d243ca9e fix(claude): flush pending text before tool blocks`
+  - `3d49ed90 fix(session): finalize incomplete response streams`
+  - `69644609 test(session): guard duplicate usage events`
+  - `b71cd2ec fix(kimi): add deterministic acp cancel fallback`
+  - `3d3cad36 test(cli): guard provider termination paths`
 
 **完成标准：**所有异常结束路径都使前端退出 streaming/thinking/tool loading 状态。
 
@@ -398,7 +448,7 @@
 1. [x] **阶段 A：生命周期闸门**——完成 P1-01，确保 dispose 后不会产生新资源。
 2. [x] **阶段 B：Gateway 非阻塞降级**——完成 P1-02，再验证 P2-03。
 3. [x] **阶段 C：Provider 能力和预热契约**——完成 P1-03、P1-04。
-4. [ ] **阶段 D：实时/历史统一块**——完成 P1-05、P2-05。
+4. [x] **阶段 D：实时/历史统一块**——完成 P1-05、P2-05。
 5. [ ] **阶段 E：短时资源滞留清理**——完成 P2-01、P2-02、P2-04。
 6. [ ] **阶段 F：可观测性与文档**——完成 P3 项。
 
