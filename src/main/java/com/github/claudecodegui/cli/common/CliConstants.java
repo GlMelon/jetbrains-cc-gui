@@ -195,8 +195,10 @@ public final class CliConstants {
     public static final String STREAM_MESSAGE_STOP = "message_stop";
     /** content_block_delta 的 delta.type 文本增量（thinking_delta 复用 MSG_THINKING_DELTA）。 */
     public static final String DELTA_TEXT = "text_delta";
-    /** content_block_delta 的 delta.type 工具输入增量（部分输入，解析器跳过）。 */
+    /** content_block_delta 的 delta.type 工具输入增量。 */
     public static final String DELTA_INPUT_JSON = "input_json_delta";
+    /** input_json_delta 的增量 JSON 片段字段。 */
+    public static final String JSON_KEY_PARTIAL_JSON = "partial_json";
     /** system 事件 subtype：init 提取 session_id，status（如 requesting）跳过。 */
     public static final String SUBTYPE_INIT = "init";
     /** system 事件 subtype：api_retry = API 端点 5xx/529 过载，CLI 静默指数退避重试中。 */

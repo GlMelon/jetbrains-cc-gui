@@ -13,8 +13,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
-import java.util.Locale;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -46,7 +48,8 @@ public class ClaudeCliStreamParser {
     private boolean imageToolResultSeen;
     private boolean imageUnderstandingObserved;
     private TextBlockRoute currentTextBlockRoute = TextBlockRoute.NONE;
-    private final Set<String> emittedServerToolUseIds = new LinkedHashSet<>();
+    private final Set<String> emittedToolUseIds = new LinkedHashSet<>();
+    private final Map<Integer, PendingToolUse> pendingToolUses = new LinkedHashMap<>();
 
     private static final String UNSUPPORTED_IMAGE_MESSAGE = "__I18N__:aiBridge.unsupportedImageVision";
 
@@ -64,7 +67,8 @@ public class ClaudeCliStreamParser {
         imageToolResultSeen = false;
         imageUnderstandingObserved = false;
         currentTextBlockRoute = TextBlockRoute.NONE;
-        emittedServerToolUseIds.clear();
+        emittedToolUseIds.clear();
+        pendingToolUses.clear();
         pendingTextBlock.setLength(0);
     }
 
@@ -110,7 +114,9 @@ public class ClaudeCliStreamParser {
                         if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)
                                 || CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
                             nextTextBlockIsAfterToolStructure = true;
-                            if (CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
+                            if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)) {
+                                beginPendingToolUse(readIntField(event, CommonConstants.JSON_KEY_INDEX), block);
+                            } else {
                                 emitServerToolUse(block, callback);
                             }
                         }
@@ -136,7 +142,10 @@ public class ClaudeCliStreamParser {
                             }
                             break;
                         case CliConstants.DELTA_INPUT_JSON:
-                            // 工具调用的部分输入，暂时跳过
+                            appendPendingToolInput(
+                                    readIntField(event, CommonConstants.JSON_KEY_INDEX),
+                                    getString(delta, CliConstants.JSON_KEY_PARTIAL_JSON)
+                            );
                             break;
                         default:
                             break;
@@ -145,6 +154,7 @@ public class ClaudeCliStreamParser {
                 break;
 
             case CliConstants.STREAM_CONTENT_BLOCK_STOP:
+                finalizePendingToolUse(readIntField(event, CommonConstants.JSON_KEY_INDEX), callback);
                 flushPendingTextBlock(callback, assistantContent, false);
                 if (thinkingActive) {
                     thinkingActive = false;
@@ -161,6 +171,7 @@ public class ClaudeCliStreamParser {
                 break;
 
             case CliConstants.STREAM_MESSAGE_STOP:
+                finalizeAllPendingToolUses(callback);
                 flushPendingTextBlock(callback, assistantContent, false);
                 // CLI agentic 模式下，Claude 会有多个 assistant turn（文字→工具调用→继续输出）。
                 // message_stop 只是单个 turn 的结束，不是整个会话的结束。
@@ -309,13 +320,7 @@ public class ClaudeCliStreamParser {
             String blockType = block.has("type") ? block.get("type").getAsString() : "";
             if (CommonConstants.BLOCK_TYPE_TOOL_USE.equals(blockType)) {
                 nextTextBlockIsAfterToolStructure = true;
-                if (CliConstants.TOOL_NAME_READ.equals(getString(block, "name"))) {
-                    readToolUseSeen = true;
-                    if (isImagePath(getToolUseFilePath(block))) {
-                        imageReadToolUseSeen = true;
-                    }
-                }
-                sectionEmitter(callback).toolUse(block);
+                emitToolUse(block, callback);
             } else if (CommonConstants.BLOCK_TYPE_SERVER_TOOL_USE.equals(blockType)) {
                 nextTextBlockIsAfterToolStructure = true;
                 emitServerToolUse(block, callback);
@@ -324,13 +329,97 @@ public class ClaudeCliStreamParser {
         }
     }
 
-    private void emitServerToolUse(JsonObject block, MessageCallback callback) {
-        JsonObject normalized = normalizeServerToolUse(block);
-        String id = getString(normalized, CommonConstants.JSON_KEY_ID);
-        if (id != null && !id.isBlank() && !emittedServerToolUseIds.add(id)) {
+    private void beginPendingToolUse(int index, JsonObject block) {
+        JsonObject pendingBlock = block == null
+                ? new JsonObject()
+                : CliOutputLimits.boundedJsonObjectCopy(block);
+        pendingToolUses.put(index, new PendingToolUse(pendingBlock, new StringBuilder()));
+    }
+
+    private void appendPendingToolInput(int index, String partialJson) {
+        if (partialJson == null || partialJson.isEmpty()) {
             return;
         }
-        sectionEmitter(callback).toolUse(normalized);
+        PendingToolUse pending = findPendingToolUse(index);
+        if (pending == null) {
+            return;
+        }
+        CliOutputLimits.appendBounded(
+                pending.partialJson(), partialJson, CliOutputLimits.MAX_RAW_JSON_CHARS);
+    }
+
+    private PendingToolUse findPendingToolUse(int index) {
+        PendingToolUse pending = pendingToolUses.get(index);
+        if (pending == null && pendingToolUses.size() == 1) {
+            return pendingToolUses.values().iterator().next();
+        }
+        return pending;
+    }
+
+    private PendingToolUse removePendingToolUse(int index) {
+        PendingToolUse pending = pendingToolUses.remove(index);
+        if (pending == null && pendingToolUses.size() == 1) {
+            Integer onlyIndex = pendingToolUses.keySet().iterator().next();
+            return pendingToolUses.remove(onlyIndex);
+        }
+        return pending;
+    }
+
+    private void finalizePendingToolUse(int index, MessageCallback callback) {
+        PendingToolUse pending = removePendingToolUse(index);
+        if (pending != null) {
+            finalizePendingToolUse(pending, callback);
+        }
+    }
+
+    private void finalizeAllPendingToolUses(MessageCallback callback) {
+        PendingToolUse[] pending = pendingToolUses.values().toArray(new PendingToolUse[0]);
+        pendingToolUses.clear();
+        for (PendingToolUse toolUse : pending) {
+            finalizePendingToolUse(toolUse, callback);
+        }
+    }
+
+    private void finalizePendingToolUse(PendingToolUse pending, MessageCallback callback) {
+        JsonObject block = pending.block();
+        if (pending.partialJson().length() > 0) {
+            JsonObject input = new JsonObject();
+            try {
+                JsonElement parsed = gson.fromJson(pending.partialJson().toString(), JsonElement.class);
+                if (parsed != null && parsed.isJsonObject()) {
+                    input = parsed.getAsJsonObject();
+                } else {
+                    LOG.warn("[CliStreamParser] Tool input delta did not resolve to a JSON object");
+                }
+            } catch (Exception e) {
+                LOG.warn("[CliStreamParser] Truncated tool input delta; finalizing with empty input");
+            }
+            block.add(CommonConstants.JSON_KEY_INPUT, input);
+        } else if (!block.has(CommonConstants.JSON_KEY_INPUT)
+                || !block.get(CommonConstants.JSON_KEY_INPUT).isJsonObject()) {
+            block.add(CommonConstants.JSON_KEY_INPUT, new JsonObject());
+        }
+        emitToolUse(block, callback);
+    }
+    private void emitServerToolUse(JsonObject block, MessageCallback callback) {
+        emitToolUse(normalizeServerToolUse(block), callback);
+    }
+
+    private void emitToolUse(JsonObject block, MessageCallback callback) {
+        if (block == null) {
+            return;
+        }
+        String id = getString(block, CommonConstants.JSON_KEY_ID);
+        if (id != null && !id.isBlank() && !emittedToolUseIds.add(id)) {
+            return;
+        }
+        if (CliConstants.TOOL_NAME_READ.equals(getString(block, CommonConstants.JSON_KEY_NAME))) {
+            readToolUseSeen = true;
+            if (isImagePath(getToolUseFilePath(block))) {
+                imageReadToolUseSeen = true;
+            }
+        }
+        sectionEmitter(callback).toolUse(block);
     }
 
     private JsonObject normalizeServerToolUse(JsonObject block) {
@@ -386,6 +475,7 @@ public class ClaudeCliStreamParser {
     }
 
     private void handleResult(JsonObject obj, MessageCallback callback, CliResult result, StringBuilder assistantContent) {
+        finalizeAllPendingToolUses(callback);
         flushPendingTextBlock(callback, assistantContent, false);
         String resultText = null;
 
@@ -706,6 +796,8 @@ public class ClaudeCliStreamParser {
         }
     }
 
+    private record PendingToolUse(JsonObject block, StringBuilder partialJson) {
+    }
     private enum TextBlockRoute {
         NONE, UNKNOWN, CONTENT, TOOL_TRACE
     }

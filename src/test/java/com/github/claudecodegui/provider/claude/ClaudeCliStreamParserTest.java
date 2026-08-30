@@ -4,6 +4,7 @@ import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.CliResult;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -27,6 +28,73 @@ public class ClaudeCliStreamParserTest {
         parser.parseLine(line, callback, new CliResult(), new StringBuilder(), new AtomicBoolean(false), false);
 
         assertEquals("tool_use", callback.events.get(0).type);
+    }
+
+    @Test
+    public void streamedToolInputDeltasFinalizeAtContentBlockStopAndDeduplicateSnapshot() {
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        CliResult result = new CliResult();
+        StringBuilder assistantContent = new StringBuilder();
+        AtomicBoolean hadSendError = new AtomicBoolean(false);
+
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool-1\",\"name\":\"Edit\",\"input\":{}}}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"file_\"}}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"path\\\":\\\"A.java\\\"}\"}}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":1}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"id\":\"tool-1\",\"name\":\"Edit\",\"input\":{\"file_path\":\"A.java\"}}]}}",
+                callback, result, assistantContent, hadSendError, false);
+
+        List<String> toolUseEvents = callback.contentsOfType("tool_use");
+        assertEquals(1, toolUseEvents.size());
+        JsonObject toolUse = new Gson().fromJson(toolUseEvents.get(0), JsonObject.class);
+        assertEquals("tool-1", toolUse.get("id").getAsString());
+        assertEquals("Edit", toolUse.get("name").getAsString());
+        assertEquals("A.java", toolUse.getAsJsonObject("input").get("file_path").getAsString());
+    }
+
+    @Test
+    public void truncatedToolInputFinalizesWithEmptyInputAndDoesNotLeakToNextBlock() {
+        ClaudeCliStreamParser parser = new ClaudeCliStreamParser(new Gson());
+        RecordingCallback callback = new RecordingCallback();
+        CliResult result = new CliResult();
+        StringBuilder assistantContent = new StringBuilder();
+        AtomicBoolean hadSendError = new AtomicBoolean(false);
+
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool-2\",\"name\":\"Edit\",\"input\":{}}}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\"}}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":2}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":3,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tool-3\",\"name\":\"Read\",\"input\":{}}}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":3,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"file_path\\\":\\\"README.md\\\"}\"}}}",
+                callback, result, assistantContent, hadSendError, false);
+        parser.parseLine(
+                "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_stop\",\"index\":3}}",
+                callback, result, assistantContent, hadSendError, false);
+
+        List<String> toolUseEvents = callback.contentsOfType("tool_use");
+        assertEquals(2, toolUseEvents.size());
+        JsonObject first = new Gson().fromJson(toolUseEvents.get(0), JsonObject.class);
+        JsonObject second = new Gson().fromJson(toolUseEvents.get(1), JsonObject.class);
+        assertEquals(0, first.getAsJsonObject("input").size());
+        assertEquals("README.md", second.getAsJsonObject("input").get("file_path").getAsString());
     }
 
     @Test

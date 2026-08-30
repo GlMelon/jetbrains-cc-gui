@@ -238,6 +238,8 @@ public final class CommonConstants {
     public static final String JSON_KEY_MESSAGE = "message";
     /** JSON 字段：用量统计 */
     public static final String JSON_KEY_USAGE = "usage";
+    /** JSON 字段：流式内容块索引 */
+    public static final String JSON_KEY_INDEX = "index";
     /** JSON 字段：唯一标识 */
     public static final String JSON_KEY_ID = "id";
     /** JSON 字段：名称 */
