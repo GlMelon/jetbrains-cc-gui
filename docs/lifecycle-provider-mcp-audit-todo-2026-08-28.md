@@ -114,33 +114,51 @@
 
 ### P1-03 Provider 预初始化矩阵不完整、不显式
 
-**当前观察矩阵：**
+**当前观察矩阵（整改后）：**
 
-| Provider | 当前 resolver/相关预热 | 当前判断 | 待办 |
-|---|---:|---|---|
-| Claude | 未进入通用 resolver 预热 | 注释说明为有意排除 | [ ] 记录有意差异、首轮预算和失败策略 |
-| Codex | 已预热 | 已覆盖 | [ ] 增加回归守卫 |
-| OpenCode | 已预热 | 已覆盖 | [ ] 增加回归守卫 |
-| Grok | 已预热 | 已覆盖 | [ ] 增加回归守卫 |
-| Kimi | 已预热版本/通道相关信息 | ACP 门禁依赖预热 | [ ] 验证探测失败和 legacy 降级 |
-| Pi | 已预热 | 已覆盖 | [ ] 增加回归守卫 |
-| OMP | 未见通用 resolver 预热 | 可能属于 Channel 架构差异 | [ ] 明确是否无需预热及其健康检查 |
-| DSH | 未见通用 resolver 预热 | 独立 host/Channel 路径 | [ ] 明确 host 预热、健康检查、退出策略 |
+| Provider | 预热策略 | 策略声明 | 降级/失败语义 |
+|---|---|---|---|
+| Claude | 不执行通用 CLI resolver 预热 | `executableProbe=false`、`versionProbe=false` | `RETRY_ON_FIRST_USE` |
+| Codex | executable/version resolver 预热 | `executableProbe=true`、`versionProbe=true` | `RETRY_ON_FIRST_USE` |
+| OpenCode | executable/version resolver 预热 | `executableProbe=true`、`versionProbe=true` | `RETRY_ON_FIRST_USE` |
+| Grok | executable/version resolver 预热 | `executableProbe=true`、`versionProbe=true` | `RETRY_ON_FIRST_USE` |
+| Kimi | executable/version resolver 预热 | `executableProbe=true`、`versionProbe=true` | `RETRY_ON_FIRST_USE`；ACP 仍由实际 Session 门禁决定 |
+| Pi | executable/version resolver 预热 | `executableProbe=true`、`versionProbe=true` | `RETRY_ON_FIRST_USE` |
+| OMP | 不执行通用 CLI resolver 预热 | `channelProbe=true` | `DIRECT_CHANNEL` |
+| DSH | 不执行通用 CLI resolver 预热 | `channelProbe=true`、`configurationLoad=true` | `HOST_CHANNEL` |
 
 **代办：**
 
-- [ ] 建立 Provider 预热策略接口/注册表，避免在核心流程继续追加 Provider `if/else`。
-- [ ] 每个 Provider 明确声明：可执行文件探测、版本探测、通道探测、配置加载、能力协商、超时和降级策略。
-- [ ] 将 Claude、OMP、DSH 的有意差异写入代码级配置或测试矩阵，不能只靠注释和人员记忆。
-- [ ] 预热失败不得永久污染 detector 状态；定义可重试、冷却或按 generation 失效机制。
-- [ ] 所有预热任务都必须可取消并绑定 Project 生命周期。
-- [ ] 增加 8 Provider 注册完整性测试和重复注册 fail-fast 测试。
+- [x] 建立 Provider 预热策略接口/注册表，避免在核心流程继续追加 Provider `if/else`。
+- [x] 每个 Provider 明确声明：可执行文件探测、版本探测、通道探测、配置加载、能力协商、超时和降级策略。
+- [x] 将 Claude、OMP、DSH 的有意差异写入代码级配置或测试矩阵，不能只靠注释和人员记忆。
+- [x] 预热失败不得永久污染 detector 状态；定义可重试、冷却或按 generation 失效机制。
+- [x] 所有预热任务都必须可取消并绑定 Project 生命周期。
+- [x] 增加 8 Provider 注册完整性测试和重复注册 fail-fast 测试。
+
+**整改记录（2026-08-30）：**
+
+- 修改文件：
+  - `src/main/java/com/github/claudecodegui/startup/BridgePreloader.java`
+  - `src/main/java/com/github/claudecodegui/startup/ProviderPrewarmPolicy.java`
+  - `src/main/java/com/github/claudecodegui/startup/PrewarmFallback.java`
+  - `src/main/java/com/github/claudecodegui/startup/ProviderPrewarmStrategy.java`
+  - `src/main/java/com/github/claudecodegui/startup/ProviderPrewarmRegistry.java`
+  - `src/main/java/com/github/claudecodegui/cli/common/ProviderCliResolver.java`
+  - `src/main/java/com/github/claudecodegui/session/runtime/CodexCliResolver.java`
+  - `src/test/java/com/github/claudecodegui/startup/BridgePreloaderLifecycleTest.java`
+  - `src/test/java/com/github/claudecodegui/startup/ProviderPrewarmRegistryTest.java`
+- 设计说明：新增 `ProviderPrewarmStrategy` + `ProviderPrewarmRegistry` + `ProviderPrewarmPolicy`，以 `ProviderType.values()` 作为 8 Provider 完整矩阵的唯一全集。注册表在构造时对重复 Provider 和缺失 Provider fail-fast；`BridgePreloader` 只负责遍历策略、提交任务、超时和生命周期取消，不再维护 Provider 专用的线性分派方法。新增 Provider 只需增加策略实现和注册项。
+- 有意差异：Claude、OMP、DSH 的不执行通用 resolver 预热已进入代码级 policy。OMP/DSH 的 `channelProbe`、`configurationLoad` 当前是架构差异的声明性元数据，本轮没有虚构或新增实际 host/channel 健康检查；实际 channel 初始化仍在各自 Session/Channel 路径完成。`capabilityNegotiation` 也只是矩阵字段，能力协商整改留在 P1-04。
+- 失败与重试：`ProviderCliResolver` 和 `CodexCliResolver` 只缓存成功解析出的 executable/version；失败或未接受版本不会写入成功缓存，首轮调用仍可重新探测。预热 Future 取消版本探测时会强制终止探测子进程并恢复线程中断标志，避免取消留下孤立进程。
+- 生命周期：每个 Provider 策略对应一个可取消 Future；预热总 Future 和 Provider 子任务均绑定 Project Disposable，项目关闭或外层取消时调用 `cancel(true)`，任务执行前后检查 project/interruption/cancelled 状态。
+- 定向验证：`./gradlew.bat compileJava --no-daemon` 通过；`./gradlew.bat test --tests "com.github.claudecodegui.startup.BridgePreloaderLifecycleTest" --tests "com.github.claudecodegui.startup.ProviderPrewarmRegistryTest" --tests "com.github.claudecodegui.session.runtime.CodexCliResolverCacheTest" --tests "com.github.claudecodegui.cli.opencode.OpenCodeCliResolverTest" --no-daemon` 通过（14 tests）。
 
 **完成标准：**
 
-- 新增 Provider 只增加策略实现和装配项，不修改核心预热分派主体。
-- 8 Provider 的预热/不预热都有显式、可测试的依据。
-- 预热失败后首轮发送仍有明确降级，不会永久禁用最佳通道。
+- [x] 新增 Provider 只增加策略实现和装配项，不修改核心预热分派主体。
+- [x] 8 Provider 的预热/不预热都有显式、可测试的依据。
+- [x] 预热失败后首轮发送仍有明确降级，不会永久禁用最佳通道。
 
 ---
 
