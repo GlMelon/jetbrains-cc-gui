@@ -1503,6 +1503,14 @@
       "loading": "正在加载进程信息...",
       "empty": "当前没有活跃的 Node 进程",
       "refresh": "刷新",
+      "diagnostics": {
+        "title": "运行时诊断",
+        "activeProcesses": "活跃进程 · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · 总计 {{all}}",
+        "persistentRegistry": "长驻注册表 · 大小 {{size}} · 可用 {{usable}} · 待重建 {{pending}} · 淘汰 {{evictions}} · 冷却命中 {{cooldownHits}}",
+        "gateway": "网关 · {{state}} · 世代 {{generation}} · 活跃 {{active}} · 重启 {{restarts}}",
+        "gatewayTimings": "冷启动 {{coldStart}} ms · 目录就绪 {{catalogReady}} ms · Direct 降级 {{degraded}}",
+        "lastFailure": "最近失败：{{error}}"
+      },
       "groups": {
         "daemon": "守护进程",
         "channel": "进行中对话",

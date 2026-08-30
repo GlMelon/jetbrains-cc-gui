@@ -1147,6 +1147,14 @@
       "loading": "Загрузка процессов...",
       "empty": "Нет активных процессов Node",
       "refresh": "Обновить",
+      "diagnostics": {
+        "title": "Диагностика среды выполнения",
+        "activeProcesses": "Активные · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · Всего {{all}}",
+        "persistentRegistry": "Постоянный реестр · Размер {{size}} · Доступно {{usable}} · Ожидают {{pending}} · Вытеснения {{evictions}} · Cooldown {{cooldownHits}}",
+        "gateway": "Шлюз · {{state}} · Поколение {{generation}} · Активно {{active}} · Перезапуски {{restarts}}",
+        "gatewayTimings": "Холодный запуск {{coldStart}} мс · Каталог готов {{catalogReady}} мс · Деградации Direct {{degraded}}",
+        "lastFailure": "Последняя ошибка: {{error}}"
+      },
       "groups": {
         "daemon": "Процессы-демоны",
         "channel": "Активные беседы",

@@ -1122,6 +1122,14 @@
       "loading": "Cargando procesos...",
       "empty": "No hay procesos Node activos",
       "refresh": "Actualizar",
+      "diagnostics": {
+        "title": "Diagnóstico de ejecución",
+        "activeProcesses": "Activos · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · Total {{all}}",
+        "persistentRegistry": "Registro persistente · Tamaño {{size}} · Utilizables {{usable}} · Pendientes {{pending}} · Expulsiones {{evictions}} · Cooldown {{cooldownHits}}",
+        "gateway": "Gateway · {{state}} · Generación {{generation}} · Activos {{active}} · Reinicios {{restarts}}",
+        "gatewayTimings": "Arranque en frío {{coldStart}} ms · Catálogo listo {{catalogReady}} ms · Degradaciones Direct {{degraded}}",
+        "lastFailure": "Último fallo: {{error}}"
+      },
       "groups": {
         "daemon": "Procesos daemon",
         "channel": "Conversaciones activas",

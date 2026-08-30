@@ -1225,6 +1225,14 @@
       "loading": "프로세스 로드 중...",
       "empty": "활성 Node 프로세스가 없습니다",
       "refresh": "새로고침",
+      "diagnostics": {
+        "title": "런타임 진단",
+        "activeProcesses": "활성 · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · 합계 {{all}}",
+        "persistentRegistry": "상주 레지스트리 · 크기 {{size}} · 사용 가능 {{usable}} · 재빌드 대기 {{pending}} · 제거 {{evictions}} · 쿨다운 적중 {{cooldownHits}}",
+        "gateway": "게이트웨이 · {{state}} · 세대 {{generation}} · 활성 {{active}} · 재시작 {{restarts}}",
+        "gatewayTimings": "콜드 스타트 {{coldStart}} ms · 카탈로그 준비 {{catalogReady}} ms · Direct 성능 저하 {{degraded}}",
+        "lastFailure": "최근 실패: {{error}}"
+      },
       "groups": {
         "daemon": "데몬 프로세스",
         "channel": "진행 중인 대화",

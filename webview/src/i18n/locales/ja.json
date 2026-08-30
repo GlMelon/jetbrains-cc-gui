@@ -1127,6 +1127,14 @@
       "loading": "プロセスを読み込み中...",
       "empty": "アクティブな Node プロセスはありません",
       "refresh": "更新",
+      "diagnostics": {
+        "title": "ランタイム診断",
+        "activeProcesses": "稼働中 · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · 合計 {{all}}",
+        "persistentRegistry": "常駐レジストリ · サイズ {{size}} · 使用可能 {{usable}} · 再構築待ち {{pending}} · 破棄 {{evictions}} · クールダウン該当 {{cooldownHits}}",
+        "gateway": "ゲートウェイ · {{state}} · 世代 {{generation}} · 稼働中 {{active}} · 再起動 {{restarts}}",
+        "gatewayTimings": "コールドスタート {{coldStart}} ms · カタログ準備 {{catalogReady}} ms · Direct 縮退 {{degraded}}",
+        "lastFailure": "直近の失敗: {{error}}"
+      },
       "groups": {
         "daemon": "デーモンプロセス",
         "channel": "進行中の会話",

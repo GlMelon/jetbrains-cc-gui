@@ -1462,6 +1462,14 @@
       "loading": "Loading processes...",
       "empty": "No active Node processes",
       "refresh": "Refresh",
+      "diagnostics": {
+        "title": "Runtime diagnostics",
+        "activeProcesses": "Active · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · Total {{all}}",
+        "persistentRegistry": "Persistent · Size {{size}} · Usable {{usable}} · Pending {{pending}} · Evictions {{evictions}} · Cooldown hits {{cooldownHits}}",
+        "gateway": "Gateway · {{state}} · Generation {{generation}} · Active {{active}} · Restarts {{restarts}}",
+        "gatewayTimings": "Cold start {{coldStart}} ms · Catalog ready {{catalogReady}} ms · Direct degraded {{degraded}}",
+        "lastFailure": "Last failure: {{error}}"
+      },
       "groups": {
         "daemon": "Daemon Processes",
         "channel": "Active Conversations",

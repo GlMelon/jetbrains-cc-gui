@@ -1153,6 +1153,14 @@
       "loading": "正在載入進程資訊...",
       "empty": "目前沒有作用中的 Node 進程",
       "refresh": "重新整理",
+      "diagnostics": {
+        "title": "執行階段診斷",
+        "activeProcesses": "活躍程序 · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · 總計 {{all}}",
+        "persistentRegistry": "常駐註冊表 · 大小 {{size}} · 可用 {{usable}} · 待重建 {{pending}} · 淘汰 {{evictions}} · 冷卻命中 {{cooldownHits}}",
+        "gateway": "閘道 · {{state}} · 世代 {{generation}} · 活躍 {{active}} · 重新啟動 {{restarts}}",
+        "gatewayTimings": "冷啟動 {{coldStart}} ms · 目錄就緒 {{catalogReady}} ms · Direct 降級 {{degraded}}",
+        "lastFailure": "最近失敗：{{error}}"
+      },
       "groups": {
         "daemon": "常駐進程",
         "channel": "進行中對話",

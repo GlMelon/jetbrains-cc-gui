@@ -1122,6 +1122,14 @@
       "loading": "प्रक्रियाएं लोड हो रही हैं...",
       "empty": "कोई सक्रिय Node प्रक्रिया नहीं",
       "refresh": "रीफ्रेश",
+      "diagnostics": {
+        "title": "रनटाइम निदान",
+        "activeProcesses": "सक्रिय · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · कुल {{all}}",
+        "persistentRegistry": "स्थायी रजिस्ट्री · आकार {{size}} · उपयोग योग्य {{usable}} · लंबित {{pending}} · निष्कासन {{evictions}} · कूलडाउन हिट {{cooldownHits}}",
+        "gateway": "गेटवे · {{state}} · जनरेशन {{generation}} · सक्रिय {{active}} · रीस्टार्ट {{restarts}}",
+        "gatewayTimings": "कोल्ड स्टार्ट {{coldStart}} ms · कैटलॉग तैयार {{catalogReady}} ms · Direct डिग्रेडेड {{degraded}}",
+        "lastFailure": "पिछली विफलता: {{error}}"
+      },
       "groups": {
         "daemon": "डेमन प्रक्रियाएं",
         "channel": "सक्रिय बातचीत",
