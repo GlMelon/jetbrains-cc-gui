@@ -1,9 +1,9 @@
 # 插件生命周期、Provider、MCP Gateway 与对话链路整改清单
 
 > 审计日期：2026-08-28
-> 文档状态：待逐项整改
+> 文档状态：按阶段逐项整改中
 > 适用范围：Java 插件后端、React/JCEF Webview、`ai-bridge` Node 进程、全部 Provider CLI/Channel 路径
-> 审计性质：源码静态审计；本轮未修改产品代码、未执行测试
+> 审计性质：源码静态审计；整改记录持续追加，定向测试结果以各条目记录为准
 
 ## 1. 使用说明
 
@@ -52,14 +52,22 @@
 
 **代办：**
 
-- [ ] 给 `McpGatewayService` 增加不可逆的 disposed 状态。
-- [ ] 在 `refreshConfig`、`buildCliConfig`、`ensureStarted`、`reloadGateway`、`statusJson` 和 self-heal 入口统一 fail-fast。
-- [ ] 异步任务在提交前、实际执行时、昂贵阶段前后、获得锁后分别检查 Project/Service 生命周期。
-- [ ] 保存预热 Future/Promise 句柄，并绑定 Project Disposable；dispose 时取消尚未执行或仍在等待的任务。
-- [ ] 为 self-heal 增加 generation/process-handle 身份校验，防止旧进程的迟到回调重建新进程。
-- [ ] dispose 后禁止任何路径重新设置 `processHandle` 或 `bridgeClient`。
-- [ ] 增加“预热进行中关闭项目”的并发测试。
-- [ ] 增加“旧进程退出回调晚于新进程创建”的 generation 测试。
+- [x] 给 `McpGatewayService` 增加不可逆的 disposed 状态。
+- [x] 在 `refreshConfig`、`buildCliConfig`、`ensureStarted`、`reloadGateway`、`statusJson` 和 self-heal 入口统一 fail-fast。
+- [x] 异步任务在提交前、实际执行时、昂贵阶段前后、获得锁后分别检查 Project/Service 生命周期。
+- [x] 保存预热 Future/Promise 句柄，并绑定 Project Disposable；dispose 时取消尚未执行或仍在等待的任务。
+- [x] 为 self-heal 增加 generation/process-handle 身份校验，防止旧进程的迟到回调重建新进程。
+- [x] dispose 后禁止任何路径重新设置 `processHandle` 或 `bridgeClient`。
+- [x] 增加“预热进行中关闭项目”的并发测试。
+- [x] 增加“旧进程退出回调晚于新进程创建”的 generation 测试。
+
+**整改记录（2026-08-29）：**
+
+- 修改文件：`McpGatewayService.java`、`BridgePreloader.java`、`WebviewInitializer.java`，以及对应生命周期回归测试。
+- `McpGatewayService` 使用不可逆 disposed 闸门、资源发布锁、process generation/handle 双重身份校验，并保存、取消 self-heal Future；用户触发的 `stopGateway()` 仍保持可恢复语义。
+- 两处预热均保存 Future，在 Project/Initializer dispose 时取消；`BridgePreloader` 使用 `Disposer.tryRegister` 避免向已销毁 Project 注册子 Disposable 的竞态。
+- Provider 对称性：Claude、Codex、OpenCode、Grok、Kimi、Pi、OMP、DSH 共用同一 `McpGatewayService` 门面生命周期路径，本项无 Provider 特例或有意差异。
+- 定向验证：`McpGatewayServiceTest`、`McpGatewayLifecycleTest`、`McpGatewayProcessHandleTest`、`BridgePreloaderLifecycleTest`、`WebviewInitializerTest` 通过；`compileJava` 通过。
 
 **完成标准：**
 
@@ -80,13 +88,21 @@
 
 **代办：**
 
-- [ ] 将 Gateway 初始化/刷新改为 single-flight Future，避免重复 cold start。
-- [ ] 将慢速 MCP catalog 加载移出覆盖整个 Service 的同步锁。
-- [ ] 为发送路径设置短且有界的等待预算。
-- [ ] 超过发送预算时立即使用 direct MCP 配置降级，后台预热继续进行。
-- [ ] 区分 `process-starting`、`ipc-ready`、`catalog-loading`、`ready`、`degraded-direct`、`failed` 状态。
-- [ ] 确保 direct 降级不覆盖或破坏后台成功完成的新 revision。
-- [ ] 增加慢 MCP server、失联 server、并发首发、refresh 与 stop 竞争测试。
+- [x] 将 Gateway 初始化/刷新改为 single-flight Future，避免重复 cold start。
+- [x] 将慢速 MCP catalog 加载移出覆盖整个 Service 的同步锁。
+- [x] 为发送路径设置短且有界的等待预算。
+- [x] 超过发送预算时立即使用 direct MCP 配置降级，后台预热继续进行。
+- [x] 区分 `process-starting`、`ipc-ready`、`catalog-loading`、`ready`、`degraded-direct`、`failed` 状态。
+- [x] 确保 direct 降级不覆盖或破坏后台成功完成的新 revision。
+- [x] 增加慢 MCP server、失联 server、并发首发、refresh 与 stop 竞争测试。
+
+**整改记录（2026-08-30）：**
+
+- 修改文件：`McpGatewayService.java`、`McpGatewayLifecycleState.java`、`McpGatewayServiceTest.java`、`McpGatewayLifecycleTest.java`。
+- 设计说明：使用项目级 `CompletableFuture` single-flight 合并启动/刷新；Gateway 启动、catalog collect、`postSnapshot`、status HTTP 和 self-heal 等慢操作均移到 `lock` 外；发送路径最多等待 2 秒，超时返回 `McpGatewayCliConfig.disabled(...)` 走 provider 原生 MCP 配置，后台 flight 不取消并可在后续 turn 恢复为 `ready`。
+- 版本/快照保护：candidate snapshot 仅在 `postSnapshot` 成功且资源身份、operation generation 仍匹配时提交 revision；stop/dispose 会使旧 operation 失效，并同时取消 public `CompletableFuture` 与底层 executor `Future`，防止 stale refresh 覆盖新资源或 revision。
+- Provider 对称性检查：8 Provider 共用同一 Java Gateway 生命周期门面；Gateway 注入当前仅由 Claude、Codex、OpenCode 的 `McpGatewayConfigWriter` 支持，Grok、Kimi、Pi、OMP、DSH 保持 direct/无注入路径，这是由实际配置适配范围决定的有意差异，不是遗漏。
+- 定向验证：`gradlew.bat test --tests "com.github.claudecodegui.mcp.McpGatewayServiceTest" --tests "com.github.claudecodegui.mcp.McpGatewayLifecycleTest" --no-daemon` 通过（13 tests）；`gradlew.bat compileJava --no-daemon` 已通过。
 
 **完成标准：**
 
@@ -327,8 +343,8 @@
 
 ## 6. 推荐实施顺序
 
-1. [ ] **阶段 A：生命周期闸门**——完成 P1-01，确保 dispose 后不会产生新资源。
-2. [ ] **阶段 B：Gateway 非阻塞降级**——完成 P1-02，再验证 P2-03。
+1. [x] **阶段 A：生命周期闸门**——完成 P1-01，确保 dispose 后不会产生新资源。
+2. [x] **阶段 B：Gateway 非阻塞降级**——完成 P1-02，再验证 P2-03。
 3. [ ] **阶段 C：Provider 能力和预热契约**——完成 P1-03、P1-04。
 4. [ ] **阶段 D：实时/历史统一块**——完成 P1-05、P2-05。
 5. [ ] **阶段 E：短时资源滞留清理**——完成 P2-01、P2-02、P2-04。
@@ -345,11 +361,11 @@
 - [ ] `ProcessManagerRuntimeKeyTest`
 - [ ] `ProcessManagerStaleChannelTest`
 - [ ] `CliPersistentProcessRegistryTest`
-- [ ] `McpGatewayProcessHandleTest`
-- [ ] `McpGatewayServiceTest`
-- [ ] 新增 project dispose during prewarm 测试
-- [ ] 新增 stale onExit generation 测试
-- [ ] 新增 Gateway slow catalog/direct fallback 测试
+- [x] `McpGatewayProcessHandleTest`
+- [x] `McpGatewayServiceTest`
+- [x] 新增 project dispose during prewarm 测试
+- [x] 新增 stale onExit generation 测试
+- [x] 新增 Gateway slow catalog/direct fallback 测试
 
 示例命令：
 
