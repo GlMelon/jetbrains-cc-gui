@@ -1,5 +1,6 @@
 package com.github.claudecodegui.handler.history;
 
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -58,9 +59,6 @@ public final class NativeCliHistoryMessages {
 
     /** 工具结果承载消息(tool_result 只能挂在 user 消息的 raw.content 块上)。 */
     public static JsonObject toolResultMessage(String toolUseId, String content, boolean isError) {
-        if (toolUseId == null || toolUseId.isBlank()) {
-            return null;
-        }
         JsonObject front = new JsonObject();
         front.addProperty("type", "user");
         front.addProperty("content", "");
@@ -83,34 +81,40 @@ public final class NativeCliHistoryMessages {
 
     public static JsonObject toolUseBlock(String id, String name, JsonObject input) {
         JsonObject block = new JsonObject();
-        block.addProperty("type", "tool_use");
-        block.addProperty("id", id == null ? "" : id);
-        block.addProperty("name", name == null || name.isBlank() ? "tool" : name);
-        block.add("input", input == null ? new JsonObject() : input);
+        block.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_TOOL_USE);
+        if (id != null && !id.isBlank()) {
+            block.addProperty(CommonConstants.JSON_KEY_ID, id);
+        }
+        if (name != null && !name.isBlank()) {
+            block.addProperty(CommonConstants.JSON_KEY_NAME, name);
+        }
+        block.add(CommonConstants.JSON_KEY_INPUT, input == null ? new JsonObject() : input);
         return block;
     }
 
     public static JsonObject toolResultBlock(String toolUseId, String content, boolean isError) {
         JsonObject block = new JsonObject();
-        block.addProperty("type", "tool_result");
-        block.addProperty("tool_use_id", toolUseId);
-        block.addProperty("is_error", isError);
-        block.addProperty("content", content);
+        block.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_TOOL_RESULT);
+        if (toolUseId != null && !toolUseId.isBlank()) {
+            block.addProperty(CommonConstants.JSON_KEY_TOOL_USE_ID, toolUseId);
+        }
+        block.addProperty(CommonConstants.JSON_KEY_IS_ERROR, isError);
+        block.addProperty(CommonConstants.JSON_KEY_CONTENT, content == null ? "" : content);
         return block;
     }
 
     public static JsonObject textBlock(String text) {
         JsonObject block = new JsonObject();
-        block.addProperty("type", "text");
-        block.addProperty("text", text);
+        block.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_TEXT);
+        block.addProperty(CommonConstants.JSON_KEY_TEXT, text);
         return block;
     }
 
     /** thinking wire 块(pi thinking content → Claude 兼容形状)。 */
     public static JsonObject thinkingBlock(String thinking) {
         JsonObject block = new JsonObject();
-        block.addProperty("type", "thinking");
-        block.addProperty("thinking", thinking);
+        block.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_THINKING);
+        block.addProperty(CommonConstants.JSON_KEY_THINKING, thinking);
         return block;
     }
 

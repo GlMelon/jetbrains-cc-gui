@@ -52,6 +52,9 @@ public class CodexMessageHandler implements MessageCallback {
      */ // Current assistant message object being processed
     private Message currentAssistantMessage = null;
 
+    /** Tracks tool identity and lifecycle for the current live turn. */
+    private MessageBlockContract.ToolLedger toolLedger = new MessageBlockContract.ToolLedger();
+
     /**
      * Deduplicates streaming deltas that were already included via conservative full-message sync.
      * Mirrors the same mechanism used by ClaudeMessageHandler.
@@ -247,6 +250,7 @@ public class CodexMessageHandler implements MessageCallback {
 
         appendProviderErrorToAssistantMessage(error);
         persistProviderError(error);
+        finalizeToolLifecycle();
         callbackHandler.notifyMessageUpdate(state.getMessages());
         // 无条件补发 stream_end(与 ClaudeMessageHandler.onError 同因):前端
         // streamingActive 在 RESPONSE_PHASE(active) 即置位,turn 若死在
@@ -310,6 +314,7 @@ public class CodexMessageHandler implements MessageCallback {
         state.setQueueAheadCount(0);
         state.updateLastModifiedTime();
 
+        finalizeToolLifecycle();
         if (wasStreaming && !streamEndedBeforeComplete) {
             LOG.warn("Codex onComplete called without prior stream_end; forcing stream cleanup");
             callbackHandler.notifyMessageUpdate(state.getMessages());
@@ -344,6 +349,7 @@ public class CodexMessageHandler implements MessageCallback {
             // Claude 自身的中断持久化在 ClaudeMessageHandler 对应分支。
         }
 
+        finalizeToolLifecycle();
         callbackHandler.notifyMessageUpdate(state.getMessages());
         if (wasStreaming && !streamEndedBeforeComplete) {
             callbackHandler.notifyStreamEnd();
@@ -352,6 +358,10 @@ public class CodexMessageHandler implements MessageCallback {
         resetStreamingAccumulator();
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
+    }
+    private void finalizeToolLifecycle() {
+        toolLedger.markUnpairedToolUses();
+        toolLedger.synchronizeMessages(state.getMessagesReference());
     }
 
     @Override
@@ -377,6 +387,7 @@ public class CodexMessageHandler implements MessageCallback {
         try {
             com.google.gson.Gson gson = new com.google.gson.Gson();
             com.google.gson.JsonObject msgJson = gson.fromJson(jsonContent, com.google.gson.JsonObject.class);
+            msgJson = MessageBlockContract.normalizeEnvelope(msgJson, toolLedger);
 
             // Apply v0.1.3-codex filtering logic
             Message parsed = parseServerMessage(msgJson, Message.Type.ASSISTANT);
@@ -481,6 +492,7 @@ public class CodexMessageHandler implements MessageCallback {
             }
 
             state.addMessage(parsed);
+            toolLedger.synchronizeMessages(state.getMessagesReference());
             callbackHandler.notifyMessageUpdate(state.getMessages());
 
             LOG.debug("Codex user message (tool_result) added");
@@ -524,6 +536,7 @@ public class CodexMessageHandler implements MessageCallback {
         try {
             com.google.gson.Gson gson = new com.google.gson.Gson();
             com.google.gson.JsonObject toolResultBlock = gson.fromJson(jsonContent, com.google.gson.JsonObject.class);
+            toolResultBlock = toolLedger.normalizeToolResult(toolResultBlock);
             com.google.gson.JsonObject rawUser = RawMessageHelper.wrapAsUserRaw(toolResultBlock);
             handleUserMessage(rawUser.toString());
         } catch (Exception e) {
@@ -1246,6 +1259,7 @@ public class CodexMessageHandler implements MessageCallback {
         replayDedup.reset();
         currentTurnContextUsage = null;
         resetStreamingAccumulator();
+        toolLedger = new MessageBlockContract.ToolLedger();
         callbackHandler.notifyStreamStart();
         LOG.debug("Codex stream started");
     }
@@ -1263,6 +1277,7 @@ public class CodexMessageHandler implements MessageCallback {
         streamEndedThisTurn = true;
         resetThinkingStatus();
         replayDedup.reset();
+        finalizeToolLifecycle();
         callbackHandler.notifyStreamCompleted();
         callbackHandler.notifyMessageUpdate(state.getMessages());
         callbackHandler.notifyStreamEnd();

@@ -1,7 +1,9 @@
 package com.github.claudecodegui.handler.history;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.session.MessageBlockContract;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.google.gson.JsonObject;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -57,6 +59,8 @@ final class HistoryProviderRegistry {
             String projectPath,
             HistoryMessageReadPolicy policy
     ) {
-        return adapter(provider).loadMessages(sessionId, projectPath, policy);
+        HistoryMessageBatch raw = adapter(provider).loadMessages(sessionId, projectPath, policy);
+        List<JsonObject> normalized = MessageBlockContract.normalizeHistoryMessages(raw.messages());
+        return new HistoryMessageBatch(normalized, raw.totalMessageCount());
     }
 }

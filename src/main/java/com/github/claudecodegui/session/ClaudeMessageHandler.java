@@ -45,6 +45,9 @@ public class ClaudeMessageHandler implements MessageCallback {
     // Current assistant message object being processed
     private Message currentAssistantMessage = null;
 
+    /** Tracks tool identity and lifecycle for the current live turn. */
+    private MessageBlockContract.ToolLedger toolLedger = new MessageBlockContract.ToolLedger();
+
     // Whether the AI is currently in thinking mode
     private boolean isThinking = false;
 
@@ -288,6 +291,7 @@ public class ClaudeMessageHandler implements MessageCallback {
 
         appendProviderErrorToAssistantMessage(error);
         persistProviderError(error);
+        finalizeToolLifecycle();
         callbackHandler.notifyMessageUpdate(state.getMessages());
         // 无条件补发 stream_end:前端 streamingActive 在 RESPONSE_PHASE(active) 即置位
         // (早于后端 stream_start),若本 turn 死在 stream_start 之前(如 resolver 抛错),
@@ -387,6 +391,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.COMPLETED);
         state.setQueueAheadCount(0);
 
+        finalizeToolLifecycle();
         if (wasStreaming) {
             LOG.warn("onComplete called without prior stream_end — forcing stream cleanup");
             callbackHandler.notifyMessageUpdate(state.getMessages());
@@ -432,6 +437,7 @@ public class ClaudeMessageHandler implements MessageCallback {
             }
         }
 
+        finalizeToolLifecycle();
         callbackHandler.notifyMessageUpdate(state.getMessages());
         if (wasStreaming && !streamEndedThisTurn) {
             callbackHandler.notifyStreamEnd();
@@ -441,6 +447,11 @@ public class ClaudeMessageHandler implements MessageCallback {
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
         // Sync status bar: interruption also means the turn is over.
         ClaudeNotifier.clearStatus(project);
+    }
+
+    private void finalizeToolLifecycle() {
+        toolLedger.markUnpairedToolUses();
+        toolLedger.synchronizeMessages(state.getMessagesReference());
     }
 
     @Override
@@ -467,6 +478,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         try {
             // Parse the complete JSON message
             JsonObject messageJson = gson.fromJson(content, JsonObject.class);
+            messageJson = MessageBlockContract.normalizeEnvelope(messageJson, toolLedger);
             JsonObject previousRaw = currentAssistantMessage != null ? currentAssistantMessage.raw : null;
             String previousAssistantContent = assistantContent.toString();
             String previousThinkingContent = ReplayDeduplicator.extractThinkingContent(previousRaw);
@@ -774,24 +786,21 @@ public class ClaudeMessageHandler implements MessageCallback {
      * @param content tool_result 块的 JSON 内容
      */
     private void handleToolResult(String content) {
-        if (!content.startsWith("{")) {
+        if (content == null || !content.startsWith("{")) {
             return;
         }
 
         try {
             JsonObject toolResultBlock = gson.fromJson(content, JsonObject.class);
-            String toolUseId = toolResultBlock.has(CommonConstants.JSON_KEY_TOOL_USE_ID)
-                    ? toolResultBlock.get(CommonConstants.JSON_KEY_TOOL_USE_ID).getAsString()
-                    : null;
+            toolResultBlock = toolLedger.normalizeToolResult(toolResultBlock);
+            JsonObject rawUser = RawMessageHelper.wrapAsUserRaw(toolResultBlock);
+            Message toolResultMessage = new Message(Message.Type.USER, CommonConstants.TOOL_RESULT_PLACEHOLDER, rawUser);
+            state.addMessage(toolResultMessage);
+            toolLedger.synchronizeMessages(state.getMessagesReference());
 
-            if (toolUseId != null) {
-                JsonObject rawUser = RawMessageHelper.wrapAsUserRaw(toolResultBlock);
-                Message toolResultMessage = new Message(Message.Type.USER, CommonConstants.TOOL_RESULT_PLACEHOLDER, rawUser);
-                state.addMessage(toolResultMessage);
-
-                LOG.debug("Tool result received for tool_use_id: " + toolUseId);
-                callbackHandler.notifyMessageUpdate(state.getMessages());
-            }
+            LOG.debug("Tool result received for tool_use_id: "
+                    + toolResultBlock.get(CommonConstants.JSON_KEY_TOOL_USE_ID).getAsString());
+            callbackHandler.notifyMessageUpdate(state.getMessages());
         } catch (Exception e) {
             LOG.warn("Failed to parse tool_result JSON: " + e.getMessage());
         }
@@ -834,6 +843,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         }
         callbackHandler.notifyBlockReset();
         currentAssistantMessage = null;
+        toolLedger = new MessageBlockContract.ToolLedger();
         assistantContent.setLength(0);
         textSegmentActive = false;
         thinkingSegmentActive = false;
@@ -994,6 +1004,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         errorReportedThisTurn = false;
         lastReportedError = null;
         resetSegmentState();
+        toolLedger = new MessageBlockContract.ToolLedger();
         callbackHandler.notifyStreamStart();
     }
 
@@ -1021,6 +1032,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         ensureRawBlocksConsistency();
 
         // After streaming ends, send a final message update to ensure the message list is in sync
+        finalizeToolLifecycle();
         callbackHandler.notifyStreamCompleted();
         callbackHandler.notifyMessageUpdate(state.getMessages());
         callbackHandler.notifyStreamEnd();
