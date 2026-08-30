@@ -55,8 +55,10 @@ public final class ProviderCliResolver {
             String result = doFindExecutable();
             if (result != null) {
                 CACHED_EXECUTABLES.put(type, result);
+                return result;
             }
-            return result;
+            // Keep the bare command as a per-call fallback, but never cache a failed probe.
+            return type.cliCommandForPlatform();
         }
     }
 
@@ -81,6 +83,9 @@ public final class ProviderCliResolver {
     }
 
     private String doFindExecutable() {
+        if (Thread.currentThread().isInterrupted()) {
+            return null;
+        }
         // 优先:原生二进制(绕过 .cmd 批处理包装)
         String nativeExe = resolveNativeExecutable();
         if (nativeExe != null) {
@@ -97,13 +102,16 @@ public final class ProviderCliResolver {
         }
 
         for (String candidate : candidates) {
+            if (Thread.currentThread().isInterrupted()) {
+                return null;
+            }
             String resolved = resolve(candidate);
             if (resolved != null) {
                 return resolved;
             }
         }
 
-        return type.cliCommandForPlatform();
+        return null;
     }
 
     /**
@@ -178,10 +186,16 @@ public final class ProviderCliResolver {
                 : new String[]{""};
 
         for (String dir : pathEnv.split(File.pathSeparator)) {
+            if (Thread.currentThread().isInterrupted()) {
+                return null;
+            }
             if (dir == null || dir.isBlank()) {
                 continue;
             }
             for (String suffix : suffixes) {
+                if (Thread.currentThread().isInterrupted()) {
+                    return null;
+                }
                 File file = new File(dir, candidate + suffix);
                 if (verify(file.getPath()) != null) {
                     return file.getAbsolutePath();
@@ -196,6 +210,7 @@ public final class ProviderCliResolver {
      * 对称 ClaudeCliDetector.verifyCliPath: 返回 stdout 首行版本串,或 null(失败)。
      */
     private String verify(String path) {
+        Process process = null;
         try {
             ProcessBuilder pb;
             String lower = path.toLowerCase();
@@ -204,7 +219,7 @@ public final class ProviderCliResolver {
             } else {
                 pb = new ProcessBuilder(path, "--version");
             }
-            Process process = pb.start();
+            process = pb.start();
             String version;
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
@@ -224,6 +239,12 @@ public final class ProviderCliResolver {
                 }
                 return null;
             }
+            return null;
+        } catch (InterruptedException e) {
+            if (process != null) {
+                process.destroyForcibly();
+            }
+            Thread.currentThread().interrupt();
             return null;
         } catch (Exception ignored) {
             return null;
