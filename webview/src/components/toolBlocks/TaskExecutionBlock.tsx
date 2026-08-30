@@ -1,8 +1,10 @@
 import { memo, useEffect, useState } from 'react';
+import { MESSAGE_BLOCK_TOOL_STATUS, type MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { normalizeToolName } from '../../utils/toolConstants';
 import { sendBridgeEvent } from '../../utils/bridge';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { StatusIndicator } from './StatusIndicator';
 import {
   extractResultText,
@@ -64,6 +66,7 @@ interface TaskExecutionBlockProps {
   name?: string;
   input?: ToolInput;
   result?: ToolResultBlock | null;
+  toolStatus?: MessageBlockToolStatus;
   toolId?: string;
   isStreaming?: boolean;
 }
@@ -73,7 +76,7 @@ function shortenAgentId(agentId?: string): string | undefined {
   return agentId.length > 8 ? `${agentId.slice(0, 8)}…` : agentId;
 }
 
-const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, result, toolId }: TaskExecutionBlockProps) {
+const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, result, toolStatus, toolId }: TaskExecutionBlockProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const histories = useSubagentHistories();
@@ -127,7 +130,7 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
   const isAsync = input
     ? isAsyncAgentInput(input, normalizedName, result, readToolUseStatus(toolId ? getToolResultRaw(toolId) : null))
     : false;
-  const hasTerminalResult = result !== undefined && result !== null;
+  const hasTerminalLifecycle = isToolLifecycleTerminal(toolStatus, result);
   const taskFailed = taskEvent?.status === 'failed' || taskEvent?.status === 'stopped';
   // Async completion has two authoritative sources: the live task_notification,
   // and (after reload/polling) a sidechain transcript that ends in
@@ -136,11 +139,11 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
   const history = (toolId ? histories[toolId] : undefined) ?? (agentId ? histories[agentId] : undefined);
   const historyFailed = history?.status === 'error';
   const isCompleted = isAsync
-    ? (taskEvent ? !taskFailed : history?.completed === true)
-    : hasTerminalResult;
+    ? (taskEvent ? !taskFailed : history?.completed === true || toolStatus === MESSAGE_BLOCK_TOOL_STATUS.UNPAIRED)
+    : hasTerminalLifecycle;
   const isError = isAsync
     ? (taskEvent ? taskFailed : historyFailed || result?.is_error === true)
-    : hasTerminalResult && result?.is_error === true;
+    : hasTerminalLifecycle && result?.is_error === true;
 
   // For background agents the task_notification carries the authoritative usage
   // and summary (the launch ack has none); prefer it over toolUseResult. Sync

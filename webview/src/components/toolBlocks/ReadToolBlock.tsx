@@ -1,4 +1,5 @@
 import { useState, memo } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { useIsToolDenied } from '../../hooks/useIsToolDenied';
@@ -6,12 +7,14 @@ import { openFile } from '../../utils/bridge';
 import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkTooltip';
 import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { getToolLineInfo, resolveToolTarget } from '../../utils/toolPresentation';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { ToolBlockShell } from './ToolBlockShell';
 import { codiconToIcon } from '../Icons';
 
 interface ReadToolBlockProps {
   input?: ToolInput;
   result?: ToolResultBlock | null;
+  toolStatus?: MessageBlockToolStatus;
   /** Unique ID of the tool call, used to determine if the user denied permission */
   toolId?: string;
 }
@@ -61,7 +64,7 @@ const PARAM_VALUE_STYLE: React.CSSProperties = {
   flex: 1,
 };
 
-const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: ReadToolBlockProps) {
+const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolStatus, toolId }: ReadToolBlockProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useTranslation();
   const isDenied = useIsToolDenied(toolId);
@@ -87,7 +90,7 @@ const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: Rea
   // Determine tool call status based on result.
   // While the model is still waiting on the read result, the indicator must
   // reflect "pending" (yellow breathing) instead of misleading green "completed".
-  const isCompleted = (result !== undefined && result !== null) || isDenied;
+  const isCompleted = isToolLifecycleTerminal(toolStatus, result) || isDenied;
   const isError = isDenied || (isCompleted && result?.is_error === true);
 
   const lineInfo = getToolLineInfo(input, target);

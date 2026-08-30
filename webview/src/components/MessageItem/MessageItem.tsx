@@ -1,6 +1,7 @@
 import { Fragment, useState, useCallback, useMemo, memo, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { TFunction } from 'i18next';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../../types';
 
 import MarkdownBlock from '../MarkdownBlock';
@@ -578,11 +579,13 @@ export const MessageItem = memo(function MessageItem({
           id?: string;
           name?: string;
           input?: Record<string, unknown>;
+          tool_status?: MessageBlockToolStatus;
         };
         return {
           name: block.name,
           input: block.input,
           result: findToolResult(block.id, messageIndex),
+          toolStatus: block.tool_status,
           toolId: block.id,
         };
       });
@@ -593,6 +596,7 @@ export const MessageItem = memo(function MessageItem({
             <ReadToolBlock
               input={readItems[0].input}
               result={readItems[0].result}
+              toolStatus={readItems[0].toolStatus}
               toolId={readItems[0].toolId}
             />
           </div>
@@ -613,12 +617,14 @@ export const MessageItem = memo(function MessageItem({
           id?: string;
           name?: string;
           input?: Record<string, unknown>;
+          tool_status?: MessageBlockToolStatus;
         };
         return {
           toolId: block.id,
           name: block.name,
           input: block.input,
           result: findToolResult(block.id, messageIndex),
+          toolStatus: block.tool_status,
         };
       });
 
@@ -644,11 +650,13 @@ export const MessageItem = memo(function MessageItem({
           id?: string;
           name?: string;
           input?: Record<string, unknown>;
+          tool_status?: MessageBlockToolStatus;
         };
         return {
           name: block.name,
           input: block.input,
           result: findToolResult(block.id, messageIndex),
+          toolStatus: block.tool_status,
           toolId: block.id,
         };
       });
@@ -660,6 +668,7 @@ export const MessageItem = memo(function MessageItem({
               name={bashItems[0].name}
               input={bashItems[0].input}
               result={bashItems[0].result}
+              toolStatus={bashItems[0].toolStatus}
               toolId={bashItems[0].toolId}
             />
           </div>
@@ -680,11 +689,13 @@ export const MessageItem = memo(function MessageItem({
           id?: string;
           name?: string;
           input?: Record<string, unknown>;
+          tool_status?: MessageBlockToolStatus;
         };
         return {
           name: block.name,
           input: block.input,
           result: findToolResult(block.id, messageIndex),
+          toolStatus: block.tool_status,
         };
       });
 

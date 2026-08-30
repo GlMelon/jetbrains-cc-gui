@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, memo } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { useIsToolDenied } from '../../hooks/useIsToolDenied';
@@ -7,6 +8,7 @@ import { openFile, showDiff, refreshFile } from '../../utils/bridge';
 import { getFileIcon } from '../../utils/fileIcons';
 import { getToolLineInfo, getToolEditCount, resolveToolTarget } from '../../utils/toolPresentation';
 import { normalizeToolInput } from '../../utils/toolInputNormalization';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import EditToolGroupBlock from './EditToolGroupBlock';
 import GenericToolBlock from './GenericToolBlock';
 import { ToolBlockShell } from './ToolBlockShell';
@@ -17,6 +19,7 @@ export interface EditToolItem {
   name?: string;
   input?: ToolInput;
   result?: ToolResultBlock | null;
+  toolStatus?: MessageBlockToolStatus;
   /** Unique ID of the tool call, used to determine if the user denied permission */
   toolId?: string;
 }
@@ -266,6 +269,7 @@ const EditToolBlock = memo(function EditToolBlock({ items }: EditToolBlockProps)
   const name = firstItem?.name;
   const input = firstItem?.input;
   const result = firstItem?.result;
+  const toolStatus = firstItem?.toolStatus;
   const toolId = firstItem?.toolId;
 
   const isDenied = useIsToolDenied(toolId);
@@ -274,7 +278,7 @@ const EditToolBlock = memo(function EditToolBlock({ items }: EditToolBlockProps)
 
   // Determine tool call status based on result
   // If denied, treat as completed (show error state)
-  const isCompleted = (result !== undefined && result !== null) || isDenied;
+  const isCompleted = isToolLifecycleTerminal(toolStatus, result) || isDenied;
   // If denied, show as error state
   const isError = isDenied || (isCompleted && result?.is_error === true);
 
@@ -337,7 +341,7 @@ const EditToolBlock = memo(function EditToolBlock({ items }: EditToolBlockProps)
   }
 
   if (!oldString && !newString) {
-    return <GenericToolBlock name={name} input={normalizedInput} result={result} toolId={toolId} />;
+    return <GenericToolBlock name={name} input={normalizedInput} result={result} toolStatus={toolStatus} toolId={toolId} />;
   }
 
   const lineInfo = normalizedInput && target ? getToolLineInfo(normalizedInput, target, result) : {};

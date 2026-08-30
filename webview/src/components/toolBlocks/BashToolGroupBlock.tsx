@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { CheckIcon, AlertIcon, XCircleIcon } from '../Icons';
 import { StatusIndicator } from './StatusIndicator';
 
@@ -18,6 +20,7 @@ interface BashToolGroupBlockProps {
     name?: string;
     input?: ToolInput;
     result?: ToolResultBlock | null;
+    toolStatus?: MessageBlockToolStatus;
     toolId?: string;
   }>;
   /** Denied tool IDs set, passed from parent instead of global window */
@@ -35,6 +38,7 @@ function parseBashItem(
     name?: string;
     input?: ToolInput;
     result?: ToolResultBlock | null;
+    toolStatus?: MessageBlockToolStatus;
     toolId?: string;
   },
   deniedToolIds?: Set<string>,
@@ -57,7 +61,7 @@ function parseBashItem(
   }
 
   const isDenied = toolId ? (deniedToolIds?.has(toolId) ?? false) : false;
-  const isCompleted = (result !== undefined && result !== null) || isDenied;
+  const isCompleted = isToolLifecycleTerminal(item.toolStatus, result) || isDenied;
   const isError = isDenied || (isCompleted && result?.is_error === true);
 
   return {

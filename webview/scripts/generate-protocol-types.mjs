@@ -40,6 +40,14 @@ const reasoningEffortJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/ReasoningEffort.java',
 );
+const messageBlockToolStatusJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/MessageBlockToolStatus.java',
+);
+const messageBlockToolIdSourceJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/MessageBlockToolIdSource.java',
+);
 const providerTypeJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/session/runtime/ProviderType.java',
@@ -168,6 +176,8 @@ const REQUIRED_JAVA_SOURCES = [
   downstreamJavaPath,
   permissionModeJavaPath,
   reasoningEffortJavaPath,
+  messageBlockToolStatusJavaPath,
+  messageBlockToolIdSourceJavaPath,
   providerTypeJavaPath,
   skillScopeJavaPath,
   skillFieldControlJavaPath,
@@ -265,6 +275,22 @@ ${(manifest.reasoningEffort ?? []).map((e) => `  ${e.name}: '${e.value}' as cons
 } as const;
 
 export type ReasoningEffort = typeof REASONING_EFFORT[keyof typeof REASONING_EFFORT];
+
+// ── Message Block Tool Lifecycle (business enum SSOT) ──
+
+export const MESSAGE_BLOCK_TOOL_STATUS = {
+${(manifest.messageBlockToolStatus ?? []).map((s) => `  ${s.name}: '${s.value}' as const,`).join('\n')}
+} as const;
+
+export type MessageBlockToolStatus =
+  typeof MESSAGE_BLOCK_TOOL_STATUS[keyof typeof MESSAGE_BLOCK_TOOL_STATUS];
+
+export const MESSAGE_BLOCK_TOOL_ID_SOURCE = {
+${(manifest.messageBlockToolIdSource ?? []).map((s) => `  ${s.name}: '${s.value}' as const,`).join('\n')}
+} as const;
+
+export type MessageBlockToolIdSource =
+  typeof MESSAGE_BLOCK_TOOL_ID_SOURCE[keyof typeof MESSAGE_BLOCK_TOOL_ID_SOURCE];
 
 // ── Provider Type (business enum SSOT, C2/C9) ──
 
@@ -494,6 +520,8 @@ function generateManifestFromJavaSources() {
     downstream: parseJavaEnumProtocol(downstreamJavaPath),
     permissionMode: parseJavaEnumProtocol(permissionModeJavaPath),
     reasoningEffort: parseJavaEnumProtocol(reasoningEffortJavaPath),
+    messageBlockToolStatus: parseJavaEnumProtocol(messageBlockToolStatusJavaPath),
+    messageBlockToolIdSource: parseJavaEnumProtocol(messageBlockToolIdSourceJavaPath),
     providerType: parseJavaEnumProtocol(providerTypeJavaPath),
     skillScope: parseJavaEnumProtocol(skillScopeJavaPath),
     skillFieldControl: parseJavaEnumProtocol(skillFieldControlJavaPath),
@@ -564,6 +592,14 @@ export type PermissionMode = string;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const REASONING_EFFORT: Record<string, string> = {};
 export type ReasoningEffort = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MESSAGE_BLOCK_TOOL_STATUS: Record<string, string> = {};
+export type MessageBlockToolStatus = string;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const MESSAGE_BLOCK_TOOL_ID_SOURCE: Record<string, string> = {};
+export type MessageBlockToolIdSource = string;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const PROVIDER_TYPE: Record<string, string> = {};

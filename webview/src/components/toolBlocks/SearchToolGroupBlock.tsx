@@ -1,7 +1,9 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { truncate } from '../../utils/helpers';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { SearchIcon, codiconToIcon } from '../Icons';
 import { StatusIndicator } from './StatusIndicator';
 
@@ -18,6 +20,7 @@ interface SearchToolGroupBlockProps {
     name?: string;
     input?: ToolInput;
     result?: ToolResultBlock | null;
+    toolStatus?: MessageBlockToolStatus;
   }>;
 }
 
@@ -103,7 +106,7 @@ const getSearchToolIcon = (toolName: string): string => {
 /**
  * Parse item to SearchItem
  */
-const parseSearchItem = (item: { name?: string; input?: ToolInput; result?: ToolResultBlock | null }): SearchItem | null => {
+const parseSearchItem = (item: { name?: string; input?: ToolInput; result?: ToolResultBlock | null; toolStatus?: MessageBlockToolStatus }): SearchItem | null => {
   const { name, input, result } = item;
   if (!input) return null;
 
@@ -123,7 +126,7 @@ const parseSearchItem = (item: { name?: string; input?: ToolInput; result?: Tool
     (typeof input.directory === 'string' ? input.directory : undefined) ??
     '';
 
-  const isCompleted = result !== undefined && result !== null;
+  const isCompleted = isToolLifecycleTerminal(item.toolStatus, result);
   const isError = isCompleted && result?.is_error === true;
 
   return { toolName, pattern, path, isCompleted, isError };

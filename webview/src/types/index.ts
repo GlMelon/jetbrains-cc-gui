@@ -1,4 +1,9 @@
-import type { HistoryCapabilitiesPayloadWire, SessionCapabilitiesPayloadWire } from '../generated/protocol';
+import type {
+  HistoryCapabilitiesPayloadWire,
+  MessageBlockToolIdSource,
+  MessageBlockToolStatus,
+  SessionCapabilitiesPayloadWire,
+} from '../generated/protocol';
 
 export type ToolInput = Record<string, unknown>;
 
@@ -46,7 +51,15 @@ export function isCompactSummaryMetadata(obj: unknown): obj is CompactSummaryMet
 export type ClaudeContentBlock =
   | { type: 'text'; text?: string }
   | { type: 'thinking'; thinking?: string; text?: string }
-  | { type: 'tool_use'; id?: string; name?: string; input?: ToolInput }
+  | {
+      type: 'tool_use';
+      id?: string;
+      name?: string;
+      input?: ToolInput;
+      tool_status?: MessageBlockToolStatus;
+      tool_id_source?: MessageBlockToolIdSource;
+      paired?: boolean;
+    }
   | {
       type: 'skill_use';
       name: string;
@@ -136,6 +149,9 @@ export interface ToolResultBlock {
   tool_use_id?: string;
   content?: string | Array<{ type?: string; text?: string }>;
   is_error?: boolean;
+  tool_status?: MessageBlockToolStatus;
+  tool_id_source?: MessageBlockToolIdSource;
+  paired?: boolean;
   [key: string]: unknown;
 }
 

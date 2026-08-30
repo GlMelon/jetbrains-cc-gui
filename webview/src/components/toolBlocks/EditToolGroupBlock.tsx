@@ -1,10 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { openFile, showDiff, refreshFile } from '../../utils/bridge';
 import { getFileIcon } from '../../utils/fileIcons';
 import { resolveToolTarget, getToolLineInfo } from '../../utils/toolPresentation';
 import { normalizeToolInput } from '../../utils/toolInputNormalization';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkTooltip';
 import { DiffIcon, EditIcon, RefreshIcon } from '../Icons';
 import { StatusIndicator } from './StatusIndicator';
@@ -30,6 +32,7 @@ interface EditToolGroupBlockProps {
     name?: string;
     input?: ToolInput;
     result?: ToolResultBlock | null;
+    toolStatus?: MessageBlockToolStatus;
   }>;
 }
 
@@ -179,7 +182,7 @@ function computeDiffStats(oldString: string, newString: string): { additions: nu
 /**
  * Parse item to EditItem
  */
-function parseEditItem(item: { name?: string; input?: ToolInput; result?: ToolResultBlock | null }): EditItem | null {
+function parseEditItem(item: { name?: string; input?: ToolInput; result?: ToolResultBlock | null; toolStatus?: MessageBlockToolStatus }): EditItem | null {
   const result = item.result;
   const input = item.input ? normalizeToolInput(item.name, item.input) : item.input;
   if (!input) return null;
@@ -205,7 +208,7 @@ function parseEditItem(item: { name?: string; input?: ToolInput; result?: ToolRe
 
   const { additions, deletions } = computeDiffStats(oldString, newString);
   const lineInfo = getToolLineInfo(input, target, result);
-  const isCompleted = result !== undefined && result !== null;
+  const isCompleted = isToolLifecycleTerminal(item.toolStatus, result);
   const isError = isCompleted && result?.is_error === true;
 
   return {

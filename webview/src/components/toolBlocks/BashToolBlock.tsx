@@ -1,7 +1,9 @@
 import { useState, memo } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { useIsToolDenied } from '../../hooks/useIsToolDenied';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { ToolBlockShell } from './ToolBlockShell';
 import { TerminalIcon, XCircleIcon } from '../Icons';
 
@@ -16,11 +18,12 @@ interface BashToolBlockProps {
   name?: string;
   input?: ToolInput;
   result?: ToolResultBlock | null;
+  toolStatus?: MessageBlockToolStatus;
   /** Unique ID of the tool call, used to determine if the user denied permission */
   toolId?: string;
 }
 
-const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: BashToolBlockProps) {
+const BashToolBlock = memo(function BashToolBlock({ input, result, toolStatus, toolId }: BashToolBlockProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   // Keep all hook(-shaped) calls above the early return below so the hook
@@ -39,7 +42,7 @@ const BashToolBlock = memo(function BashToolBlock({ input, result, toolId }: Bas
 
   // Determine tool call status based on result
   // If denied, treat as completed (show error state)
-  const isCompleted = (result !== undefined && result !== null) || isDenied;
+  const isCompleted = isToolLifecycleTerminal(toolStatus, result) || isDenied;
   // If denied, show as error state
   const isError = isDenied || (isCompleted && result?.is_error === true);
 

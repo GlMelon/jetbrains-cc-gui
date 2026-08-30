@@ -1,10 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { openFile } from '../../utils/bridge';
 import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkTooltip';
 import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { getToolLineInfo, resolveToolTarget } from '../../utils/toolPresentation';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { FileCodeIcon } from '../Icons';
 import { StatusIndicator } from './StatusIndicator';
 
@@ -26,6 +28,7 @@ interface ReadToolGroupBlockProps {
     name?: string;
     input?: ToolInput;
     result?: ToolResultBlock | null;
+    toolStatus?: MessageBlockToolStatus;
   }>;
 }
 
@@ -89,7 +92,7 @@ function getFileListItemStyle(isDirectory: boolean): React.CSSProperties {
 /**
  * Parse item to FileItem
  */
-const parseFileItem = (item: { input?: ToolInput; result?: ToolResultBlock | null }): FileItem | null => {
+const parseFileItem = (item: { input?: ToolInput; result?: ToolResultBlock | null; toolStatus?: MessageBlockToolStatus }): FileItem | null => {
   const input = item.input;
   if (!input) return null;
 
@@ -104,7 +107,7 @@ const parseFileItem = (item: { input?: ToolInput; result?: ToolResultBlock | nul
     : '';
 
   // Determine completion status
-  const isCompleted = item.result !== undefined && item.result !== null;
+  const isCompleted = isToolLifecycleTerminal(item.toolStatus, item.result);
   const isError = isCompleted && item.result?.is_error === true;
 
   return {

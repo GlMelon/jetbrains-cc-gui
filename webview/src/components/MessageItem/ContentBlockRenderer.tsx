@@ -519,6 +519,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
           name={block.name}
           input={block.input}
           result={findToolResult(block.id, messageIndex)}
+          toolStatus={block.tool_status}
         />
       );
     }
@@ -561,6 +562,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
           name={block.name}
           input={block.input}
           result={findToolResult(block.id, messageIndex)}
+          toolStatus={block.tool_status}
           toolId={block.id}
           isStreaming={isStreaming}
         />
@@ -574,6 +576,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
             name: block.name,
             input: block.input,
             result: findToolResult(block.id, messageIndex),
+            toolStatus: block.tool_status,
             toolId: block.id,
           }]}
         />
@@ -586,6 +589,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
           name={block.name}
           input={block.input}
           result={findToolResult(block.id, messageIndex)}
+          toolStatus={block.tool_status}
           toolId={block.id}
         />
       );
@@ -596,6 +600,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
         name={block.name}
         input={block.input}
         result={findToolResult(block.id, messageIndex)}
+        toolStatus={block.tool_status}
         toolId={block.id}
       />
     );

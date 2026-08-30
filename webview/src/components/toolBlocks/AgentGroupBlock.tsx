@@ -1,8 +1,10 @@
 import { memo, useState, useEffect, useCallback, useRef } from 'react';
+import { MESSAGE_BLOCK_TOOL_STATUS } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ClaudeContentBlock, ToolResultBlock } from '../../types';
 import { normalizeToolName } from '../../utils/toolConstants';
 import { sendBridgeEvent } from '../../utils/bridge';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { StatusIndicator } from './StatusIndicator';
 import { getPersistedExpanded, setPersistedExpanded } from '../../utils/expandedState';
 import {
@@ -80,7 +82,8 @@ const AgentGroupBlock = memo(function AgentGroupBlock({
 
   const input = agentBlock.type === 'tool_use' ? (agentBlock.input as Record<string, unknown> | undefined) : undefined;
   const result = findToolResult(toolId, messageIndex);
-  const hasTerminalResult = result !== undefined && result !== null;
+  const toolStatus = agentBlock.type === 'tool_use' ? agentBlock.tool_status : undefined;
+  const hasTerminalLifecycle = isToolLifecycleTerminal(toolStatus, result);
   const toolName = agentBlock.type === 'tool_use' ? normalizeToolName(agentBlock.name ?? '') : '';
 
   // A background (run_in_background) Agent only gets a launch acknowledgment
@@ -113,11 +116,11 @@ const AgentGroupBlock = memo(function AgentGroupBlock({
   // is_error tool_result and never emits a task_notification, so treat that as
   // an error instead of staying stuck on "running".
   const isCompleted = isAsync
-    ? (taskEvent ? !taskFailed : history?.completed === true)
-    : hasTerminalResult;
+    ? (taskEvent ? !taskFailed : history?.completed === true || toolStatus === MESSAGE_BLOCK_TOOL_STATUS.UNPAIRED)
+    : hasTerminalLifecycle;
   const isError = isAsync
     ? (taskEvent ? taskFailed : historyFailed || result?.is_error === true)
-    : hasTerminalResult && result?.is_error === true;
+    : hasTerminalLifecycle && result?.is_error === true;
 
   const noopToggleThinking = useCallback(() => {}, []);
 

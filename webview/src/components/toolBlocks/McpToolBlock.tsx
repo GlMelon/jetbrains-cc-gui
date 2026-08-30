@@ -1,7 +1,9 @@
 import { memo, useMemo, useState } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { formatParamValue, truncate } from '../../utils/helpers';
 import { parseMcpToolName } from '../../utils/toolConstants';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { ToolBlockShell } from './ToolBlockShell';
 import { ServerIcon } from '../Icons';
 
@@ -9,6 +11,7 @@ interface McpToolBlockProps {
   name?: string;
   input?: ToolInput;
   result?: ToolResultBlock | null;
+  toolStatus?: MessageBlockToolStatus;
 }
 
 function extractResultText(result?: ToolResultBlock | null): string {
@@ -23,7 +26,7 @@ function extractResultText(result?: ToolResultBlock | null): string {
   return '';
 }
 
-const McpToolBlock = memo(function McpToolBlock({ name, input, result }: McpToolBlockProps) {
+const McpToolBlock = memo(function McpToolBlock({ name, input, result, toolStatus }: McpToolBlockProps) {
   const [expanded, setExpanded] = useState(false);
   const mcp = parseMcpToolName(name);
   const resultText = useMemo(() => extractResultText(result), [result]);
@@ -32,7 +35,7 @@ const McpToolBlock = memo(function McpToolBlock({ name, input, result }: McpTool
     return null;
   }
 
-  const isCompleted = result !== undefined && result !== null;
+  const isCompleted = isToolLifecycleTerminal(toolStatus, result);
   const isError = isCompleted && result?.is_error === true;
   const titleContent = (
     <>

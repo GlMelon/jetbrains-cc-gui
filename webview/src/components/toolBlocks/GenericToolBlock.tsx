@@ -1,4 +1,5 @@
 import { memo, useState } from 'react';
+import type { MessageBlockToolStatus } from '../../generated/protocol';
 import { useTranslation } from 'react-i18next';
 import type { ToolInput, ToolResultBlock } from '../../types';
 import { useIsToolDenied } from '../../hooks/useIsToolDenied';
@@ -6,6 +7,7 @@ import { useResolvedFileLinkTooltip } from '../../hooks/useResolvedFileLinkToolt
 import { openFile } from '../../utils/bridge';
 import { formatParamValue, truncate } from '../../utils/helpers';
 import { extractToolResultImages } from '../../utils/toolResultImages';
+import { isToolLifecycleTerminal } from '../../utils/toolLifecycle';
 import { getFileIcon, getFolderIcon } from '../../utils/fileIcons';
 import { isCommandToolName, parseCommandType } from '../../utils/toolCommandPath';
 import { getToolLineInfo, resolveToolTarget, summarizeToolCommand, extractPathsFromPatch } from '../../utils/toolPresentation';
@@ -207,6 +209,7 @@ interface GenericToolBlockProps {
   name?: string;
   input?: ToolInput;
   result?: ToolResultBlock | null;
+  toolStatus?: MessageBlockToolStatus;
   /** Unique ID of the tool call, used to determine if the user denied permission */
   toolId?: string;
 }
@@ -239,7 +242,7 @@ const PatchFileLink = ({ path }: PatchFileLinkProps) => {
   );
 };
 
-const GenericToolBlock = memo(function GenericToolBlock({ name, input, result, toolId }: GenericToolBlockProps) {
+const GenericToolBlock = memo(function GenericToolBlock({ name, input, result, toolStatus, toolId }: GenericToolBlockProps) {
   const { t } = useTranslation();
   const lowerName = (name ?? '').toLowerCase();
   const [expanded, setExpanded] = useState(false);
@@ -295,7 +298,7 @@ const GenericToolBlock = memo(function GenericToolBlock({ name, input, result, t
 
   // Determine tool call status based on result
   // If denied, treat as completed (show error state)
-  const isCompleted = (result !== undefined && result !== null) || isDenied;
+  const isCompleted = isToolLifecycleTerminal(toolStatus, result) || isDenied;
   // AskUserQuestion tool should never show as error - it's a user interaction tool
   // The is_error field may be set by SDK but it doesn't indicate a real error
   const isAskUserQuestion = lowerName === 'askuserquestion';
