@@ -418,6 +418,111 @@ describe('generateFromManifest — C1 payload interface generation', () => {
     expect(ts).toContain('  changes: Record<string, string | boolean | string[] | null>;');
   });
 
+  it('生成 Node process kind 与资源诊断 payload wire 类型', () => {
+    const ts = generateFromManifest({
+      ...baseManifest,
+      nodeProcessKind: [
+        { name: 'DAEMON', value: 'DAEMON' },
+        { name: 'CHANNEL', value: 'CHANNEL' },
+        { name: 'ORPHAN', value: 'ORPHAN' },
+        { name: 'CLI_SESSION', value: 'CLI_SESSION' },
+      ],
+      payloadSchemas: {
+        nodeProcessInfo: {
+          fields: [
+            { name: 'ID', wireKey: 'id', tsType: 'string', optional: false },
+            { name: 'KIND', wireKey: 'kind', tsType: 'NodeProcessKind', optional: false },
+            { name: 'PROVIDER', wireKey: 'provider', tsType: 'string', optional: true },
+          ],
+        },
+        nodeProcessTotals: {
+          fields: [{ name: 'ALL', wireKey: 'all', tsType: 'number', optional: false }],
+        },
+        nodeProcessActiveProcesses: {
+          fields: [{ name: 'MCP', wireKey: 'mcp', tsType: 'number', optional: false }],
+        },
+        nodeProcessPersistentRegistry: {
+          fields: [
+            {
+              name: 'REBUILD_COOLDOWN_HIT_COUNT',
+              wireKey: 'rebuildCooldownHitCount',
+              tsType: 'number',
+              optional: false,
+            },
+          ],
+        },
+        nodeProcessGateway: {
+          fields: [
+            {
+              name: 'LAST_FAILURE',
+              wireKey: 'lastFailure',
+              tsType: 'string | null',
+              optional: false,
+            },
+            {
+              name: 'LAST_CATALOG_READY_DURATION_MS',
+              wireKey: 'lastCatalogReadyDurationMs',
+              tsType: 'number',
+              optional: false,
+            },
+          ],
+        },
+        nodeProcessDiagnostics: {
+          fields: [
+            {
+              name: 'ACTIVE_PROCESSES',
+              wireKey: 'activeProcesses',
+              tsType: 'NodeProcessActiveProcessesPayloadWire',
+              optional: false,
+            },
+            {
+              name: 'PERSISTENT_REGISTRY',
+              wireKey: 'persistentRegistry',
+              tsType: 'NodeProcessPersistentRegistryPayloadWire',
+              optional: false,
+            },
+            {
+              name: 'GATEWAY',
+              wireKey: 'gateway',
+              tsType: 'NodeProcessGatewayPayloadWire',
+              optional: false,
+            },
+          ],
+        },
+        nodeProcessSnapshot: {
+          fields: [
+            {
+              name: 'PROCESSES',
+              wireKey: 'processes',
+              tsType: 'readonly NodeProcessInfoPayloadWire[]',
+              optional: false,
+            },
+            {
+              name: 'DIAGNOSTICS',
+              wireKey: 'diagnostics',
+              tsType: 'NodeProcessDiagnosticsPayloadWire',
+              optional: false,
+            },
+          ],
+        },
+      },
+    });
+
+    expect(ts).toContain("  CLI_SESSION: 'CLI_SESSION' as const,");
+    expect(ts).toContain(
+      'export type NodeProcessKind = typeof NODE_PROCESS_KIND[keyof typeof NODE_PROCESS_KIND];',
+    );
+    expect(ts).toContain('export interface NodeProcessInfoPayloadWire {');
+    expect(ts).toContain('  kind: NodeProcessKind;');
+    expect(ts).toContain('  provider?: string;');
+    expect(ts).toContain('export interface NodeProcessDiagnosticsPayloadWire {');
+    expect(ts).toContain('  gateway: NodeProcessGatewayPayloadWire;');
+    expect(ts).toContain('  lastFailure: string | null;');
+    expect(ts).toContain('export interface NodeProcessSnapshotPayloadWire {');
+    expect(ts).toContain('  processes: readonly NodeProcessInfoPayloadWire[];');
+    expect(ts).toContain('  diagnostics: NodeProcessDiagnosticsPayloadWire;');
+  });
+
   it('生成 int 常量为 export const X = N as const(C5)', () => {
     const ts = generateFromManifest({
       ...baseManifest,
