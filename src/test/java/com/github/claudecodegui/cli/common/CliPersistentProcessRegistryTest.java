@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -60,6 +61,17 @@ public class CliPersistentProcessRegistryTest {
     }
 
     @Test
+    public void diagnosticsStartAtZero() {
+        CliPersistentProcessRegistry.Diagnostics diagnostics = freshRegistry().diagnostics();
+
+        assertEquals(0, diagnostics.registrySize());
+        assertEquals(0, diagnostics.usableProcessCount());
+        assertEquals(0, diagnostics.pendingRebuildCount());
+        assertEquals(0L, diagnostics.evictionCount());
+        assertEquals(0L, diagnostics.rebuildCooldownHitCount());
+    }
+
+    @Test
     public void reclaimIdleProcessesNowToleratesEmptyRegistry() {
         // 开关关闭副作用在空注册表上必须是 no-op
         freshRegistry().reclaimIdleProcessesNow();
@@ -91,6 +103,9 @@ public class CliPersistentProcessRegistryTest {
         // 冷却期内:acquire 直接 null(one-shot 降级),rebuildInBackground 也直接放弃
         assertNull(registry.acquire("tab-cooldown", "claude", unspawnableSpec()));
         registry.rebuildInBackground("tab-cooldown", "claude", unspawnableSpec());
+        CliPersistentProcessRegistry.Diagnostics diagnostics = registry.diagnostics();
+        assertEquals(0, diagnostics.registrySize());
+        assertEquals(2L, diagnostics.rebuildCooldownHitCount());
         // 其他 tab 不受坏槽位冷却牵连
         assertFalse(registry.isRebuildCoolingDown("tab-other", "claude"));
     }
