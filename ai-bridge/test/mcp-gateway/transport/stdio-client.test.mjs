@@ -147,3 +147,29 @@ test('callTool honors explicit config.request_timeout_ms over CALL_TOOL_TIMEOUT_
   assert.ok(elapsed < 5000, `应按用户配置 100ms 超时,实际 ${elapsed}ms`);
   client.close();
 });
+test('close is idempotent, rejects pending requests, and waits for child exit', async () => {
+  const fakeProcess = createFakeProcess();
+  let stdinEnds = 0;
+  let kills = 0;
+  fakeProcess.stdin.end = () => { stdinEnds += 1; };
+  fakeProcess.kill = () => {
+    kills += 1;
+    setImmediate(() => fakeProcess.emit('exit', 0, 'SIGTERM'));
+    return true;
+  };
+  const client = new StdioMcpClient(
+    { serverId: 'shutdown', sourceProvider: 'test', config: { command: 'fake', args: [] } },
+    { spawnFn: () => fakeProcess },
+  );
+  const pending = client.request('tools/list', {}, 5_000);
+
+  const first = client.close();
+  const second = client.close();
+
+  assert.strictEqual(first, second, '重复 close 应复用同一个 Promise');
+  await assert.rejects(pending, /MCP client closed/);
+  await first;
+  assert.equal(stdinEnds, 1, 'stdin 只关闭一次');
+  assert.equal(kills, 1, '子进程树只终止一次');
+  assert.equal(client.pending.size, 0);
+});
