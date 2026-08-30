@@ -168,18 +168,40 @@
 
 **代办：**
 
-- [ ] 区分 Provider 静态能力与 Session negotiated capability。
-- [ ] 后端下发当前 Session 实际的 thinking/tool/MCP 能力。
-- [ ] 下发明确降级原因，如 `version_probe_failed`、`acp_unavailable`、`legacy_fallback`。
-- [ ] 前端只根据后端下发的实际能力渲染，不自行推断 Provider 能力。
-- [ ] 将 negotiated capability 记录到历史元数据，保证刷新后回显语义一致。
-- [ ] 为 Kimi ACP 成功、协商失败、版本不支持、运行中 ACP 崩溃降级分别补测试。
-- [ ] 将同一能力模型推广到其他存在多通道/可降级 Provider。
+- [x] 区分 Provider 静态能力与 Session negotiated capability。
+- [x] 后端下发当前 Session 实际的 thinking/tool/MCP 能力。
+- [x] 下发明确降级原因，如 `version_probe_failed`、`acp_unavailable`、`legacy_fallback`。
+- [x] 前端只根据后端下发的实际能力渲染，不自行推断 Provider 能力。
+- [x] 将 negotiated capability 记录到历史元数据，保证刷新后回显语义一致。
+- [x] 为 Kimi ACP 成功、协商失败、版本不支持、运行中 ACP 崩溃降级分别补测试。
+- [x] 将同一能力模型推广到其他存在多通道/可降级 Provider。
+
+**整改记录（2026-08-30）：**
+
+- 修改文件：后端 `CliSession.java`、`CliSessionManager.java`、`SessionRuntimeRouter.java`、`SessionSendService.java`、`ClaudeSession.java`、`SessionCapabilityService.java`、`SessionCapabilityState.java`、`SessionCapabilityChannel.java`、`SessionCapabilityDegradationReason.java`、`SessionNegotiatedCapabilities.java`、`SessionCapabilityMetadataStore.java`、`SessionCapabilitiesPayloadField.java`、`HistorySessionsJsonEnhancer.java`、`HistoryWorkflowService.java`；Kimi `KimiCliSessionFactory.java`、`KimiRunOnceCliSession.java`、`KimiAcpChannelGate.java`、`KimiAcpCliSession.java`；前端 `App.tsx`、`ChatScreen.tsx`、`useSessionCapabilities.ts`、`SessionCapabilitiesDrawer.tsx`、`ChatInputBox.tsx`、`ButtonArea.tsx`、`ChatInputBoxFooter.tsx`、`ModelConfigSelect.tsx`、`ReasoningSelect.tsx`、`reasoningUtils.ts`、`types.ts`、`types/index.ts` 及对应测试文件。
+- Provider/CLI 实现：Claude、Codex 以及 OpenCode/Grok/Pi/OMP/DSH 复用的通用 CLI/Channel 会话返回 `NEGOTIATED + cli` 的实际会话快照；Kimi ACP 在 `initialize`、`session/new`/`session/load` 和 `configOptions` 解析后更新能力；Kimi legacy 明确返回 `DEGRADED + kimi_legacy_stream_json`。这是同一能力模型在其他 Provider 上的推广，不虚构 OpenCode/Grok/Pi/OMP/DSH 独立协商实现。
+- 状态与保守降级：`UNKNOWN`/`DISCOVERED` 的 nullable 能力字段在线上序列化为 `null`，表示尚未完成协商，前端保持既有行为；`NEGOTIATED` 表示当前通道已完成能力确认；`DEGRADED` 表示已切换到保守能力集合。Kimi 的 `version_probe_failed`、`version_unsupported`、`acp_unavailable`、`acp_negotiation_failed`、`acp_runtime_failed`、`legacy_fallback` 均通过枚举值下发，只有明确 `false` 才隐藏 thinking selector。
+- 八 Provider 矩阵：
+
+  | Provider | 当前能力来源 | thinking/tool/MCP 语义 |
+  |---|---|---|
+  | Claude | 通用 CLI 会话 | 当前 CLI 会话可用能力；MCP 仍由独立 Gateway/会话配置字段表达 |
+  | Codex | 通用 CLI 会话 | 当前 CLI 会话可用能力；MCP 仍由独立 Gateway/会话配置字段表达 |
+  | OpenCode | 通用 CLI/Channel 会话 | 复用统一 CLI 能力快照，不额外声称独立协商 |
+  | Grok | 通用 CLI/Channel 会话 | 复用统一 CLI 能力快照，不额外声称独立协商 |
+  | Kimi | ACP 或 legacy stream-json | ACP 按 `configOptions` 协商 thinking；legacy 明确无 thinking，运行/门禁失败保守降级 |
+  | Pi | 通用 CLI/Channel 会话 | 复用统一 CLI 能力快照，不额外声称独立协商 |
+  | OMP | 通用 CLI/Channel 会话 | 复用统一 CLI 能力快照；Gateway 注入能力仍按实际通道配置表达 |
+  | DSH | 通用 CLI/Channel 会话 | 复用统一 CLI 能力快照；host/channel 差异不冒充 ACP 协商 |
+
+- 历史一致性：`SessionCapabilityMetadataStore` 以 provider + sessionId 为键、带大小/条目上限和原子替换写入，`HistorySessionsJsonEnhancer` 在历史条目上回填 `sessionCapabilities`；实时能力与历史回显均复用同一 `SessionNegotiatedCapabilities` wire 结构。
+- 前端门禁：`useSessionCapabilities` 严格校验 nullable wire 字段；`ModelConfigSelect`/`ReasoningSelect` 仅接收后端 `thinkingAvailable`，未知值不改变既有 UI，明确不可用时不渲染 reasoning selector；能力面板显示 state、channel、能力值和降级原因。
+- 定向验证：`./gradlew.bat compileJava --no-daemon` 通过；`./gradlew.bat test --tests "com.github.claudecodegui.cli.kimi.acp.KimiAcpThinkingNegotiationTest" --tests "com.github.claudecodegui.cli.kimi.acp.KimiAcpCapabilityTest" --tests "com.github.claudecodegui.session.SessionCapabilityMetadataStoreTest" --tests "com.github.claudecodegui.handler.history.HistorySessionsJsonEnhancerTest" --tests "com.github.claudecodegui.handler.history.HistoryWorkflowServiceTest" --no-daemon` 通过（新增/相关 Java 定向测试）；`cd webview; npx vitest run src/components/ChatInputBox/reasoningUtils.test.ts` 通过（3 tests）；`npm exec -- tsc --noEmit` 通过。`ModelConfigSelect.test.tsx` 当前仍有既存的 5 个旧断言失败（翻译 key、ModelInfo 回调和上下文开关），本轮新增 session capability 断言通过，未扩大到无关修复。
 
 **完成标准：**
 
-- UI 不再承诺当前 Session 实际不可用的 thinking/tool 能力。
-- 实时与历史回显使用同一份实际能力和降级原因。
+- [x] UI 不再承诺当前 Session 实际不可用的 thinking/tool 能力。
+- [x] 实时与历史回显使用同一份实际能力和降级原因。
 
 ---
 
@@ -363,7 +385,7 @@
 
 1. [x] **阶段 A：生命周期闸门**——完成 P1-01，确保 dispose 后不会产生新资源。
 2. [x] **阶段 B：Gateway 非阻塞降级**——完成 P1-02，再验证 P2-03。
-3. [ ] **阶段 C：Provider 能力和预热契约**——完成 P1-03、P1-04。
+3. [x] **阶段 C：Provider 能力和预热契约**——完成 P1-03、P1-04。
 4. [ ] **阶段 D：实时/历史统一块**——完成 P1-05、P2-05。
 5. [ ] **阶段 E：短时资源滞留清理**——完成 P2-01、P2-02、P2-04。
 6. [ ] **阶段 F：可观测性与文档**——完成 P3 项。
@@ -395,7 +417,7 @@
 
 - [ ] `SessionCallbackAdapterStreamEndTest`
 - [ ] `StreamMessageCoalescerStreamEndHookTest`
-- [ ] Kimi ACP thinking negotiation 测试
+- [x] Kimi ACP capability/ thinking negotiation 测试
 - [ ] Grok HistoryReader 测试
 - [ ] Kimi HistoryReader 测试
 - [ ] Pi HistoryReader 测试
