@@ -406,7 +406,6 @@ public class ClaudeMessageHandler implements MessageCallback {
         // which causes SessionCallbackAdapter.onStateChange() to suppress showLoading(false),
         // leaving the UI stuck in "responding" state forever.
         // This mirrors the same pattern used in onError() above.
-        boolean wasStreaming = isStreaming;
         isStreaming = false;
         resetSegmentState();
 
@@ -425,11 +424,9 @@ public class ClaudeMessageHandler implements MessageCallback {
         state.setQueueAheadCount(0);
 
         finalizeToolLifecycle();
-        if (wasStreaming) {
-            LOG.warn("onComplete called without prior stream_end — forcing stream cleanup");
-            callbackHandler.notifyMessageUpdate(state.getMessages());
-            notifyStreamEndOnce();
-        }
+        LOG.warn("onComplete called without prior stream_end — forcing stream cleanup");
+        callbackHandler.notifyMessageUpdate(state.getMessages());
+        notifyStreamEndOnce();
 
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
@@ -439,7 +436,6 @@ public class ClaudeMessageHandler implements MessageCallback {
     }
 
     private void handleInterruptedCompletion(CliResult result) {
-        boolean wasStreaming = isStreaming;
         isStreaming = false;
         textSegmentActive = false;
         thinkingSegmentActive = false;
@@ -472,9 +468,7 @@ public class ClaudeMessageHandler implements MessageCallback {
 
         finalizeToolLifecycle();
         callbackHandler.notifyMessageUpdate(state.getMessages());
-        if (wasStreaming) {
-            notifyStreamEndOnce();
-        }
+        notifyStreamEndOnce();
         callbackHandler.notifyQueueDisplayStateChanged(state.getQueueDisplayState(), state.getQueueAheadCount());
         callbackHandler.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
         // Sync status bar: interruption also means the turn is over.
@@ -626,8 +620,10 @@ public class ClaudeMessageHandler implements MessageCallback {
         if (!isThinking) {
             isThinking = true;
             callbackHandler.notifyThinkingStatusChanged(true);
-            // Update StatusBar to show thinking status
-            ClaudeNotifier.setThinking(project);
+            // Update StatusBar to show thinking status when a project is available.
+            if (project != null) {
+                ClaudeNotifier.setThinking(project);
+            }
             LOG.debug("Thinking started");
         }
     }

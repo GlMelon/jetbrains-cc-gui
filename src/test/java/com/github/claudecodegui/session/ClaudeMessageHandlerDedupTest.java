@@ -1,5 +1,9 @@
 package com.github.claudecodegui.session;
 
+import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.protocol.MessageBlockToolStatus;
+import com.github.claudecodegui.provider.common.CliResult;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -49,9 +53,7 @@ public class ClaudeMessageHandlerDedupTest {
         handler.onMessage("block_reset", "");
         handler.onMessage("thinking_delta", "second thought");
 
-        List<ClaudeSession.Message> messages = callbackHandler.messageUpdates.get(
-                callbackHandler.messageUpdates.size() - 1
-        );
+        List<ClaudeSession.Message> messages = state.getMessages();
         JsonArray content = messages.get(0).raw.getAsJsonObject("message").getAsJsonArray("content");
 
         assertEquals("Independent thinking turns must remain separate blocks", 2, content.size());
@@ -434,6 +436,71 @@ public class ClaudeMessageHandlerDedupTest {
     }
 
     @Test
+    public void completionWithoutStreamEndFinalizesThinkingAndToolLifecycle() {
+        state.setBusy(true);
+        state.setLoading(true);
+        handler.onMessage(CliConstants.MSG_STREAM_START, "");
+        handler.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
+        handler.onMessage(CommonConstants.MSG_TYPE_TOOL_USE,
+                "{\"type\":\"tool_use\",\"id\":\"tool-timeout\",\"name\":\"Read\",\"input\":{\"file_path\":\"README.md\"}}");
+
+        CliResult result = new CliResult();
+        result.success = true;
+        handler.onComplete(result);
+
+        assertFalse(state.isBusy());
+        assertFalse(state.isLoading());
+        assertEquals(List.of(true, false), callbackHandler.thinkingStatusChanges);
+        assertEquals(1, callbackHandler.streamEndCount);
+        com.google.gson.JsonObject toolBlock = state.getMessages().get(0).raw
+                .getAsJsonObject("message")
+                .getAsJsonArray("content")
+                .get(0).getAsJsonObject();
+        assertEquals(MessageBlockToolStatus.UNPAIRED.value(),
+                toolBlock.get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertFalse(toolBlock.get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+    }
+
+    @Test
+    public void completionBeforeStreamStartStillClosesResponseLifecycle() {
+        state.setBusy(true);
+        state.setLoading(true);
+        CliResult result = new CliResult();
+        result.success = true;
+
+        handler.onComplete(result);
+
+        assertFalse(state.isBusy());
+        assertFalse(state.isLoading());
+        assertEquals(1, callbackHandler.streamEndCount);
+    }
+
+    @Test
+    public void interruptedCompletionFinalizesThinkingAndToolLifecycle() {
+        state.setBusy(true);
+        state.setLoading(true);
+        handler.onMessage(CliConstants.MSG_STREAM_START, "");
+        handler.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
+        handler.onMessage(CommonConstants.MSG_TYPE_TOOL_USE,
+                "{\"type\":\"tool_use\",\"id\":\"tool-interrupt\",\"name\":\"Read\",\"input\":{\"file_path\":\"README.md\"}}");
+
+        CliResult result = new CliResult();
+        result.interrupted = true;
+        handler.onComplete(result);
+
+        assertFalse(state.isBusy());
+        assertFalse(state.isLoading());
+        assertEquals(List.of(true, false), callbackHandler.thinkingStatusChanges);
+        assertEquals(1, callbackHandler.streamEndCount);
+        com.google.gson.JsonObject toolBlock = state.getMessages().get(0).raw
+                .getAsJsonObject("message")
+                .getAsJsonArray("content")
+                .get(0).getAsJsonObject();
+        assertEquals(MessageBlockToolStatus.UNPAIRED.value(),
+                toolBlock.get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertFalse(toolBlock.get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+    }
+    @Test
     public void onCompleteWithStructuredErrorAddsProviderErrorBlockToAssistantMessage() {
         com.github.claudecodegui.provider.common.CliResult result = new com.github.claudecodegui.provider.common.CliResult();
         result.success = false;
@@ -488,6 +555,7 @@ public class ClaudeMessageHandlerDedupTest {
     private static class RecordingCallbackHandler extends CallbackHandler {
         final List<String> contentDeltas = new ArrayList<>();
         final List<String> thinkingDeltas = new ArrayList<>();
+        final List<Boolean> thinkingStatusChanges = new ArrayList<>();
         final List<List<ClaudeSession.Message>> messageUpdates = new ArrayList<>();
         int streamStartCount = 0;
         int streamEndCount = 0;
@@ -515,6 +583,11 @@ public class ClaudeMessageHandlerDedupTest {
         @Override
         public void notifyThinkingDelta(String delta) {
             thinkingDeltas.add(delta);
+        }
+
+        @Override
+        public void notifyThinkingStatusChanged(boolean isThinking) {
+            thinkingStatusChanges.add(isThinking);
         }
 
         @Override

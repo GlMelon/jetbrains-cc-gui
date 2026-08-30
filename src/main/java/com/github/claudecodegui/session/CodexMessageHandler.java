@@ -321,9 +321,9 @@ public class CodexMessageHandler implements MessageCallback {
             return;
         }
         boolean streamEndedBeforeComplete = streamEndedThisTurn;
-        boolean wasStreaming = isStreaming;
 
         isStreaming = false;
+        resetThinkingStatus();
         state.setBusy(false);
         state.setLoading(false);
         state.setQueueDisplayState(ClaudeSession.SessionCallback.QueueDisplayState.COMPLETED);
@@ -331,7 +331,7 @@ public class CodexMessageHandler implements MessageCallback {
         state.updateLastModifiedTime();
 
         finalizeToolLifecycle();
-        if (wasStreaming && !streamEndedBeforeComplete) {
+        if (!streamEndedBeforeComplete) {
             LOG.warn("Codex onComplete called without prior stream_end; forcing stream cleanup");
             callbackHandler.notifyMessageUpdate(state.getMessages());
             notifyStreamEndOnce();
@@ -344,7 +344,6 @@ public class CodexMessageHandler implements MessageCallback {
 
     private void handleInterruptedCompletion(CliResult result) {
         boolean streamEndedBeforeComplete = streamEndedThisTurn;
-        boolean wasStreaming = isStreaming;
 
         isStreaming = false;
         resetThinkingStatus();
@@ -366,7 +365,7 @@ public class CodexMessageHandler implements MessageCallback {
 
         finalizeToolLifecycle();
         callbackHandler.notifyMessageUpdate(state.getMessages());
-        if (wasStreaming && !streamEndedBeforeComplete) {
+        if (!streamEndedBeforeComplete) {
             notifyStreamEndOnce();
         }
 

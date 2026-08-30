@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.protocol.MessageBlockToolStatus;
 import com.github.claudecodegui.session.ClaudeSession.Message;
@@ -117,6 +118,91 @@ public class CodexMessageHandlerTest {
         assertEquals("done", callback.lastMessages.get(callback.lastMessages.size() - 1).content);
     }
 
+    @Test
+    public void completionWithoutStreamEndFinalizesThinkingAndToolLifecycle() {
+        SessionState state = new SessionState();
+        state.setBusy(true);
+        state.setLoading(true);
+
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+        handler.onMessage(CliConstants.MSG_STREAM_START, "");
+        handler.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
+        handler.onMessage(CommonConstants.MSG_TYPE_TOOL_USE,
+                "{\"type\":\"tool_use\",\"id\":\"tool-timeout\",\"name\":\"Read\",\"input\":{\"file_path\":\"README.md\"}}");
+
+        CliResult result = new CliResult();
+        result.success = true;
+        handler.onComplete(result);
+
+        assertFalse(state.isBusy());
+        assertFalse(state.isLoading());
+        assertEquals(List.of(true, false), callback.thinkingStatusChanges);
+        assertEquals(1, callback.streamEndCount);
+        com.google.gson.JsonObject toolBlock = state.getMessages().get(0).raw
+                .getAsJsonObject("message")
+                .getAsJsonArray("content")
+                .get(0).getAsJsonObject();
+        assertEquals(MessageBlockToolStatus.UNPAIRED.value(),
+                toolBlock.get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertFalse(toolBlock.get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+    }
+
+    @Test
+    public void completionBeforeStreamStartStillClosesResponseLifecycle() {
+        SessionState state = new SessionState();
+        state.setBusy(true);
+        state.setLoading(true);
+
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+        CliResult result = new CliResult();
+        result.success = true;
+        handler.onComplete(result);
+
+        assertFalse(state.isBusy());
+        assertFalse(state.isLoading());
+        assertEquals(1, callback.streamEndCount);
+    }
+
+    @Test
+    public void interruptedCompletionFinalizesThinkingAndToolLifecycle() {
+        SessionState state = new SessionState();
+        state.setBusy(true);
+        state.setLoading(true);
+
+        CallbackHandler callbackHandler = new CallbackHandler();
+        RecordingCallback callback = new RecordingCallback();
+        callbackHandler.setCallback(callback);
+
+        CodexMessageHandler handler = new CodexMessageHandler(state, callbackHandler);
+        handler.onMessage(CliConstants.MSG_STREAM_START, "");
+        handler.onMessage(CommonConstants.MSG_TYPE_THINKING, "");
+        handler.onMessage(CommonConstants.MSG_TYPE_TOOL_USE,
+                "{\"type\":\"tool_use\",\"id\":\"tool-interrupt\",\"name\":\"Read\",\"input\":{\"file_path\":\"README.md\"}}");
+
+        CliResult result = new CliResult();
+        result.interrupted = true;
+        handler.onComplete(result);
+
+        assertFalse(state.isBusy());
+        assertFalse(state.isLoading());
+        assertEquals(List.of(true, false), callback.thinkingStatusChanges);
+        assertEquals(1, callback.streamEndCount);
+        com.google.gson.JsonObject toolBlock = state.getMessages().get(0).raw
+                .getAsJsonObject("message")
+                .getAsJsonArray("content")
+                .get(0).getAsJsonObject();
+        assertEquals(MessageBlockToolStatus.UNPAIRED.value(),
+                toolBlock.get(MessageBlockContract.KEY_TOOL_STATUS).getAsString());
+        assertFalse(toolBlock.get(MessageBlockContract.KEY_PAIRED).getAsBoolean());
+    }
     @Test
     public void interruptedCompletionAddsAssistantNoticeInsteadOfError() {
         SessionState state = new SessionState();
@@ -381,7 +467,7 @@ public class CodexMessageHandlerTest {
     }
 
     @Test
-    public void onCompleteWithoutStreamingOnlyClearsState() {
+    public void onCompleteWithoutStreamStartClosesLifecycle() {
         SessionState state = new SessionState();
         state.setBusy(true);
         state.setLoading(true);
@@ -395,7 +481,7 @@ public class CodexMessageHandlerTest {
         handler.onComplete(new CliResult());
 
         assertEquals(0, callback.streamStartCount);
-        assertEquals(0, callback.streamEndCount);
+        assertEquals(1, callback.streamEndCount);
         assertFalse(state.isBusy());
         assertFalse(state.isLoading());
         assertFalse(callback.lastBusy);
