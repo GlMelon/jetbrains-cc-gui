@@ -460,11 +460,35 @@
 
 **代办：**
 
-- [ ] 将 bridge/theme/bootstrap 重试统一纳入可取消 controller。
-- [ ] 保证每类 bootstrap 只存在一个活动实例。
-- [ ] `pagehide`/reload/unmount 时统一取消 timer。
-- [ ] 开发模式 vConsole 延迟 timer 也纳入清理。
-- [ ] 保留 `useDragSort` 当前 `AbortController` 和 preview cleanup，不退化为无法移除的裸匿名 listener。
+- [x] 将 bridge/theme/bootstrap 重试统一纳入可取消 controller。
+- [x] 保证每类 bootstrap 只存在一个活动实例。
+- [x] `pagehide`/reload/unmount 时统一取消 timer。
+- [x] 开发模式 vConsole 延迟 timer 也纳入清理。
+- [x] 保留 `useDragSort` 当前 `AbortController` 和 preview cleanup，不退化为无法移除的裸匿名 listener。
+
+#### 完成记录（2026-08-31）
+
+- 修改文件：
+  - `webview/src/utils/bootstrapLifecycle.ts`
+  - `webview/src/utils/bridgeStartup.ts`
+  - `webview/src/main.tsx`
+  - `webview/src/hooks/useThemeInit.ts`
+  - `webview/src/utils/bootstrapLifecycle.test.ts`
+  - `webview/src/utils/bridgeStartup.test.ts`
+  - `webview/src/hooks/useThemeInit.test.ts`
+- 设计说明：
+  - 新增 `BootstrapLifecycleController`，按 bridge ready、IDE theme、vConsole position 三个 scope 统一持有 timer 与 cleanup；同 scope 再次启动时先取消旧实例，每个实例使用 token 隔离，旧实例的迟到 cancel/finish 不会误伤替代实例。
+  - controller 统一绑定 `beforeunload`、`pagehide` 与 HMR dispose；`useThemeInit` unmount 使用实例 token 取消重试，bridge ready 成功、IDE theme 成功/耗尽重试和 vConsole 定位完成时主动 finish。
+  - `main.tsx` 删除重复的本地 bridge polling，统一复用 `bridgeStartup.ts`；vConsole 动态 import 迟到时先检查 scope 是否仍有效，其 100ms 定位 timer 也由 controller 管理。
+  - `useDragSort` 未修改，现有 `AbortController`、pointer listener signal 和 drag preview cleanup 保持不变。
+- Provider 对称性检查：本项仅治理 Webview bootstrap 生命周期，不涉及 Provider 分派或调用路径，无 Provider 特例。
+- 定向验证：
+  - `cd webview && npx vitest run src/utils/bootstrapLifecycle.test.ts src/utils/bridgeStartup.test.ts src/hooks/useThemeInit.test.ts`：3 files、8 tests 全部通过。
+  - `cd webview && npx tsc --noEmit`：通过。
+  - 定向 ESLint（上述产品与测试文件）：通过。
+- Commit：
+  - `2f77857c fix(webview): bind bootstrap timers to page lifecycle`
+  - `c486fda9 test(webview): cover bootstrap timer cleanup`
 
 ---
 
@@ -563,6 +587,10 @@ npx tsc --noEmit
 - [ ] `useToolsUpdate.test.ts`
 - [ ] 新增 DSH timeout cleanup/operation token 测试
 - [ ] 新增 tool id 配对与 orphan result 测试
+- [x] `bootstrapLifecycle.test.ts`
+- [x] `bridgeStartup.test.ts`
+- [x] `useThemeInit.test.ts`
+- [x] P3-01 前端改动执行 `tsc --noEmit` 与定向 ESLint
 - [ ] 无直接测试覆盖的孤立前端改动执行 `tsc --noEmit`
 
 ## 8. 每项整改完成记录模板
