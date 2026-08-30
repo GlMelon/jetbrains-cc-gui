@@ -19,6 +19,8 @@ import java.util.concurrent.CompletableFuture;
  */
 public final class DshHostActionHandlers {
 
+    private static final String OPERATION_ID_FIELD = "operationId";
+
     private DshHostActionHandlers() {
     }
 
@@ -28,15 +30,42 @@ public final class DshHostActionHandlers {
                 context.handlerContext().escapeJs(GsonHolder.GSON.toJson(payload)));
     }
 
-    private static void runAsync(FrontendActionContext context, java.util.function.Supplier<JsonObject> task) {
-        CompletableFuture.runAsync(() -> pushStatus(context, task.get()), AppExecutorUtil.getAppExecutorService());
+    private static void runAsync(
+            FrontendActionContext context,
+            String requestPayload,
+            java.util.function.Supplier<JsonObject> task) {
+        CompletableFuture.runAsync(() -> {
+            JsonObject result = task.get();
+            String operationId = extractOperationId(requestPayload);
+            if (operationId != null) {
+                result.addProperty(OPERATION_ID_FIELD, operationId);
+            }
+            pushStatus(context, result);
+        }, AppExecutorUtil.getAppExecutorService());
+    }
+
+    private static String extractOperationId(String requestPayload) {
+        if (requestPayload == null || requestPayload.isBlank()) {
+            return null;
+        }
+        try {
+            JsonObject request = GsonHolder.GSON.fromJson(requestPayload, JsonObject.class);
+            if (request == null || !request.has(OPERATION_ID_FIELD)
+                    || request.get(OPERATION_ID_FIELD).isJsonNull()) {
+                return null;
+            }
+            String operationId = request.get(OPERATION_ID_FIELD).getAsString();
+            return operationId.isBlank() ? null : operationId;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     public static final class GetDshStatusActionHandler implements FrontendActionHandler<String> {
         @Override public UpstreamAction action() { return UpstreamAction.GET_DSH_STATUS; }
         @Override public Class<String> payloadType() { return String.class; }
         @Override public void handle(String payload, FrontendActionContext context) {
-            runAsync(context, DshHostRunner::getStatus);
+            runAsync(context, payload, DshHostRunner::getStatus);
         }
     }
 
@@ -44,7 +73,7 @@ public final class DshHostActionHandlers {
         @Override public UpstreamAction action() { return UpstreamAction.START_DSH_HOST; }
         @Override public Class<String> payloadType() { return String.class; }
         @Override public void handle(String payload, FrontendActionContext context) {
-            runAsync(context, DshHostRunner::startHost);
+            runAsync(context, payload, DshHostRunner::startHost);
         }
     }
 
@@ -52,7 +81,7 @@ public final class DshHostActionHandlers {
         @Override public UpstreamAction action() { return UpstreamAction.STOP_DSH_HOST; }
         @Override public Class<String> payloadType() { return String.class; }
         @Override public void handle(String payload, FrontendActionContext context) {
-            runAsync(context, DshHostRunner::stopHost);
+            runAsync(context, payload, DshHostRunner::stopHost);
         }
     }
 
@@ -60,7 +89,7 @@ public final class DshHostActionHandlers {
         @Override public UpstreamAction action() { return UpstreamAction.SAVE_DSH_SETTINGS; }
         @Override public Class<String> payloadType() { return String.class; }
         @Override public void handle(String payload, FrontendActionContext context) {
-            runAsync(context, () -> DshHostRunner.saveSettings(payload));
+            runAsync(context, payload, () -> DshHostRunner.saveSettings(payload));
         }
     }
 }

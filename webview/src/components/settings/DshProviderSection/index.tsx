@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { sendAction } from '../../../bridge/typed';
 import { UPSTREAM } from '../../../generated/protocol';
@@ -6,6 +6,7 @@ import styles from './style.module.less';
 
 /** channel-manager.js dsh status 的 payload(宽松解析,字段缺失容错)。 */
 interface DshStatusPayload {
+  operationId?: string;
   installed?: boolean;
   hostRunning?: boolean;
   version?: string;
@@ -40,9 +41,57 @@ const DshProviderSection = ({ showHeader = true }: DshProviderSectionProps) => {
   const [status, setStatus] = useState<DshStatusPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState<DshFormState>(DEFAULT_FORM);
+  const mountedRef = useRef(false);
+  const nextOperationIdRef = useRef(0);
+  const activeOperationRef = useRef<{ id: string; timeoutId: number } | null>(null);
+
+  const cancelActiveOperation = useCallback(() => {
+    const activeOperation = activeOperationRef.current;
+    if (activeOperation) {
+      window.clearTimeout(activeOperation.timeoutId);
+      activeOperationRef.current = null;
+    }
+    if (mountedRef.current) {
+      setBusy(false);
+    }
+  }, []);
+
+  const beginOperation = useCallback(
+    (timeoutMs: number) => {
+      cancelActiveOperation();
+      const operationId = String(++nextOperationIdRef.current);
+      const timeoutId = window.setTimeout(() => {
+        if (!mountedRef.current || activeOperationRef.current?.id !== operationId) {
+          return;
+        }
+        activeOperationRef.current = null;
+        setBusy(false);
+      }, timeoutMs);
+      activeOperationRef.current = { id: operationId, timeoutId };
+      setBusy(true);
+      return operationId;
+    },
+    [cancelActiveOperation],
+  );
+
+  const finishOperation = useCallback((operationId?: string) => {
+    const activeOperation = activeOperationRef.current;
+    if (!activeOperation || (operationId && activeOperation.id !== operationId)) {
+      return;
+    }
+    window.clearTimeout(activeOperation.timeoutId);
+    activeOperationRef.current = null;
+    if (mountedRef.current) {
+      setBusy(false);
+    }
+  }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     window.updateDshStatus = (dataOrStr) => {
+      if (!mountedRef.current) {
+        return;
+      }
       try {
         const payload = (typeof dataOrStr === 'string' ? JSON.parse(dataOrStr) : dataOrStr) as DshStatusPayload;
         setStatus(payload);
@@ -55,46 +104,57 @@ const DshProviderSection = ({ showHeader = true }: DshProviderSectionProps) => {
             autoStart: prev.autoStart || payload.settings!.autoStart || false,
           }));
         }
+        finishOperation(payload.operationId);
       } catch {
         setStatus({ error: 'Invalid status payload' });
-      } finally {
-        setBusy(false);
       }
     };
     sendAction(UPSTREAM.GET_DSH_STATUS);
     return () => {
+      mountedRef.current = false;
       window.updateDshStatus = undefined;
+      const activeOperation = activeOperationRef.current;
+      if (activeOperation) {
+        window.clearTimeout(activeOperation.timeoutId);
+        activeOperationRef.current = null;
+      }
     };
-  }, []);
+  }, [finishOperation]);
 
   const installed = status?.installed === true;
   const running = status?.hostRunning === true;
   const adopted = status?.origin === 'adopted';
 
   const handleStart = useCallback(() => {
-    setBusy(true);
-    sendAction(UPSTREAM.START_DSH_HOST);
-    // 后端 ensureHost 最长 60s;busy 由下一次 updateDshStatus 解除
-    window.setTimeout(() => setBusy(false), 65_000);
-  }, []);
+    const operationId = beginOperation(65_000);
+    const sent = sendAction(UPSTREAM.START_DSH_HOST, JSON.stringify({ operationId }));
+    if (!sent) {
+      finishOperation(operationId);
+    }
+  }, [beginOperation, finishOperation]);
 
   const handleStop = useCallback(() => {
-    setBusy(true);
-    sendAction(UPSTREAM.STOP_DSH_HOST);
-    window.setTimeout(() => setBusy(false), 35_000);
-  }, []);
+    const operationId = beginOperation(35_000);
+    const sent = sendAction(UPSTREAM.STOP_DSH_HOST, JSON.stringify({ operationId }));
+    if (!sent) {
+      finishOperation(operationId);
+    }
+  }, [beginOperation, finishOperation]);
 
   const handleSave = useCallback(() => {
-    setBusy(true);
+    const operationId = beginOperation(35_000);
     const payload = {
+      operationId,
       bin: form.bin.trim() || '',
       host: form.host.trim() || '',
       port: form.port.trim() ? Number(form.port.trim()) : 3080,
       autoStart: form.autoStart,
     };
-    sendAction(UPSTREAM.SAVE_DSH_SETTINGS, JSON.stringify(payload));
-    window.setTimeout(() => setBusy(false), 35_000);
-  }, [form]);
+    const sent = sendAction(UPSTREAM.SAVE_DSH_SETTINGS, JSON.stringify(payload));
+    if (!sent) {
+      finishOperation(operationId);
+    }
+  }, [beginOperation, finishOperation, form]);
 
   const openWebUi = useCallback(() => {
     const host = form.host.trim() || status?.host || '127.0.0.1';

@@ -1229,6 +1229,7 @@ interface Window {
     dataOrStr:
       | string
       | {
+          operationId?: string;
           success?: boolean;
           provider?: string;
           installed?: boolean;
