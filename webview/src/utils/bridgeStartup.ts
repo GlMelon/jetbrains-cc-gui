@@ -1,34 +1,46 @@
+import {
+  BOOTSTRAP_SCOPE,
+  bootstrapLifecycle,
+  type BootstrapLifecycleController,
+} from './bootstrapLifecycle';
+
 const BRIDGE_FAST_RETRY_ATTEMPTS = 50;
 const BRIDGE_FAST_RETRY_INTERVAL_MS = 100;
 const BRIDGE_SLOW_RETRY_INTERVAL_MS = 1000;
 
-export function waitForBridge(callback: () => void): () => void {
+export function waitForBridge(
+  callback: () => void,
+  lifecycle: BootstrapLifecycleController = bootstrapLifecycle,
+): () => void {
   let attempt = 0;
   let completed = false;
-  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const clearReadyCallback = () => {
+    if (window.__ccgOnBridgeReady === check) {
+      delete window.__ccgOnBridgeReady;
+    }
+  };
 
   const cancel = () => {
     completed = true;
-    if (retryTimer !== undefined) {
-      clearTimeout(retryTimer);
-      retryTimer = undefined;
-    }
-    delete window.__ccgOnBridgeReady;
+    clearReadyCallback();
   };
 
-  const check = () => {
-    if (completed) {
+  const token = lifecycle.start(BOOTSTRAP_SCOPE.BRIDGE_READY, cancel);
+  if (!token) {
+    return () => {};
+  }
+  const ownerToken = token;
+
+  function check() {
+    if (completed || !lifecycle.isActive(BOOTSTRAP_SCOPE.BRIDGE_READY, ownerToken)) {
       return;
     }
     attempt++;
     if (window.sendToJava) {
       completed = true;
-      if (retryTimer !== undefined) {
-        clearTimeout(retryTimer);
-        retryTimer = undefined;
-      }
-      delete window.__ccgOnBridgeReady;
-      window.removeEventListener('pagehide', cancel);
+      lifecycle.finish(BOOTSTRAP_SCOPE.BRIDGE_READY, ownerToken);
+      clearReadyCallback();
       callback();
       return;
     }
@@ -39,11 +51,10 @@ export function waitForBridge(callback: () => void): () => void {
     const retryInterval = attempt < BRIDGE_FAST_RETRY_ATTEMPTS
       ? BRIDGE_FAST_RETRY_INTERVAL_MS
       : BRIDGE_SLOW_RETRY_INTERVAL_MS;
-    retryTimer = setTimeout(check, retryInterval);
-  };
+    lifecycle.schedule(BOOTSTRAP_SCOPE.BRIDGE_READY, check, retryInterval, ownerToken);
+  }
 
   window.__ccgOnBridgeReady = check;
-  window.addEventListener('pagehide', cancel, { once: true });
   check();
-  return cancel;
+  return () => lifecycle.cancel(BOOTSTRAP_SCOPE.BRIDGE_READY, ownerToken);
 }

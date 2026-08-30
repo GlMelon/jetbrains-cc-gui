@@ -16,6 +16,12 @@ import { setupDollarCommandsCallback } from './components/ChatInputBox/providers
 import { applyLinkifyCapabilitiesPayload } from './utils/linkifyCapabilities';
 import { installRuntimeProviderDispatchers } from './utils/runtimeProviderCapabilities';
 import { debugLog } from './utils/debug';
+import { waitForBridge } from './utils/bridgeStartup';
+import {
+  BOOTSTRAP_SCOPE,
+  bootstrapLifecycle,
+  installBootstrapLifecycle,
+} from './utils/bootstrapLifecycle';
 
 // Bootstrap modules
 import { startBridgeHeartbeat } from './bootstrap/bridge';
@@ -52,6 +58,7 @@ installRuntimeProviderDispatchers();
 // 下行总线:安装 window.__bridge 入口(幂等)。必须在 React 挂载与任何后端早期推送之前,
 // 以便 dispatch 能缓冲。Phase 0 阶段无调用方,仅就位;握手时由 markReady() 回放缓冲。
 installBridge();
+installBootstrapLifecycle();
 
 // ---------------------------------------------------------------------------
 // Bootstrap initialisation (order matters)
@@ -79,20 +86,30 @@ registerPendingSlots();
 // vConsole debugging tool
 const enableVConsole = import.meta.env.DEV || import.meta.env.VITE_ENABLE_VCONSOLE === 'true';
 
-if (enableVConsole) {
-  void import('vconsole').then(({ default: VConsole }) => {
-    new VConsole();
-    // Move vConsole button to top-left corner to avoid blocking the send button in the bottom-right
-    setTimeout(() => {
-      const vcSwitch = document.getElementById('__vconsole') as HTMLElement;
-      if (vcSwitch) {
-        vcSwitch.style.left = '10px';
-        vcSwitch.style.right = 'auto';
-        vcSwitch.style.top = '10px';
-        vcSwitch.style.bottom = 'auto';
+const vConsoleToken = enableVConsole
+  ? bootstrapLifecycle.start(BOOTSTRAP_SCOPE.VCONSOLE_POSITION)
+  : null;
+
+if (vConsoleToken) {
+  void import('vconsole')
+    .then(({ default: VConsole }) => {
+      if (!bootstrapLifecycle.isActive(BOOTSTRAP_SCOPE.VCONSOLE_POSITION, vConsoleToken)) {
+        return;
       }
-    }, 100);
-  });
+      new VConsole();
+      // Move vConsole button to top-left corner to avoid blocking the send button in the bottom-right
+      bootstrapLifecycle.schedule(BOOTSTRAP_SCOPE.VCONSOLE_POSITION, () => {
+        const vcSwitch = document.getElementById('__vconsole') as HTMLElement;
+        if (vcSwitch) {
+          vcSwitch.style.left = '10px';
+          vcSwitch.style.right = 'auto';
+          vcSwitch.style.top = '10px';
+          vcSwitch.style.bottom = 'auto';
+        }
+        bootstrapLifecycle.finish(BOOTSTRAP_SCOPE.VCONSOLE_POSITION, vConsoleToken);
+      }, 100, vConsoleToken);
+    })
+    .catch(() => bootstrapLifecycle.finish(BOOTSTRAP_SCOPE.VCONSOLE_POSITION, vConsoleToken));
 }
 
 // [归一化] updateLinkifyCapabilities → linkify.update(bootstrap 类,不进 React state)
@@ -127,27 +144,6 @@ ReactDOM.createRoot(document.getElementById('app') as HTMLElement).render(
 
 // Scale recovery listens for visibility/focus events to fix JCEF zoom glitches.
 initScaleRecovery();
-
-/**
- * Wait for the sendToJava bridge function to become available
- */
-function waitForBridge(callback: () => void, maxAttempts = 50, interval = 100) {
-  let attempts = 0;
-
-  const check = () => {
-    attempts++;
-    if (window.sendToJava) {
-      debugLog('[Main] Bridge available after ' + attempts + ' attempts');
-      callback();
-    } else if (attempts < maxAttempts) {
-      setTimeout(check, interval);
-    } else {
-      console.error('[Main] Bridge not available after ' + maxAttempts + ' attempts');
-    }
-  };
-
-  check();
-}
 
 // Once the bridge is available, initialize slash commands
 waitForBridge(() => {

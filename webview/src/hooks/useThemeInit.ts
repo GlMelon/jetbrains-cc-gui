@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { registerLegacyAlias } from '../bridge';
 import { migrateLegacyScopedColor, applyChatBackground, applyUserMsgColor, readScopedColor, type Theme } from '../utils/appearanceColors';
 import { applyChatBarThemeColor } from '../utils/chatBarTheme';
+import { BOOTSTRAP_SCOPE, bootstrapLifecycle } from '../utils/bootstrapLifecycle';
 
 /**
  * 解析当前实际主题:优先读全局 data-theme(已被解析为亮/暗),回退 Java 注入值,再回退 dark。
@@ -89,29 +90,47 @@ export function useThemeInit() {
     // Check if there's an initial theme injected by Java
     const injectedTheme = window.__INITIAL_IDE_THEME__;
 
-    // Request IDE theme (with retry mechanism)
+    // Request IDE theme through the shared bootstrap lifecycle controller.
     let retryCount = 0;
+    let cancelled = false;
     const MAX_RETRIES = 20; // Max 20 retries (2 seconds)
+    const scope = BOOTSTRAP_SCOPE.IDE_THEME;
+    const token = bootstrapLifecycle.start(scope, () => {
+      cancelled = true;
+    });
+
+    if (!token) {
+      return;
+    }
 
     const requestIdeTheme = () => {
+      if (cancelled) {
+        return;
+      }
       if (window.sendToJava) {
+        bootstrapLifecycle.finish(scope, token);
         sendAction(UPSTREAM.GET_IDE_THEME);
-      } else {
-        retryCount++;
-        if (retryCount < MAX_RETRIES) {
-          setTimeout(requestIdeTheme, 100);
-        } else {
-          // If in Follow IDE mode and unable to get IDE theme, use injected theme or dark as fallback
-          if (savedTheme === null || savedTheme === 'system') {
-            const fallback = injectedTheme || 'dark';
-            setIdeTheme(fallback as 'light' | 'dark');
-          }
-        }
+        return;
+      }
+
+      retryCount++;
+      if (retryCount < MAX_RETRIES) {
+        bootstrapLifecycle.schedule(scope, requestIdeTheme, 100, token);
+        return;
+      }
+
+      bootstrapLifecycle.finish(scope, token);
+      // If in Follow IDE mode and unable to get IDE theme, use injected theme or dark as fallback
+      if (savedTheme === null || savedTheme === 'system') {
+        const fallback = injectedTheme || 'dark';
+        setIdeTheme(fallback as 'light' | 'dark');
       }
     };
 
-    // Delay 100ms before requesting, giving the bridge time to initialize
-    setTimeout(requestIdeTheme, 100);
+    // Delay 100ms before requesting, giving the bridge time to initialize.
+    bootstrapLifecycle.schedule(scope, requestIdeTheme, 100, token);
+
+    return () => bootstrapLifecycle.cancel(scope, token);
   }, []);
 
   // Re-apply theme when IDE theme changes (if user chose "Follow IDE")
