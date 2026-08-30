@@ -264,12 +264,22 @@
 
 **代办：**
 
-- [ ] 将 Alarm 绑定到窗口/handler 的父 Disposable，或复用一个生命周期受控的 Alarm。
-- [ ] 成功、超时、session 切换、历史恢复、窗口 dispose 时取消对应请求。
-- [ ] 回调执行前检查 context、session、turn 和 request id 是否仍有效。
-- [ ] 收口 Java 与 JavaScript 两层重试，避免双重重试放大。
-- [ ] 为 pending permission/ask/plan map 增加数量或超时观测。
-- [ ] 增加窗口关闭、session 切换和 frontend 永不 ready 的测试。
+- [x] 将 Alarm 绑定到窗口/handler 的父 Disposable，或复用一个生命周期受控的 Alarm。
+- [x] 成功、超时、session 切换、历史恢复、窗口 dispose 时取消对应请求。
+- [x] 回调执行前检查 context、session、turn 和 request id 是否仍有效。
+- [x] 收口 Java 与 JavaScript 两层重试，避免双重重试放大。
+- [x] 为 pending permission/ask/plan map 增加数量或超时观测。
+- [x] 增加窗口关闭、session 切换和 frontend 永不 ready 的测试。
+
+**整改记录（2026-08-31）：**
+
+- 修改文件：`PermissionActionHandlers.java`、`SessionLifecycleManager.java`、`ChatWindowDelegate.java`，以及 `PermissionActionHandlersTest.java`、`SessionLifecycleManagerTest.java`。
+- 生命周期设计：`PermissionActionHandlers` 复用绑定自身 `Disposable` 的 Swing `Alarm`，集中追踪 frontend-ready 检查；`ChatWindowDelegate.dispose()` 主动释放 handler，避免依赖 `HandlerContext` 后置销毁。session reset 和 dispose 会递增 request generation、取消检查任务、完成并移除全部 pending permission/ask/plan future，已有 safety net 仍负责单请求超时兜底。
+- 迟到回调防护：回调执行前校验 handler/context 未销毁、future 未完成、generation、request identity 和 session identity；成功、fallback、响应和清理均使用条件移除，旧请求不能误删新请求。Java Alarm 保留有界重试和一次 fallback，移除 JavaScript 内部递归 `setTimeout`。
+- 观测与验证：增加 pending request 数量读取，覆盖 frontend check 清理和 dispose 幂等性；session reset 回归测试覆盖统一清理入口。定向验证：`gradlew.bat compileJava --no-daemon` 通过；`gradlew.bat test --tests "com.github.claudecodegui.handler.permission.PermissionActionHandlersTest" --tests "com.github.claudecodegui.session.SessionLifecycleManagerTest" --no-daemon` 通过（14 个测试相关任务成功）。
+- Commit：
+  - `51a004e3 fix(permission): bind dialog retries to handler lifecycle`
+  - `fba1d1e9 test(permission): cover dialog lifecycle cleanup`
 
 **完成标准：**所有 pending future 和 Alarm 都有明确 owner、超时和终止路径。
 
