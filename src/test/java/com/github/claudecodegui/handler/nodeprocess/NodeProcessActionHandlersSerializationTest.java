@@ -129,4 +129,25 @@ public class NodeProcessActionHandlersSerializationTest {
         assertTrue(gatewayJson.get(NodeProcessGatewayPayloadField.LAST_FAILURE.wireKey()).isJsonNull());
     }
 
+    @Test
+    public void processTotalsIncludeGatewayOrphansSeparately() {
+        NodeProcessInfo gateway = NodeProcessInfo.builder()
+                .kind(NodeProcessInfo.Kind.MCP_GATEWAY)
+                .pid(101L)
+                .orphan(true)
+                .build();
+        NodeProcessInfo orphan = NodeProcessInfo.builder()
+                .kind(NodeProcessInfo.Kind.ORPHAN)
+                .pid(102L)
+                .build();
+
+        String json = new NodeProcessActionHandlers(null)
+                .buildProcessListJson(java.util.Arrays.asList(gateway, orphan), RuntimeResourceDiagnostics.empty());
+        JsonObject totals = GsonHolder.GSON.fromJson(json, JsonObject.class)
+                .getAsJsonObject(NodeProcessSnapshotPayloadField.TOTALS.wireKey());
+
+        assertEquals(1, totals.get(NodeProcessTotalsPayloadField.MCP_GATEWAY.wireKey()).getAsInt());
+        assertEquals(1, totals.get(NodeProcessTotalsPayloadField.ORPHAN.wireKey()).getAsInt());
+    }
+
 }

@@ -191,6 +191,7 @@ public class NodeProcessActionHandlers {
         long now = System.currentTimeMillis();
         int daemonCount = 0;
         int channelCount = 0;
+        int mcpGatewayCount = 0;
         int orphanCount = 0;
         int cliSessionCount = 0;
 
@@ -225,6 +226,22 @@ public class NodeProcessActionHandlers {
                 processJson.addProperty(NodeProcessInfoPayloadField.TAB_NAME.wireKey(), info.getTabName());
             }
             processJson.addProperty(NodeProcessInfoPayloadField.ORPHAN.wireKey(), info.isOrphan());
+            if (info.getProjectLifecycleId() != null) {
+                processJson.addProperty(
+                        NodeProcessInfoPayloadField.PROJECT_LIFECYCLE_ID.wireKey(), info.getProjectLifecycleId());
+            }
+            if (info.getRuntimeSessionEpoch() != null) {
+                processJson.addProperty(
+                        NodeProcessInfoPayloadField.RUNTIME_SESSION_EPOCH.wireKey(), info.getRuntimeSessionEpoch());
+            }
+            if (info.getResponseTurnEpoch() != null) {
+                processJson.addProperty(
+                        NodeProcessInfoPayloadField.RESPONSE_TURN_EPOCH.wireKey(), info.getResponseTurnEpoch());
+            }
+            if (info.getProcessGeneration() != null) {
+                processJson.addProperty(
+                        NodeProcessInfoPayloadField.PROCESS_GENERATION.wireKey(), info.getProcessGeneration());
+            }
             array.add(processJson);
 
             switch (info.getKind()) {
@@ -233,6 +250,9 @@ public class NodeProcessActionHandlers {
                     break;
                 case CHANNEL:
                     channelCount++;
+                    break;
+                case MCP_GATEWAY:
+                    mcpGatewayCount++;
                     break;
                 case ORPHAN:
                     orphanCount++;
@@ -246,6 +266,7 @@ public class NodeProcessActionHandlers {
         JsonObject totals = new JsonObject();
         totals.addProperty(NodeProcessTotalsPayloadField.DAEMON.wireKey(), daemonCount);
         totals.addProperty(NodeProcessTotalsPayloadField.CHANNEL.wireKey(), channelCount);
+        totals.addProperty(NodeProcessTotalsPayloadField.MCP_GATEWAY.wireKey(), mcpGatewayCount);
         totals.addProperty(NodeProcessTotalsPayloadField.ORPHAN.wireKey(), orphanCount);
         totals.addProperty(NodeProcessTotalsPayloadField.CLI_SESSION.wireKey(), cliSessionCount);
         totals.addProperty(NodeProcessTotalsPayloadField.ALL.wireKey(), processes.size());

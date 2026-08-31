@@ -3,14 +3,13 @@ package com.github.claudecodegui.service;
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.cli.common.CliPersistentProcess;
 import com.github.claudecodegui.cli.common.CliPersistentProcessRegistry;
-import com.github.claudecodegui.ui.toolwindow.ClaudeChatWindow;
-import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
+import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.service.lifecycle.ProcessLifecycleMetadata;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
-import com.intellij.ui.content.Content;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -97,41 +96,39 @@ public final class NodeProcessRegistry implements Disposable {
         List<NodeProcessInfo> result = new ArrayList<>();
         Set<Long> knownPids = new HashSet<>();
 
-        Set<ClaudeChatWindow> windows = ClaudeChatToolWindow.getAllChatWindowsForProject(project);
-
-        for (ClaudeChatWindow window : windows) {
-            if (window == null) {
+        ProcessManager processManager = NodeService.getInstance().getProcessManager();
+        for (Map.Entry<String, ProcessManager.ActiveProcess> entry
+                : processManager.getActiveChannelProcessSnapshot().entrySet()) {
+            ProcessManager.ActiveProcess active = entry.getValue();
+            Process p = active.process();
+            if (p == null || !p.isAlive()) {
                 continue;
             }
-            String tabName = resolveTabName(window);
-            String sessionId = safeGetSessionId(window);
-            String tabProvider = safeGetCurrentProvider(window);
-
-            Map<String, Process> channels = NodeService.getInstance().getProcessManager().getActiveChannelSnapshot();
-            for (Map.Entry<String, Process> entry : channels.entrySet()) {
-                Process p = entry.getValue();
-                if (p == null || !p.isAlive()) {
-                    continue;
-                }
-                long pid = p.pid();
-                knownPids.add(pid);
-                ProcessHandle.Info info = safeInfo(p);
-                long startedAt = info != null
-                        ? info.startInstant().map(Instant::toEpochMilli).orElse(-1L)
-                        : -1L;
-                result.add(NodeProcessInfo.builder()
-                        .kind(NodeProcessInfo.Kind.CHANNEL)
-                        .provider(tabProvider)
-                        .pid(pid)
-                        .alive(true)
-                        .startedAtMs(startedAt)
-                        .uptimeMs(startedAt > 0 ? Math.max(0, now - startedAt) : 0L)
-                        .command(extractCommand(info))
-                        .channelId(entry.getKey())
-                        .sessionId(sessionId)
-                        .tabName(tabName)
-                        .build());
-            }
+            long pid = p.pid();
+            knownPids.add(pid);
+            ProcessHandle.Info info = safeInfo(p);
+            long startedAt = active.startedAtMs() > 0
+                    ? active.startedAtMs()
+                    : info != null ? info.startInstant().map(Instant::toEpochMilli).orElse(-1L) : -1L;
+            ProcessLifecycleMetadata metadata = active.metadata();
+            result.add(NodeProcessInfo.builder()
+                    .kind(NodeProcessInfo.Kind.CHANNEL)
+                    .provider(null)
+                    .pid(pid)
+                    .alive(true)
+                    .startedAtMs(startedAt)
+                    .uptimeMs(startedAt > 0 ? Math.max(0, now - startedAt) : 0L)
+                    .command(extractCommand(info))
+                    .channelId(entry.getKey())
+                    .projectLifecycleId(metadata != null && metadata.correlation() != null
+                            ? metadata.correlation().projectLifecycleId() : null)
+                    .runtimeSessionEpoch(metadata != null && metadata.correlation() != null
+                            ? metadata.correlation().runtimeSessionEpoch() : null)
+                    .responseTurnEpoch(metadata != null && metadata.correlation() != null
+                            ? metadata.correlation().responseTurnEpoch() : null)
+                    .processGeneration(metadata != null && metadata.correlation() != null
+                            ? metadata.correlation().processGeneration() : null)
+                    .build());
         }
 
         // -- CLI persistent sessions --
@@ -154,6 +151,11 @@ public final class NodeProcessRegistry implements Disposable {
                         .uptimeMs(uptime)
                         .channelId(info.tabId())
                         .sessionId(info.sessionId())
+                        .tabName(info.tabId())
+                        .projectLifecycleId(info.projectLifecycleId())
+                        .runtimeSessionEpoch(info.runtimeSessionEpoch())
+                        .responseTurnEpoch(info.responseTurnEpoch())
+                        .processGeneration(info.processGeneration())
                         .activeRequestCount(info.state() == CliPersistentProcess.State.STREAMING ? 1 : 0)
                         .build());
             }
@@ -216,14 +218,22 @@ public final class NodeProcessRegistry implements Disposable {
                 }
 
                 long startedAt = info.startInstant().map(Instant::toEpochMilli).orElse(-1L);
+                NodeProcessInfo.Kind kind = detectKindFromCmd(fingerprint);
                 result.add(NodeProcessInfo.builder()
-                        .kind(NodeProcessInfo.Kind.ORPHAN)
-                        .provider(detectProviderFromCmd(fingerprint))
+                        .kind(kind)
+                        .provider(kind == NodeProcessInfo.Kind.MCP_GATEWAY
+                                ? null
+                                : detectProviderFromCmd(fingerprint))
                         .pid(pid)
                         .alive(handle.isAlive())
                         .startedAtMs(startedAt)
                         .uptimeMs(startedAt > 0 ? Math.max(0, now - startedAt) : 0L)
                         .command(fingerprint)
+                        .projectLifecycleId(null)
+                        .runtimeSessionEpoch(null)
+                        .responseTurnEpoch(null)
+                        .processGeneration(null)
+                        .orphan(true)
                         .build());
             });
             if (timedOut.get()) {
@@ -358,7 +368,7 @@ public final class NodeProcessRegistry implements Disposable {
         // Orphans in the snapshot already passed the isOwnedByJvm check, so kill
         // them directly — re-running killByPid would rebuild the snapshot per PID.
         for (NodeProcessInfo info : snapshot()) {
-            if (info.getKind() == NodeProcessInfo.Kind.ORPHAN && terminateTrackedPid(info.getPid())) {
+            if (info.isOrphan() && terminateTrackedPid(info.getPid())) {
                 killed++;
             }
         }
@@ -384,26 +394,76 @@ public final class NodeProcessRegistry implements Disposable {
     }
 
     // Package-private for unit testing.
+    static NodeProcessInfo.Kind detectKindFromCmd(String cmd) {
+        if (cmd == null) {
+            return NodeProcessInfo.Kind.ORPHAN;
+        }
+        String lower = cmd.toLowerCase();
+        if (lower.contains("mcp-gateway-server.js") || lower.contains("gateway-stdio-client.js")) {
+            return NodeProcessInfo.Kind.MCP_GATEWAY;
+        }
+        if (lower.contains("daemon.js")) {
+            return NodeProcessInfo.Kind.DAEMON;
+        }
+        return NodeProcessInfo.Kind.ORPHAN;
+    }
+
+    // Package-private for unit testing.
     static @Nullable String detectProviderFromCmd(String cmd) {
         if (cmd == null) {
             return null;
         }
         String lower = cmd.toLowerCase();
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_GROK)) {
+            return CommonConstants.PROVIDER_GROK;
+        }
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_CODEX)) {
+            return CommonConstants.PROVIDER_CODEX;
+        }
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_OPENCODE)) {
+            return CommonConstants.PROVIDER_OPENCODE;
+        }
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_KIMI)) {
+            return CommonConstants.PROVIDER_KIMI;
+        }
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_PI)) {
+            return CommonConstants.PROVIDER_PI;
+        }
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_OMP)) {
+            return CommonConstants.PROVIDER_OMP;
+        }
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_DSH)) {
+            return CommonConstants.PROVIDER_DSH;
+        }
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_CLAUDE)) {
+            return CommonConstants.PROVIDER_CLAUDE;
+        }
         // daemon.js: leftover process from the removed SDK daemon mode (older plugin
-        // versions); such daemons were Claude-only, hence PROVIDER_CLAUDE.
+        // versions); such daemons were Claude-only, hence PROVIDER_CLAUDE. Keep this
+        // fallback after explicit provider tokens so current channel commands win.
         if (lower.contains("daemon.js")) {
             return CommonConstants.PROVIDER_CLAUDE;
         }
-        if (lower.contains("mcp-gateway-server.js") || lower.contains("gateway-stdio-client.js")) {
-            return "mcp-gateway";
-        }
-        if (lower.contains("codex")) {
-            return CommonConstants.PROVIDER_CODEX;
-        }
-        if (lower.contains("claude")) {
-            return CommonConstants.PROVIDER_CLAUDE;
-        }
         return null;
+    }
+
+    private static boolean containsProviderToken(String command, String provider) {
+        int offset = 0;
+        while (offset <= command.length() - provider.length()) {
+            int index = command.indexOf(provider, offset);
+            if (index < 0) {
+                return false;
+            }
+            int end = index + provider.length();
+            boolean leftBoundary = index == 0 || !Character.isLetterOrDigit(command.charAt(index - 1));
+            boolean rightBoundary = end == command.length()
+                    || !Character.isLetterOrDigit(command.charAt(end));
+            if (leftBoundary && rightBoundary) {
+                return true;
+            }
+            offset = index + 1;
+        }
+        return false;
     }
 
     private static @Nullable ProcessHandle.Info safeInfo(Process p) {
@@ -424,46 +484,6 @@ public final class NodeProcessRegistry implements Disposable {
         }
         // Windows fallback: commandLine() may return empty for cross-owner processes
         return info.command().orElse(null);
-    }
-
-    private static @Nullable String safeGetSessionId(ClaudeChatWindow window) {
-        try {
-            String sid = window != null ? window.getSessionId() : null;
-            return (sid != null && !sid.isEmpty()) ? sid : null;
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static String safeGetCurrentProvider(ClaudeChatWindow window) {
-        try {
-            if (window == null) {
-                return CommonConstants.PROVIDER_CLAUDE;
-            }
-            String provider = window.getCurrentProvider();
-            return provider != null && !provider.isEmpty() ? provider : CommonConstants.PROVIDER_CLAUDE;
-        } catch (Exception e) {
-            return CommonConstants.PROVIDER_CLAUDE;
-        }
-    }
-
-    private static @Nullable String resolveTabName(ClaudeChatWindow window) {
-        try {
-            if (window == null) {
-                return null;
-            }
-            // Try parent content's display name first (e.g., "AI1", "AI2")
-            Content content = window.getParentContent();
-            if (content != null) {
-                String displayName = content.getDisplayName();
-                if (displayName != null && !displayName.isEmpty()) {
-                    return displayName;
-                }
-            }
-            return null;
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     @Override

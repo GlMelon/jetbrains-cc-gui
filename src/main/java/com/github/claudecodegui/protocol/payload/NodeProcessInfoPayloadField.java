@@ -18,7 +18,11 @@ public enum NodeProcessInfoPayloadField {
     CHANNEL_ID("channelId", "string", true),
     SESSION_ID("sessionId", "string", true),
     TAB_NAME("tabName", "string", true),
-    ORPHAN("orphan", "boolean", false);
+    ORPHAN("orphan", "boolean", false),
+    PROJECT_LIFECYCLE_ID("projectLifecycleId", "string", true),
+    RUNTIME_SESSION_EPOCH("runtimeSessionEpoch", "string", true),
+    RESPONSE_TURN_EPOCH("responseTurnEpoch", "number", true),
+    PROCESS_GENERATION("processGeneration", "number", true);
 
     private final String wireKey;
     private final String tsType;

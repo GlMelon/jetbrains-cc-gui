@@ -5,13 +5,16 @@ package com.github.claudecodegui.service;
  * Aggregates per-channel processes, persistent CLI session processes, and orphan
  * processes detected via system-level ProcessHandle scanning.
  *
- * <p>Four kinds:
+ * <p>Five kinds:
  * <ul>
  *   <li>{@link Kind#DAEMON}: legacy Claude daemon process. The SDK(daemon) invocation
  *       mode has been removed; this kind is retained only so the panel can still
  *       identify (and let the user clean up) daemon processes left behind by older
  *       plugin versions.</li>
  *   <li>{@link Kind#CHANNEL}: per-request process tracked in a ProcessManager</li>
+ *   <li>{@link Kind#MCP_GATEWAY}: MCP Gateway server or stdio client process. A
+ *       registered Gateway is active; an OS-scanned, unregistered Gateway keeps
+ *       this kind but is additionally marked {@link #isOrphan() orphan}.</li>
  *   <li>{@link Kind#ORPHAN}: detected via ProcessHandle.allProcesses() but not in any registry</li>
  *   <li>{@link Kind#CLI_SESSION}: persistent CLI session process
  *       ({@code CliPersistentProcessRegistry}) — read-only,
@@ -25,6 +28,7 @@ public final class NodeProcessInfo {
     public enum Kind {
         DAEMON("DAEMON"),
         CHANNEL("CHANNEL"),
+        MCP_GATEWAY("MCP_GATEWAY"),
         ORPHAN("ORPHAN"),
         CLI_SESSION("CLI_SESSION");
 
@@ -45,7 +49,7 @@ public final class NodeProcessInfo {
     /** What kind of process this is. */
     private final Kind kind;
 
-    /** "claude" or "codex"; null for orphans without an identifiable provider. */
+    /** Provider identifier; null for Gateway and processes without an identifiable provider. */
     private final String provider;
 
     /** Operating system PID. */
@@ -78,6 +82,18 @@ public final class NodeProcessInfo {
     /** Tab name shown in the IDE (e.g., "AI1") so users can correlate process → tab. */
     private final String tabName;
 
+    /** Stable Project lifecycle identifier; null when ownership is unknown. */
+    private final String projectLifecycleId;
+
+    /** Runtime session epoch; null for project-only, orphan, and auxiliary processes. */
+    private final String runtimeSessionEpoch;
+
+    /** Response turn epoch; null when no active turn is known. */
+    private final Long responseTurnEpoch;
+
+    /** Physical process generation; null when no owner allocated one. */
+    private final Long processGeneration;
+
     /**
      * True when the process appears in the OS process list but our registries
      * don't know about it. Highlighted in the panel with a warning color.
@@ -98,7 +114,11 @@ public final class NodeProcessInfo {
         this.channelId = builder.channelId;
         this.sessionId = builder.sessionId;
         this.tabName = builder.tabName;
-        this.orphan = builder.kind == Kind.ORPHAN;
+        this.projectLifecycleId = builder.projectLifecycleId;
+        this.runtimeSessionEpoch = builder.runtimeSessionEpoch;
+        this.responseTurnEpoch = builder.responseTurnEpoch;
+        this.processGeneration = builder.processGeneration;
+        this.orphan = builder.orphan || builder.kind == Kind.ORPHAN;
     }
 
     public String getId() { return id; }
@@ -115,6 +135,10 @@ public final class NodeProcessInfo {
     public String getSessionId() { return sessionId; }
     public String getTabName() { return tabName; }
     public boolean isOrphan() { return orphan; }
+    public String getProjectLifecycleId() { return projectLifecycleId; }
+    public String getRuntimeSessionEpoch() { return runtimeSessionEpoch; }
+    public Long getResponseTurnEpoch() { return responseTurnEpoch; }
+    public Long getProcessGeneration() { return processGeneration; }
 
     public static Builder builder() {
         return new Builder();
@@ -134,6 +158,11 @@ public final class NodeProcessInfo {
         private String channelId;
         private String sessionId;
         private String tabName;
+        private String projectLifecycleId;
+        private String runtimeSessionEpoch;
+        private Long responseTurnEpoch;
+        private Long processGeneration;
+        private boolean orphan;
 
         public Builder id(String id) {
             this.id = id;
@@ -197,6 +226,31 @@ public final class NodeProcessInfo {
 
         public Builder tabName(String tabName) {
             this.tabName = tabName;
+            return this;
+        }
+
+        public Builder projectLifecycleId(String projectLifecycleId) {
+            this.projectLifecycleId = projectLifecycleId;
+            return this;
+        }
+
+        public Builder runtimeSessionEpoch(String runtimeSessionEpoch) {
+            this.runtimeSessionEpoch = runtimeSessionEpoch;
+            return this;
+        }
+
+        public Builder responseTurnEpoch(Long responseTurnEpoch) {
+            this.responseTurnEpoch = responseTurnEpoch;
+            return this;
+        }
+
+        public Builder processGeneration(Long processGeneration) {
+            this.processGeneration = processGeneration;
+            return this;
+        }
+
+        public Builder orphan(boolean orphan) {
+            this.orphan = orphan;
             return this;
         }
 

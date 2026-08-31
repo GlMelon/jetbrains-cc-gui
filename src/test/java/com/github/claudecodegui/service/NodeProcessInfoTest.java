@@ -46,6 +46,18 @@ public class NodeProcessInfoTest {
     }
 
     @Test
+    public void builderCanMarkGatewayAsOrphanWithoutChangingItsKind() {
+        NodeProcessInfo info = NodeProcessInfo.builder()
+                .kind(NodeProcessInfo.Kind.MCP_GATEWAY)
+                .pid(101L)
+                .orphan(true)
+                .build();
+
+        assertEquals(NodeProcessInfo.Kind.MCP_GATEWAY, info.getKind());
+        assertTrue(info.isOrphan());
+    }
+
+    @Test
     public void builderSynthesizesIdWhenNotProvided() {
         NodeProcessInfo info = NodeProcessInfo.builder()
                 .kind(NodeProcessInfo.Kind.CHANNEL)

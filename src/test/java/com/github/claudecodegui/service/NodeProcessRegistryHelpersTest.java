@@ -89,10 +89,9 @@ public class NodeProcessRegistryHelpersTest {
         assertNull(NodeProcessRegistry.detectProviderFromCmd(null));
     }
 
-    // Grok/Gemini are the providers added by the persistent ACP runtime work.
-    // Mislabeling their live channel-manager process as an orphan is exactly
-    // the "Kill all orphans tears down a live ACP turn" hazard, so their
-    // classification branches must stay pinned.
+    // All supported providers must remain distinguishable in process command
+    // lines. Mislabeling a live channel-manager process is exactly the
+    // "Kill all orphans tears down a live turn" hazard.
 
     @Test
     public void detectProviderClassifiesGrokChannelManager() {
@@ -109,15 +108,37 @@ public class NodeProcessRegistryHelpersTest {
     }
 
     @Test
-    public void detectProviderClassifiesGeminiChannelManager() {
-        assertEquals("gemini",
-                NodeProcessRegistry.detectProviderFromCmd("node /path/channel-manager.js gemini send"));
+    public void detectProviderClassifiesKimiChannelManager() {
+        assertEquals("kimi",
+                NodeProcessRegistry.detectProviderFromCmd("node /path/channel-manager.js kimi send"));
     }
 
     @Test
-    public void detectProviderClassifiesBareGeminiCommand() {
-        assertEquals("gemini",
-                NodeProcessRegistry.detectProviderFromCmd("node /path/gemini-agent.js --stdio"));
+    public void detectProviderClassifiesBareKimiCommand() {
+        assertEquals("kimi",
+                NodeProcessRegistry.detectProviderFromCmd("node /path/kimi-agent.js --stdio"));
+    }
+
+    @Test
+    public void detectProviderCoversAllSupportedProviders() {
+        String[] providers = {"claude", "codex", "opencode", "grok", "kimi", "pi", "omp", "dsh"};
+        for (String provider : providers) {
+            assertEquals(provider, NodeProcessRegistry.detectProviderFromCmd(
+                    "node /path/channel-manager.js " + provider + " send"));
+        }
+    }
+
+    @Test
+    public void detectKindClassifiesGatewayAndLegacyDaemon() {
+        assertEquals(NodeProcessInfo.Kind.MCP_GATEWAY,
+                NodeProcessRegistry.detectKindFromCmd("node /path/mcp-gateway-server.js"));
+        assertEquals(NodeProcessInfo.Kind.MCP_GATEWAY,
+                NodeProcessRegistry.detectKindFromCmd("node /path/gateway-stdio-client.js"));
+        assertEquals(NodeProcessInfo.Kind.DAEMON,
+                NodeProcessRegistry.detectKindFromCmd("node /path/daemon.js"));
+        assertEquals(NodeProcessInfo.Kind.ORPHAN,
+                NodeProcessRegistry.detectKindFromCmd("node /path/other.js"));
+        assertEquals(NodeProcessInfo.Kind.ORPHAN, NodeProcessRegistry.detectKindFromCmd(null));
     }
 
     @Test
@@ -239,6 +260,7 @@ public class NodeProcessRegistryHelpersTest {
         assertTrue(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.CLI_SESSION));
         assertFalse(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.DAEMON));
         assertFalse(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.CHANNEL));
+        assertFalse(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.MCP_GATEWAY));
         assertFalse(NodeProcessRegistry.isProtectedKind(NodeProcessInfo.Kind.ORPHAN));
     }
 

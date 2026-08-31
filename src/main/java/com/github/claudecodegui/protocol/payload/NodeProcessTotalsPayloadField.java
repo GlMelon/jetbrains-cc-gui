@@ -7,6 +7,7 @@ import java.util.Set;
 public enum NodeProcessTotalsPayloadField {
     DAEMON("daemon", "number", false),
     CHANNEL("channel", "number", false),
+    MCP_GATEWAY("mcpGateway", "number", false),
     ORPHAN("orphan", "number", false),
     CLI_SESSION("cliSession", "number", false),
     ALL("all", "number", false);
