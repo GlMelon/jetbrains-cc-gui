@@ -4,6 +4,9 @@ import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.settings.ConfigPathManager;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
+import com.github.claudecodegui.service.lifecycle.LifecycleProcessKind;
 import com.github.claudecodegui.startup.BridgePreloader;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -78,10 +81,12 @@ public final class McpGatewayService implements Disposable {
     private final Path gatewayDir;
     private final Path stateFile;
     private final String token;
+    private final LifecycleObservabilityService lifecycleService;
 
     private volatile McpGatewayProcessHandle processHandle;
     /** 启动已开始但尚未提交到 processHandle 时也必须可被 stop/dispose 终止。 */
     private volatile McpGatewayProcessHandle startingProcessHandle;
+    private long startingProcessGeneration;
     private volatile McpGatewayBridgeClient bridgeClient;
     private McpGatewayConfigSnapshot currentSnapshot;
     private long currentRevision;
@@ -117,6 +122,7 @@ public final class McpGatewayService implements Disposable {
 
     public McpGatewayService(@NotNull Project project) {
         this.project = project;
+        this.lifecycleService = LifecycleObservabilityService.getInstance(project);
         this.collector = new McpGatewayConfigCollector(CodemossSettingsService.getInstance());
         this.gatewayDir = new ConfigPathManager().getConfigDir()
                 .resolve(McpGatewayConstants.DIRECTORY_NAME)
@@ -133,6 +139,7 @@ public final class McpGatewayService implements Disposable {
      */
     McpGatewayService(McpGatewayConfigCollector collector, McpGatewayBridgeClient bridgeClient) {
         this.project = null;
+        this.lifecycleService = null;
         this.collector = collector;
         this.configWriter = null;
         this.gatewayDir = null;
@@ -451,6 +458,8 @@ public final class McpGatewayService implements Disposable {
             }
             lifecycleState = McpGatewayLifecycleState.DEGRADED_DIRECT;
             directDegradedCount++;
+            recordLifecycle(LifecycleEventType.DEGRADED, processHandle,
+                    processGeneration, "DEGRADED_DIRECT: " + diagnostic);
             if (diagnostic != null && !diagnostic.isBlank()) {
                 lastFailure = diagnostic;
             }
@@ -563,7 +572,7 @@ public final class McpGatewayService implements Disposable {
 
         // 进入重建分支时先使旧 generation 失效并清理旧句柄。dispose 会在等待同一把锁前先
         // 翻转不可逆 disposed 闸门,所以下面的每个昂贵 IO/探测边界都必须复核生命周期。
-        List<McpGatewayProcessHandle> staleHandles;
+        List<DetachedProcess> staleHandles;
         synchronized (lock) {
             if (operationGeneration != expectedOperationGeneration) {
                 throw new IllegalStateException("MCP Gateway operation superseded");
@@ -599,7 +608,7 @@ public final class McpGatewayService implements Disposable {
         long coldStartStartNanos = System.nanoTime();
         McpGatewayProcessHandle startedHandle = null;
         boolean committed = false;
-        long generation;
+        long generation = 0L;
         try {
             // Keep process creation and publication of the pending handle in one critical section.
             // This closes the narrow window where dispose/stop could otherwise miss a just-spawned process.
@@ -614,9 +623,21 @@ public final class McpGatewayService implements Disposable {
                     restartCount++;
                 }
                 startingProcessHandle = startedHandle;
+                startingProcessGeneration = generation;
+            }
+            recordLifecycle(LifecycleEventType.SPAWN, startedHandle, generation,
+                    "MCP Gateway process spawned");
+            if (generation > 1L) {
+                recordLifecycle(LifecycleEventType.REBUILD, startedHandle, generation,
+                        "MCP Gateway process rebuilt");
             }
             McpGatewayProcessHandle callbackHandle = startedHandle;
-            startedHandle.setOnExitCallback(() -> onGatewayProcessExit(callbackHandle, generation));
+            final long startedGeneration = generation;
+            startedHandle.setOnExitCallback(() -> {
+                recordLifecycle(LifecycleEventType.EXIT, callbackHandle, startedGeneration,
+                        "MCP Gateway process exited");
+                onGatewayProcessExit(callbackHandle, startedGeneration);
+            });
             throwIfOperationInvalid(expectedOperationGeneration);
 
             McpGatewayBridgeClient startedClient = new McpGatewayBridgeClient(stateFile, token);
@@ -643,9 +664,12 @@ public final class McpGatewayService implements Disposable {
             synchronized (lock) {
                 if (startingProcessHandle == startedHandle) {
                     startingProcessHandle = null;
+                    startingProcessGeneration = 0L;
                 }
             }
             if (!committed && startedHandle != null) {
+                recordLifecycle(LifecycleEventType.TERMINATE, startedHandle, generation,
+                        "MCP Gateway startup failed; process tree terminated");
                 startedHandle.setOnExitCallback(null);
                 startedHandle.stop();
             }
@@ -746,31 +770,41 @@ public final class McpGatewayService implements Disposable {
         }
     }
 
-    private List<McpGatewayProcessHandle> detachProcesses() {
+    private record DetachedProcess(McpGatewayProcessHandle handle, long generation) {
+    }
+
+    private List<DetachedProcess> detachProcesses() {
         McpGatewayProcessHandle activeHandle = processHandle;
         McpGatewayProcessHandle pendingHandle = startingProcessHandle;
+        long activeGeneration = processGeneration;
+        long pendingGeneration = startingProcessGeneration;
         processHandle = null;
         startingProcessHandle = null;
+        startingProcessGeneration = 0L;
         bridgeClient = null;
         processGeneration++;
         if (activeHandle == null) {
-            return pendingHandle == null ? List.of() : List.of(pendingHandle);
+            return pendingHandle == null ? List.of() : List.of(new DetachedProcess(pendingHandle, pendingGeneration));
         }
         if (pendingHandle == null || pendingHandle == activeHandle) {
-            return List.of(activeHandle);
+            return List.of(new DetachedProcess(activeHandle, activeGeneration));
         }
-        return List.of(activeHandle, pendingHandle);
+        return List.of(new DetachedProcess(activeHandle, activeGeneration),
+                new DetachedProcess(pendingHandle, pendingGeneration));
     }
 
-    private void stopDetachedProcesses(List<McpGatewayProcessHandle> staleHandles) {
+    private void stopDetachedProcesses(List<DetachedProcess> staleHandles) {
         if (staleHandles == null) {
             return;
         }
-        for (McpGatewayProcessHandle staleHandle : staleHandles) {
+        for (DetachedProcess detached : staleHandles) {
+            McpGatewayProcessHandle staleHandle = detached.handle();
             if (staleHandle == null) {
                 continue;
             }
             try {
+                recordLifecycle(LifecycleEventType.TERMINATE, staleHandle, detached.generation(),
+                        "MCP Gateway process tree terminated");
                 staleHandle.setOnExitCallback(null);
                 staleHandle.stop();
             } catch (Exception e) {
@@ -838,7 +872,7 @@ public final class McpGatewayService implements Disposable {
         cancelSelfHeal();
         invalidateRefreshFlight();
         McpGatewayBridgeClient client;
-        List<McpGatewayProcessHandle> staleHandles;
+        List<DetachedProcess> staleHandles;
         synchronized (lock) {
             // 覆盖 onExit 在首次 cancel 与获得主锁之间提交 self-heal 的窄竞态。
             cancelSelfHeal();
@@ -877,7 +911,7 @@ public final class McpGatewayService implements Disposable {
         cancelSelfHeal();
         invalidateRefreshFlight();
         McpGatewayBridgeClient client;
-        List<McpGatewayProcessHandle> staleHandles;
+        List<DetachedProcess> staleHandles;
         synchronized (lock) {
             if (isLifecycleDisposed()) {
                 return;
@@ -956,6 +990,26 @@ public final class McpGatewayService implements Disposable {
         if (isLifecycleDisposed()) {
             throw new IllegalStateException("MCP Gateway project lifecycle disposed");
         }
+    }
+
+    private void recordLifecycle(LifecycleEventType type,
+                                 McpGatewayProcessHandle handle,
+                                 long generation,
+                                 String detail) {
+        if (lifecycleService == null) {
+            return;
+        }
+        lifecycleService.record(
+                type,
+                lifecycleService.metadata(
+                        LifecycleProcessKind.MCP_GATEWAY,
+                        null,
+                        null,
+                        generation
+                ),
+                handle != null ? handle.pid() : -1L,
+                detail
+        );
     }
 
     private static String generateToken() {
