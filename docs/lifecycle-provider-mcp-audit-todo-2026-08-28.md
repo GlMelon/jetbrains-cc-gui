@@ -551,6 +551,29 @@
   - `f25120fa i18n(webview): add pending interaction labels`
   - `344347de feat(webview): show pending interaction diagnostics`
   - `b5ee9358 test(webview): cover pending interaction diagnostics`
+  - `a69dcf35 docs(audit): record pending interaction diagnostics`
+
+#### 后续接续说明（2026-08-31）
+
+- 当前边界：P3-02 共 7 个子项，已完成 5 个；尚未完成的是“可关联的 lifecycle/generation id”和“结构化生命周期事件记录”。本次仅完成续作审计与交接记录，尚未开始这两个子项的产品代码或测试代码修改。
+- 续作基线：记录前分支为 `feature/v0.5.4`，HEAD 为 `a69dcf35`，工作树干净。
+- 已确认可复用的现有权威标识：
+  - Session：`SessionState.runtimeSessionEpoch` 是运行时 session epoch，支持读取、设置和旋转，不应再新增一套重复 UUID 状态。
+  - Turn：`SessionState.responseTurnEpoch` / `beginResponseTurn()` 是响应 turn generation；`SessionSendService` 的 Claude、Codex、通用 Codex 协议族三个发送入口都会开启新 turn，覆盖全部 8 Provider。
+  - Runtime 关联：`RuntimeKey(provider, channelId, tabId, runtimeSessionEpoch)` 已用于 provider/tab/session runtime 隔离，但尚未携带 turn 与具体 CLI process generation。
+  - Gateway process：`McpGatewayService.processGeneration` 在 spawn 时递增，并与 process handle 一起防止旧 exit callback 污染新进程；dispose/detach 也会推进 generation，且 `Diagnostics` 已暴露该值。
+- 尚缺能力：
+  - Project 生命周期内稳定且可下发/记录的 `projectLifecycleId`。
+  - one-shot 与 persistent CLI 每次 spawn/rebuild 的统一 `cliProcessGeneration`；不能仅依赖可能复用的 PID。
+  - `NodeProcessInfo` 及其 payload 目前没有 project/session/turn/process generation 关联字段。
+  - spawn、stdin close、stdout EOF、exit、terminate、rebuild、fallback、degraded 尚未形成统一的结构化事件模型和聚合出口。
+- 建议续作顺序：
+  1. 新增 Project scoped lifecycle context，只持有 Project 生命周期稳定 ID；Session 与 Turn 直接复用现有 epoch/generation，避免双写真相源。
+  2. 精读并改造 `ProcessManager`、`NodeProcessRegistry`、`CliPersistentProcess`、`CliPersistentProcessRegistry`，分别覆盖 one-shot 与 persistent spawn/rebuild 边界，再将关联标识汇入进程元数据。
+  3. 以统一 record/DTO 表达只读关联上下文，但由各 owner 的现有状态生成，禁止创建第二套可变生命周期状态。
+  4. 后续再独立实现结构化事件记录；产品代码、协议、Webview、测试、文档继续按性质分批提交。
+- Provider 对称性续作要求：Claude 走专属发送族，Codex 走 Codex 发送族，OpenCode/Grok/Kimi/Pi/OMP/DSH 走通用 Codex 协议族；新增关联标识与事件记录时必须逐项确认三个发送族覆盖全部 8 Provider，并记录 one-shot、persistent、channel/ACP 的有意差异及等价保护。
+- 建议定向验证范围：新增 lifecycle context 纯单元测试、`ProcessManagerRuntimeKeyTest`、persistent process/registry 相关测试，以及必要的源码契约对称性测试；除 CI 门禁或明确广泛连带影响外，不运行全量测试。
 
 ---
 
