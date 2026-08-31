@@ -148,6 +148,10 @@ const nodeProcessGatewayPayloadJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessGatewayPayloadField.java',
 );
+const nodeProcessPendingInteractionsPayloadJavaPath = resolve(
+  __dirname,
+  '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessPendingInteractionsPayloadField.java',
+);
 const nodeProcessDiagnosticsPayloadJavaPath = resolve(
   __dirname,
   '../../src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessDiagnosticsPayloadField.java',
@@ -235,6 +239,7 @@ const REQUIRED_JAVA_SOURCES = [
   nodeProcessActiveProcessesPayloadJavaPath,
   nodeProcessPersistentRegistryPayloadJavaPath,
   nodeProcessGatewayPayloadJavaPath,
+  nodeProcessPendingInteractionsPayloadJavaPath,
   nodeProcessDiagnosticsPayloadJavaPath,
   nodeProcessSnapshotPayloadJavaPath,
   codexProtectedEnvKeyJavaPath,
@@ -615,6 +620,9 @@ function generateManifestFromJavaSources() {
       nodeProcessActiveProcesses: parsePayloadSchema(nodeProcessActiveProcessesPayloadJavaPath),
       nodeProcessPersistentRegistry: parsePayloadSchema(nodeProcessPersistentRegistryPayloadJavaPath),
       nodeProcessGateway: parsePayloadSchema(nodeProcessGatewayPayloadJavaPath),
+      nodeProcessPendingInteractions: parsePayloadSchema(
+        nodeProcessPendingInteractionsPayloadJavaPath,
+      ),
       nodeProcessDiagnostics: parsePayloadSchema(nodeProcessDiagnosticsPayloadJavaPath),
       nodeProcessSnapshot: parsePayloadSchema(nodeProcessSnapshotPayloadJavaPath),
     },
@@ -823,10 +831,17 @@ export interface NodeProcessGatewayPayloadWire {
   directDegradedCount: number;
 }
 
+export interface NodeProcessPendingInteractionsPayloadWire {
+  pendingPermissionRequests: number;
+  pendingToolCalls: number;
+  orphanToolResults: number;
+}
+
 export interface NodeProcessDiagnosticsPayloadWire {
   activeProcesses: NodeProcessActiveProcessesPayloadWire;
   persistentRegistry: NodeProcessPersistentRegistryPayloadWire;
   gateway: NodeProcessGatewayPayloadWire;
+  pendingInteractions: NodeProcessPendingInteractionsPayloadWire;
 }
 
 export interface NodeProcessSnapshotPayloadWire {

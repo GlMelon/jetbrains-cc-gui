@@ -7,6 +7,7 @@ import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.payload.NodeProcessActiveProcessesPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessDiagnosticsPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessGatewayPayloadField;
+import com.github.claudecodegui.protocol.payload.NodeProcessPendingInteractionsPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessInfoPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessPersistentRegistryPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessSnapshotPayloadField;
@@ -273,6 +274,9 @@ public class NodeProcessActionHandlers {
         McpGatewayService.Diagnostics gateway = safeDiagnostics.gateway() == null
                 ? fallback.gateway()
                 : safeDiagnostics.gateway();
+        var pendingInteractions = safeDiagnostics.pendingInteractions() == null
+                ? fallback.pendingInteractions()
+                : safeDiagnostics.pendingInteractions();
 
         JsonObject activeProcessesJson = new JsonObject();
         activeProcessesJson.addProperty(
@@ -328,12 +332,26 @@ public class NodeProcessActionHandlers {
                 NodeProcessGatewayPayloadField.DIRECT_DEGRADED_COUNT.wireKey(),
                 gateway.directDegradedCount());
 
+        JsonObject pendingInteractionsJson = new JsonObject();
+        pendingInteractionsJson.addProperty(
+                NodeProcessPendingInteractionsPayloadField.PENDING_PERMISSION_REQUESTS.wireKey(),
+                pendingInteractions.pendingPermissionRequests());
+        pendingInteractionsJson.addProperty(
+                NodeProcessPendingInteractionsPayloadField.PENDING_TOOL_CALLS.wireKey(),
+                pendingInteractions.pendingToolCalls());
+        pendingInteractionsJson.addProperty(
+                NodeProcessPendingInteractionsPayloadField.ORPHAN_TOOL_RESULTS.wireKey(),
+                pendingInteractions.orphanToolResults());
+
         JsonObject diagnosticsJson = new JsonObject();
         diagnosticsJson.add(
                 NodeProcessDiagnosticsPayloadField.ACTIVE_PROCESSES.wireKey(), activeProcessesJson);
         diagnosticsJson.add(
                 NodeProcessDiagnosticsPayloadField.PERSISTENT_REGISTRY.wireKey(), persistentRegistryJson);
         diagnosticsJson.add(NodeProcessDiagnosticsPayloadField.GATEWAY.wireKey(), gatewayJson);
+        diagnosticsJson.add(
+                NodeProcessDiagnosticsPayloadField.PENDING_INTERACTIONS.wireKey(),
+                pendingInteractionsJson);
         return diagnosticsJson;
     }
 
