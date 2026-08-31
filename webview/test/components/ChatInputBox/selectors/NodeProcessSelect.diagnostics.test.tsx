@@ -25,6 +25,10 @@ vi.mock('react-i18next', () => ({
     t: (key: string, options?: Record<string, string | number>) => {
       const templates: Record<string, string> = {
         'config.nodeProcesses.diagnostics.title': 'Runtime diagnostics',
+        'config.nodeProcesses.diagnostics.pendingInteractions': 'Pending interactions',
+        'config.nodeProcesses.diagnostics.pendingPermissionRequests': 'Permission requests {{count}}',
+        'config.nodeProcesses.diagnostics.pendingToolCalls': 'Tool calls {{count}}',
+        'config.nodeProcesses.diagnostics.orphanToolResults': 'Orphan tool results {{count}}',
         'config.nodeProcesses.diagnostics.activeProcesses': 'Active · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · Total {{all}}',
         'config.nodeProcesses.diagnostics.persistentRegistry': 'Persistent · Size {{size}} · Usable {{usable}} · Pending {{pending}} · Evictions {{evictions}} · Cooldown hits {{cooldownHits}}',
         'config.nodeProcesses.diagnostics.gateway': 'Gateway · {{state}} · Generation {{generation}} · Active {{active}} · Restarts {{restarts}}',
@@ -49,6 +53,11 @@ function snapshotWithFailure(lastFailure: string | null): NodeProcessSnapshot {
     },
     processes: [],
     diagnostics: {
+      pendingInteractions: {
+        pendingPermissionRequests: 14,
+        pendingToolCalls: 15,
+        orphanToolResults: 16,
+      },
       activeProcesses: {
         node: 2,
         cli: 3,
@@ -98,6 +107,9 @@ describe('NodeProcessSelect runtime diagnostics', () => {
 
     const diagnostics = screen.getByTestId('node-process-diagnostics');
     expect(diagnostics.textContent).toContain('Runtime diagnostics');
+    expect(diagnostics.textContent).toContain(
+      'Pending interactions · Permission requests 14 · Tool calls 15 · Orphan tool results 16',
+    );
     expect(diagnostics.textContent).toContain('Active · Node 2 · CLI 3 · MCP 1 · Total 6');
     expect(diagnostics.textContent).toContain('Persistent · Size 4 · Usable 3 · Pending 1 · Evictions 7 · Cooldown hits 8');
     expect(diagnostics.textContent).toContain('Gateway · catalog_loading · Generation 9 · Active 1 · Restarts 10');
