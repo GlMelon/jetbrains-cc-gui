@@ -59,7 +59,9 @@ public class CodexCliSessionRuntime implements SessionRuntime {
                 req.reasoningEffort(),
                 req.permissionSessionId(),
                 req.thinkingOutputEnabled(),
-                req.env()
+                req.env(),
+                req.key().runtimeSessionEpoch(),
+                req.responseTurnEpoch()
         );
     }
 }

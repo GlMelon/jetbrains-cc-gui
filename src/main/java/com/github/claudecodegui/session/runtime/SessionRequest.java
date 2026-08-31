@@ -30,7 +30,8 @@ public record SessionRequest(
         Boolean streaming,
         Boolean disableThinking,
         Boolean thinkingOutputEnabled,
-        Map<String, String> env
+        Map<String, String> env,
+        long responseTurnEpoch
 ) {
     public SessionRequest(
             RuntimeKey key,
@@ -69,7 +70,8 @@ public record SessionRequest(
                 streaming,
                 disableThinking,
                 Boolean.TRUE,
-                env
+                env,
+                0L
         );
     }
 
