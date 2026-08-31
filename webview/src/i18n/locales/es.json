@@ -1124,6 +1124,10 @@
       "refresh": "Actualizar",
       "diagnostics": {
         "title": "Diagnóstico de ejecución",
+        "pendingInteractions": "Interacciones pendientes",
+        "pendingPermissionRequests": "Solicitudes de permiso {{count}}",
+        "pendingToolCalls": "Llamadas de herramientas {{count}}",
+        "orphanToolResults": "Resultados de herramienta huérfanos {{count}}",
         "activeProcesses": "Activos · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · Total {{all}}",
         "persistentRegistry": "Registro persistente · Tamaño {{size}} · Utilizables {{usable}} · Pendientes {{pending}} · Expulsiones {{evictions}} · Cooldown {{cooldownHits}}",
         "gateway": "Gateway · {{state}} · Generación {{generation}} · Activos {{active}} · Reinicios {{restarts}}",

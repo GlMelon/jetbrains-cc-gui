@@ -1124,6 +1124,10 @@
       "refresh": "रीफ्रेश",
       "diagnostics": {
         "title": "रनटाइम निदान",
+        "pendingInteractions": "लंबित इंटरैक्शन",
+        "pendingPermissionRequests": "अनुमति अनुरोध {{count}}",
+        "pendingToolCalls": "टूल कॉल {{count}}",
+        "orphanToolResults": "अनाथ टूल परिणाम {{count}}",
         "activeProcesses": "सक्रिय · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · कुल {{all}}",
         "persistentRegistry": "स्थायी रजिस्ट्री · आकार {{size}} · उपयोग योग्य {{usable}} · लंबित {{pending}} · निष्कासन {{evictions}} · कूलडाउन हिट {{cooldownHits}}",
         "gateway": "गेटवे · {{state}} · जनरेशन {{generation}} · सक्रिय {{active}} · रीस्टार्ट {{restarts}}",

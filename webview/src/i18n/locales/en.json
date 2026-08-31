@@ -1464,6 +1464,10 @@
       "refresh": "Refresh",
       "diagnostics": {
         "title": "Runtime diagnostics",
+        "pendingInteractions": "Pending interactions",
+        "pendingPermissionRequests": "Permission requests {{count}}",
+        "pendingToolCalls": "Tool calls {{count}}",
+        "orphanToolResults": "Orphan tool results {{count}}",
         "activeProcesses": "Active · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · Total {{all}}",
         "persistentRegistry": "Persistent · Size {{size}} · Usable {{usable}} · Pending {{pending}} · Evictions {{evictions}} · Cooldown hits {{cooldownHits}}",
         "gateway": "Gateway · {{state}} · Generation {{generation}} · Active {{active}} · Restarts {{restarts}}",

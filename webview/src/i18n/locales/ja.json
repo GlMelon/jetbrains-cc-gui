@@ -1129,6 +1129,10 @@
       "refresh": "更新",
       "diagnostics": {
         "title": "ランタイム診断",
+        "pendingInteractions": "保留中のインタラクション",
+        "pendingPermissionRequests": "権限リクエスト {{count}}",
+        "pendingToolCalls": "ツール呼び出し {{count}}",
+        "orphanToolResults": "孤立ツール結果 {{count}}",
         "activeProcesses": "稼働中 · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · 合計 {{all}}",
         "persistentRegistry": "常駐レジストリ · サイズ {{size}} · 使用可能 {{usable}} · 再構築待ち {{pending}} · 破棄 {{evictions}} · クールダウン該当 {{cooldownHits}}",
         "gateway": "ゲートウェイ · {{state}} · 世代 {{generation}} · 稼働中 {{active}} · 再起動 {{restarts}}",

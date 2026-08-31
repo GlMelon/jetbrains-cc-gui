@@ -1227,6 +1227,10 @@
       "refresh": "새로고침",
       "diagnostics": {
         "title": "런타임 진단",
+        "pendingInteractions": "대기 중 상호작용",
+        "pendingPermissionRequests": "권한 요청 {{count}}",
+        "pendingToolCalls": "도구 호출 {{count}}",
+        "orphanToolResults": "고립된 도구 결과 {{count}}",
         "activeProcesses": "활성 · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · 합계 {{all}}",
         "persistentRegistry": "상주 레지스트리 · 크기 {{size}} · 사용 가능 {{usable}} · 재빌드 대기 {{pending}} · 제거 {{evictions}} · 쿨다운 적중 {{cooldownHits}}",
         "gateway": "게이트웨이 · {{state}} · 세대 {{generation}} · 활성 {{active}} · 재시작 {{restarts}}",

@@ -1505,6 +1505,10 @@
       "refresh": "刷新",
       "diagnostics": {
         "title": "运行时诊断",
+        "pendingInteractions": "待处理交互",
+        "pendingPermissionRequests": "权限请求 {{count}}",
+        "pendingToolCalls": "工具调用 {{count}}",
+        "orphanToolResults": "孤立工具结果 {{count}}",
         "activeProcesses": "活跃进程 · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · 总计 {{all}}",
         "persistentRegistry": "长驻注册表 · 大小 {{size}} · 可用 {{usable}} · 待重建 {{pending}} · 淘汰 {{evictions}} · 冷却命中 {{cooldownHits}}",
         "gateway": "网关 · {{state}} · 世代 {{generation}} · 活跃 {{active}} · 重启 {{restarts}}",

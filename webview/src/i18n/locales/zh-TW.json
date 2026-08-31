@@ -1155,6 +1155,10 @@
       "refresh": "重新整理",
       "diagnostics": {
         "title": "執行階段診斷",
+        "pendingInteractions": "待處理互動",
+        "pendingPermissionRequests": "權限請求 {{count}}",
+        "pendingToolCalls": "工具呼叫 {{count}}",
+        "orphanToolResults": "孤立工具結果 {{count}}",
         "activeProcesses": "活躍程序 · Node {{node}} · CLI {{cli}} · MCP {{mcp}} · 總計 {{all}}",
         "persistentRegistry": "常駐註冊表 · 大小 {{size}} · 可用 {{usable}} · 待重建 {{pending}} · 淘汰 {{evictions}} · 冷卻命中 {{cooldownHits}}",
         "gateway": "閘道 · {{state}} · 世代 {{generation}} · 活躍 {{active}} · 重新啟動 {{restarts}}",
