@@ -6,11 +6,13 @@ import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.protocol.payload.NodeProcessActiveProcessesPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessDiagnosticsPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessGatewayPayloadField;
+import com.github.claudecodegui.protocol.payload.NodeProcessPendingInteractionsPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessInfoPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessPersistentRegistryPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessSnapshotPayloadField;
 import com.github.claudecodegui.protocol.payload.NodeProcessTotalsPayloadField;
 import com.github.claudecodegui.service.NodeProcessInfo;
+import com.github.claudecodegui.service.PendingInteractionDiagnosticsService;
 import com.github.claudecodegui.service.RuntimeResourceDiagnostics;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonObject;
@@ -43,7 +45,8 @@ public class NodeProcessActionHandlersSerializationTest {
                         6L,
                         7L,
                         8L,
-                        9L));
+                        9L),
+                new PendingInteractionDiagnosticsService.Snapshot(2, 3, 4));
 
         String json = new NodeProcessActionHandlers(null)
                 .buildProcessListJson(Collections.singletonList(process), diagnostics);
@@ -61,6 +64,12 @@ public class NodeProcessActionHandlersSerializationTest {
                 payload.getAsJsonObject("gateway").get("lifecycleState").getAsString());
         assertEquals(9L, payload.getAsJsonObject("gateway").get("directDegradedCount").getAsLong());
         assertFalse(payload.getAsJsonObject("gateway").get("refreshInFlight").getAsBoolean());
+        assertEquals(2, payload.getAsJsonObject("pendingInteractions")
+                .get("pendingPermissionRequests").getAsInt());
+        assertEquals(3, payload.getAsJsonObject("pendingInteractions")
+                .get("pendingToolCalls").getAsInt());
+        assertEquals(4, payload.getAsJsonObject("pendingInteractions")
+                .get("orphanToolResults").getAsInt());
     }
 
     @Test
@@ -97,6 +106,8 @@ public class NodeProcessActionHandlersSerializationTest {
                 NodeProcessDiagnosticsPayloadField.PERSISTENT_REGISTRY.wireKey());
         JsonObject gatewayJson = diagnosticsJson.getAsJsonObject(
                 NodeProcessDiagnosticsPayloadField.GATEWAY.wireKey());
+        JsonObject pendingInteractionsJson = diagnosticsJson.getAsJsonObject(
+                NodeProcessDiagnosticsPayloadField.PENDING_INTERACTIONS.wireKey());
 
         assertEquals(NodeProcessSnapshotPayloadField.wireKeys(), root.keySet());
         assertEquals(NodeProcessInfoPayloadField.wireKeys(), processJson.keySet());
@@ -106,6 +117,12 @@ public class NodeProcessActionHandlersSerializationTest {
         assertEquals(
                 NodeProcessPersistentRegistryPayloadField.wireKeys(), persistentRegistryJson.keySet());
         assertEquals(NodeProcessGatewayPayloadField.wireKeys(), gatewayJson.keySet());
+        assertEquals(
+                NodeProcessPendingInteractionsPayloadField.wireKeys(),
+                pendingInteractionsJson.keySet());
+        assertEquals(0, pendingInteractionsJson.get(
+                NodeProcessPendingInteractionsPayloadField.PENDING_PERMISSION_REQUESTS.wireKey())
+                .getAsInt());
         assertEquals(
                 NodeProcessInfo.Kind.CLI_SESSION.value(),
                 processJson.get(NodeProcessInfoPayloadField.KIND.wireKey()).getAsString());

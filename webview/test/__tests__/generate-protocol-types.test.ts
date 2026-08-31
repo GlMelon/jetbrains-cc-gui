@@ -467,6 +467,28 @@ describe('generateFromManifest — C1 payload interface generation', () => {
             },
           ],
         },
+        nodeProcessPendingInteractions: {
+          fields: [
+            {
+              name: 'PENDING_PERMISSION_REQUESTS',
+              wireKey: 'pendingPermissionRequests',
+              tsType: 'number',
+              optional: false,
+            },
+            {
+              name: 'PENDING_TOOL_CALLS',
+              wireKey: 'pendingToolCalls',
+              tsType: 'number',
+              optional: false,
+            },
+            {
+              name: 'ORPHAN_TOOL_RESULTS',
+              wireKey: 'orphanToolResults',
+              tsType: 'number',
+              optional: false,
+            },
+          ],
+        },
         nodeProcessDiagnostics: {
           fields: [
             {
@@ -485,6 +507,12 @@ describe('generateFromManifest — C1 payload interface generation', () => {
               name: 'GATEWAY',
               wireKey: 'gateway',
               tsType: 'NodeProcessGatewayPayloadWire',
+              optional: false,
+            },
+            {
+              name: 'PENDING_INTERACTIONS',
+              wireKey: 'pendingInteractions',
+              tsType: 'NodeProcessPendingInteractionsPayloadWire',
               optional: false,
             },
           ],
@@ -515,8 +543,15 @@ describe('generateFromManifest — C1 payload interface generation', () => {
     expect(ts).toContain('export interface NodeProcessInfoPayloadWire {');
     expect(ts).toContain('  kind: NodeProcessKind;');
     expect(ts).toContain('  provider?: string;');
+    expect(ts).toContain('export interface NodeProcessPendingInteractionsPayloadWire {');
+    expect(ts).toContain('  pendingPermissionRequests: number;');
+    expect(ts).toContain('  pendingToolCalls: number;');
+    expect(ts).toContain('  orphanToolResults: number;');
     expect(ts).toContain('export interface NodeProcessDiagnosticsPayloadWire {');
     expect(ts).toContain('  gateway: NodeProcessGatewayPayloadWire;');
+    expect(ts).toContain(
+      '  pendingInteractions: NodeProcessPendingInteractionsPayloadWire;',
+    );
     expect(ts).toContain('  lastFailure: string | null;');
     expect(ts).toContain('export interface NodeProcessSnapshotPayloadWire {');
     expect(ts).toContain('  processes: readonly NodeProcessInfoPayloadWire[];');
