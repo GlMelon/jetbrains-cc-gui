@@ -683,6 +683,21 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
             {t('config.nodeProcesses.diagnostics.title')}
           </div>
           <div style={DIAGNOSTICS_ROW_STYLE}>
+            {t('config.nodeProcesses.diagnostics.pendingInteractions')}
+            {' · '}
+            {t('config.nodeProcesses.diagnostics.pendingPermissionRequests', {
+              count: diagnostics.pendingInteractions.pendingPermissionRequests,
+            })}
+            {' · '}
+            {t('config.nodeProcesses.diagnostics.pendingToolCalls', {
+              count: diagnostics.pendingInteractions.pendingToolCalls,
+            })}
+            {' · '}
+            {t('config.nodeProcesses.diagnostics.orphanToolResults', {
+              count: diagnostics.pendingInteractions.orphanToolResults,
+            })}
+          </div>
+          <div style={DIAGNOSTICS_ROW_STYLE}>
             {t('config.nodeProcesses.diagnostics.activeProcesses', {
               node: diagnostics.activeProcesses.node,
               cli: diagnostics.activeProcesses.cli,
