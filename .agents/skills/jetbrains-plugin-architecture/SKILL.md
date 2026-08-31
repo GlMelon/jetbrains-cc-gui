@@ -29,7 +29,7 @@ metadata:
 
 - 生成或修改**前后端任一代码**（Java / TypeScript / Node）
 - 新增**上行 action / 下行 event** 或对应 handler
-- 对接或扩展 **AI provider**（Claude / Codex / OpenCode）任一调用路径
+- 对接或扩展 **AI provider**（Claude / Codex / OpenCode / Grok / Kimi / Pi / OMP / DSH）任一调用路径
 - 调整**目录结构**、新增领域模块、新增协议枚举
 - 编写或修改**测试**、撰写 **Git 提交信息**
 - 代码审查 / 自检合规
@@ -45,7 +45,7 @@ metadata:
 | 三 | 契约层单一真相源(SSOT) | 高 | 协议名/payload/枚举/默认值/常量唯一来源 | [`principle-3-contract-ssot.md`](references/principle-3-contract-ssot.md) |
 | 四 | 组件化与复用 | 中 | 重复逻辑消除二义：组件化或下沉后端单点 | [`principle-4-component-reuse.md`](references/principle-4-component-reuse.md) |
 | 五 | 拓展点预留 | 中 | 可能变化的能力预留扩展接口，新增实现不改既有代码 | [`principle-5-extension-points.md`](references/principle-5-extension-points.md) |
-| 六 | 多 provider 对称/完整/健壮 | 高 | 6 条调用路径等价、全覆盖、确定性取消 | [`principle-6-provider-symmetry.md`](references/principle-6-provider-symmetry.md) |
+| 六 | 多 provider 对称/完整/健壮 | 高 | 8 个 Provider 的 CLI 路径等价、全覆盖、确定性取消 | [`principle-6-provider-symmetry.md`](references/principle-6-provider-symmetry.md) |
 
 ## 参考文档索引
 

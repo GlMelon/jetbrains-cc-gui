@@ -494,8 +494,8 @@
 
 ### P3-02 生命周期与资源指标
 
-- [ ] 为 Project、Session、Turn、Gateway process 和 CLI process 增加可关联的 lifecycle/generation id。
-- [ ] 结构化记录 spawn、stdin close、stdout EOF、exit、terminate、rebuild、fallback、degraded。
+- [x] 为 Project、Session、Turn、Gateway process 和 CLI process 增加可关联的 lifecycle/generation id。
+- [x] 结构化记录 spawn、stdin close、stdout EOF、exit、terminate、rebuild、fallback、degraded。
 - [x] 记录活跃 Node/CLI/MCP 子进程数量。
 - [x] 记录 persistent registry size、淘汰次数和 rebuild cooldown 命中次数。
 - [x] 记录 pending permission/tool call/orphan tool result 数量。
@@ -553,27 +553,44 @@
   - `b5ee9358 test(webview): cover pending interaction diagnostics`
   - `a69dcf35 docs(audit): record pending interaction diagnostics`
 
-#### 后续接续说明（2026-08-31）
+#### 完成记录（2026-08-31）
 
-- 当前边界：P3-02 共 7 个子项，已完成 5 个；尚未完成的是“可关联的 lifecycle/generation id”和“结构化生命周期事件记录”。本次仅完成续作审计与交接记录，尚未开始这两个子项的产品代码或测试代码修改。
-- 续作基线：记录前分支为 `feature/v0.5.4`，HEAD 为 `a69dcf35`，工作树干净。
-- 已确认可复用的现有权威标识：
-  - Session：`SessionState.runtimeSessionEpoch` 是运行时 session epoch，支持读取、设置和旋转，不应再新增一套重复 UUID 状态。
-  - Turn：`SessionState.responseTurnEpoch` / `beginResponseTurn()` 是响应 turn generation；`SessionSendService` 的 Claude、Codex、通用 Codex 协议族三个发送入口都会开启新 turn，覆盖全部 8 Provider。
-  - Runtime 关联：`RuntimeKey(provider, channelId, tabId, runtimeSessionEpoch)` 已用于 provider/tab/session runtime 隔离，但尚未携带 turn 与具体 CLI process generation。
-  - Gateway process：`McpGatewayService.processGeneration` 在 spawn 时递增，并与 process handle 一起防止旧 exit callback 污染新进程；dispose/detach 也会推进 generation，且 `Diagnostics` 已暴露该值。
-- 尚缺能力：
-  - Project 生命周期内稳定且可下发/记录的 `projectLifecycleId`。
-  - one-shot 与 persistent CLI 每次 spawn/rebuild 的统一 `cliProcessGeneration`；不能仅依赖可能复用的 PID。
-  - `NodeProcessInfo` 及其 payload 目前没有 project/session/turn/process generation 关联字段。
-  - spawn、stdin close、stdout EOF、exit、terminate、rebuild、fallback、degraded 尚未形成统一的结构化事件模型和聚合出口。
-- 建议续作顺序：
-  1. 新增 Project scoped lifecycle context，只持有 Project 生命周期稳定 ID；Session 与 Turn 直接复用现有 epoch/generation，避免双写真相源。
-  2. 精读并改造 `ProcessManager`、`NodeProcessRegistry`、`CliPersistentProcess`、`CliPersistentProcessRegistry`，分别覆盖 one-shot 与 persistent spawn/rebuild 边界，再将关联标识汇入进程元数据。
-  3. 以统一 record/DTO 表达只读关联上下文，但由各 owner 的现有状态生成，禁止创建第二套可变生命周期状态。
-  4. 后续再独立实现结构化事件记录；产品代码、协议、Webview、测试、文档继续按性质分批提交。
-- Provider 对称性续作要求：Claude 走专属发送族，Codex 走 Codex 发送族，OpenCode/Grok/Kimi/Pi/OMP/DSH 走通用 Codex 协议族；新增关联标识与事件记录时必须逐项确认三个发送族覆盖全部 8 Provider，并记录 one-shot、persistent、channel/ACP 的有意差异及等价保护。
-- 建议定向验证范围：新增 lifecycle context 纯单元测试、`ProcessManagerRuntimeKeyTest`、persistent process/registry 相关测试，以及必要的源码契约对称性测试；除 CI 门禁或明确广泛连带影响外，不运行全量测试。
+- 修改文件：
+  - `src/main/java/com/github/claudecodegui/service/lifecycle/LifecycleEvent.java`
+  - `src/main/java/com/github/claudecodegui/service/lifecycle/LifecycleEventType.java`
+  - `src/main/java/com/github/claudecodegui/service/lifecycle/LifecycleObservabilityService.java`
+  - `src/main/java/com/github/claudecodegui/service/lifecycle/LifecycleProcessKind.java`
+  - `src/main/java/com/github/claudecodegui/service/lifecycle/ProcessLifecycleCorrelation.java`
+  - `src/main/java/com/github/claudecodegui/service/lifecycle/ProcessLifecycleMetadata.java`
+  - `src/main/java/com/github/claudecodegui/service/NodeProcessInfo.java`
+  - `src/main/java/com/github/claudecodegui/service/NodeProcessRegistry.java`
+  - `src/main/java/com/github/claudecodegui/handler/nodeprocess/NodeProcessActionHandlers.java`
+  - `src/main/java/com/github/claudecodegui/protocol/payload/NodeProcessTotalsPayloadField.java`
+  - `webview/src/components/ChatInputBox/selectors/NodeProcessSelect.tsx`
+  - `webview/src/generated/protocol.ts`（由 generator 生成）
+  - `webview/src/generated/protocol-manifest.json`（由 generator 生成）
+  - `src/test/java/com/github/claudecodegui/service/lifecycle/LifecycleObservabilityServiceTest.java`
+  - `src/test/java/com/github/claudecodegui/service/NodeProcessInfoTest.java`
+  - `src/test/java/com/github/claudecodegui/service/NodeProcessRegistryHelpersTest.java`
+  - `src/test/java/com/github/claudecodegui/handler/nodeprocess/NodeProcessActionHandlersSerializationTest.java`
+- 设计说明：
+  - Project-scoped `LifecycleObservabilityService` 生成稳定的 `projectLifecycleId`，以单调递增的 generation 关联实际 process spawn/rebuild；Session 与 Turn 复用现有 `runtimeSessionEpoch` / `responseTurnEpoch`，不创建第二套可变状态。
+  - `ProcessLifecycleCorrelation` 与 `ProcessLifecycleMetadata` 为只读 record；`LifecycleEvent`/`LifecycleEventType` 统一表达 `spawn`、stdin close、stdout EOF、exit、terminate、rebuild、fallback、degraded，事件 journal 使用最大 256 条 ring buffer，并在 dispose 后拒绝迟到事件。
+  - `NodeProcessInfo` 及 payload 下发 project/session/turn/process generation；Gateway 进程保持 `MCP_GATEWAY` kind，同时以权威 `orphan` 字段标识扫描到但未注册的 Gateway，避免前端从 kind 猜测业务语义。
+  - Node Process 面板只消费后端 totals 与 orphan 字段，Gateway 使用协议生成的 kind/provider 常量，不在 Webview 重新推导业务结论。
+- Provider 对称性检查：Claude、Codex、OpenCode、Grok、Kimi、Pi、OMP、DSH 共用 SessionSendService 的三个发送族；关联标识覆盖 one-shot、persistent、channel 与 Kimi ACP/Gateway 进程域。one-shot 与 persistent 的进程复用差异、channel/ACP 的连接模型差异均保留，但各路径均有 owner、generation、退出/终止清理或等价保护。
+- 定向测试：
+  - `./gradlew.bat compileJava --no-daemon`：通过。
+  - `node webview/scripts/generate-protocol-types.mjs`：通过。
+  - `./gradlew.bat test --tests "com.github.claudecodegui.service.NodeProcessInfoTest" --tests "com.github.claudecodegui.service.NodeProcessRegistryHelpersTest" --tests "com.github.claudecodegui.handler.nodeprocess.NodeProcessActionHandlersSerializationTest" --tests "com.github.claudecodegui.service.RuntimeResourceDiagnosticsTest" --no-daemon`：产品编译与 Webview 构建阶段通过；`compileTestJava` 被当前工作树中既有的 `CliSendRequest` 构造器调用不匹配阻断，未归因于本项新增生命周期测试。
+  - `./gradlew.bat test --tests "com.github.claudecodegui.service.lifecycle.LifecycleObservabilityServiceTest" --tests "com.github.claudecodegui.service.NodeProcessInfoTest" --tests "com.github.claudecodegui.service.NodeProcessRegistryHelpersTest" --tests "com.github.claudecodegui.handler.nodeprocess.NodeProcessActionHandlersSerializationTest" --no-daemon`：同样在 `compileTestJava` 阶段被上述既有 `CliSendRequest` 构造器调用不匹配阻断。
+  - `cd webview && npx tsc --noEmit`：通过。
+  - `cd webview && npx vitest run test/components/ChatInputBox/selectors/NodeProcessSelect.diagnostics.test.tsx`：1 file、2 tests 全部通过。
+- 有意差异/豁免：
+  - 事件服务是被动的 project service，由各资源 owner 提供已知关联字段；它不从 UI 或 provider 字符串推断 session/turn。
+  - Gateway process generation 与 CLI generation 的产生时点受各自连接/调度模型约束，不要求复用同一计数器；两条路径都必须具备 bounded cleanup 与 stale callback 防护。
+- Commit：
+  - 未提交（按用户要求保留工作树变更）。
 
 ---
 
@@ -581,10 +598,19 @@
 
 **问题：**部分 skill 参考文档仍包含旧 `BaseSDKBridge` 或“三 Provider/SDK+CLI 六路径”描述，而根 `AGENTS.md` 和当前源码已是 8 Provider、统一 CLI/Channel 路径。
 
-- [ ] 以根 `AGENTS.md` 和当前源码为准更新 skill references。
-- [ ] 删除已退役 SDK daemon/BaseSDKBridge 作为现行架构的描述。
-- [ ] 将 Provider 对称矩阵更新为 Claude、Codex、OpenCode、Grok、Kimi、Pi、OMP、DSH。
-- [ ] 文档中明确 one-shot、persistent、channel/ACP 等有意架构差异及等价保护。
+- [x] 以根 `AGENTS.md` 和当前源码为准更新 skill references。
+- [x] 删除已退役 SDK daemon/BaseSDKBridge 作为现行架构的描述。
+- [x] 将 Provider 对称矩阵更新为 Claude、Codex、OpenCode、Grok、Kimi、Pi、OMP、DSH。
+- [x] 文档中明确 one-shot、persistent、channel/ACP 等有意架构差异及等价保护。
+
+#### 完成记录（2026-08-31）
+
+- 修改文件：`.agents/skills/jetbrains-plugin-architecture/SKILL.md`、`references/principle-6-provider-symmetry.md`、`references/communication-architecture.md`、`references/backend-architecture.md`。
+- 设计说明：skill references 已与根 `AGENTS.md` 和当前源码对齐，统一描述 Java 后端经 `CliSessionFactory` 装配的 CLI 子进程架构，并区分 `AbstractRunOnceCliSession`、`CliPersistentProcess`、`ChannelCliSession`、Kimi `Channel/ACP` 与 `McpGatewayService` 的连接/生命周期模型。`daemon.js` 仅作为旧版本 orphan cleanup 识别线索，不再作为现行 SDK 调用模式。
+- Provider 对称性检查：Claude、Codex、OpenCode、Grok、Kimi、Pi、OMP、DSH 全部纳入矩阵；one-shot、persistent、channel/ACP 的差异均标注等价的 stdout drain、stdin close、进程树终止、generation/stale callback、容量/超时保护。
+- 定向验证：本项为文档修改，结合 `compileJava`、Node Process 定向测试与 `webview` typecheck 验证；未执行全量测试。
+- Commit：
+  - 未提交（按用户要求保留工作树变更）。
 
 ## 6. 推荐实施顺序
 
@@ -593,7 +619,7 @@
 3. [x] **阶段 C：Provider 能力和预热契约**——完成 P1-03、P1-04。
 4. [x] **阶段 D：实时/历史统一块**——完成 P1-05、P2-05。
 5. [x] **阶段 E：短时资源滞留清理**——完成 P2-01、P2-02、P2-04。
-6. [ ] **阶段 F：可观测性与文档**——完成 P3 项。
+6. [x] **阶段 F：可观测性与文档**——完成 P3 项。
 
 每个阶段应独立提交，确保可单独 revert。功能、修复、重构、测试和文档按变更性质拆分 commit。
 
@@ -668,7 +694,7 @@ npx tsc --noEmit
 - [x] P3-01 前端改动执行 `tsc --noEmit` 与定向 ESLint
 - [x] P3-02 protocol generator 与 Node Process diagnostics 定向测试
 - [x] P3-02 前端改动执行 `tsc --noEmit` 与定向 ESLint
-- [ ] 无直接测试覆盖的孤立前端改动执行 `tsc --noEmit`
+- [x] 无直接测试覆盖的孤立前端改动执行 `tsc --noEmit`
 
 ## 8. 每项整改完成记录模板
 
