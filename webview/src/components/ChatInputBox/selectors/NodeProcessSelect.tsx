@@ -16,6 +16,7 @@ import {
   type NodeProcessSnapshot,
 } from '../../../utils/nodeProcessCapabilities';
 import { UnifiedLoader } from '../../UnifiedLoader';
+import { NODE_PROCESS_KIND, PROVIDER_TYPE } from '../../../generated/protocol';
 
 interface NodeProcessSelectProps {
   embedded?: boolean;
@@ -286,24 +287,26 @@ function formatBytes(bytes: number): string {
 }
 
 function providerIcon(provider?: string, kind?: string): string {
-  if (kind === 'CLI_SESSION') return 'codicon-terminal';
-  if (kind === 'ORPHAN') return 'codicon-warning';
-  if (provider === 'claude') return 'codicon-server-process';
-  if (provider === 'codex') return 'codicon-comment-discussion';
+  if (kind === NODE_PROCESS_KIND.CLI_SESSION) return 'codicon-terminal';
+  if (kind === NODE_PROCESS_KIND.MCP_GATEWAY) return 'codicon-server-process';
+  if (kind === NODE_PROCESS_KIND.ORPHAN) return 'codicon-warning';
+  if (provider === PROVIDER_TYPE.CLAUDE) return 'codicon-server-process';
+  if (provider === PROVIDER_TYPE.CODEX) return 'codicon-comment-discussion';
   return 'codicon-debug-disconnect';
 }
 
 function kindColor(kind: string): string {
-  if (kind === 'DAEMON') return '#3fb950';
-  if (kind === 'CHANNEL') return '#d29922';
-  if (kind === 'ORPHAN') return '#d9534f';
-  if (kind === 'CLI_SESSION') return '#58a6ff';
+  if (kind === NODE_PROCESS_KIND.DAEMON) return '#3fb950';
+  if (kind === NODE_PROCESS_KIND.CHANNEL) return '#d29922';
+  if (kind === NODE_PROCESS_KIND.MCP_GATEWAY) return '#a371f7';
+  if (kind === NODE_PROCESS_KIND.ORPHAN) return '#d9534f';
+  if (kind === NODE_PROCESS_KIND.CLI_SESSION) return '#58a6ff';
   return 'var(--text-secondary)';
 }
 
 /**
  * NodeProcessSelect - secondary menu that lists all Node.js child processes
- * for the current project, grouped by kind (daemon / channel / orphan).
+ * for the current project, grouped by kind (daemon / channel / Gateway / orphan).
  *
  * Designed to mirror RuntimeProviderSelect's `embedded` pattern so it can be
  * dropped into ConfigSelect's submenu slot.
@@ -429,19 +432,25 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
   const grouped = useMemo(() => {
     const daemon: NodeProcessInfo[] = [];
     const channel: NodeProcessInfo[] = [];
+    const mcpGateway: NodeProcessInfo[] = [];
     const orphan: NodeProcessInfo[] = [];
     const cliSession: NodeProcessInfo[] = [];
-    if (!snapshot) return { daemon, channel, orphan, cliSession };
+    if (!snapshot) return { daemon, channel, mcpGateway, orphan, cliSession };
     for (const proc of snapshot.processes) {
-      if (proc.kind === 'DAEMON') daemon.push(proc);
-      else if (proc.kind === 'CHANNEL') channel.push(proc);
-      else if (proc.kind === 'ORPHAN') orphan.push(proc);
-      else if (proc.kind === 'CLI_SESSION') cliSession.push(proc);
+      if (proc.kind === NODE_PROCESS_KIND.DAEMON) daemon.push(proc);
+      else if (proc.kind === NODE_PROCESS_KIND.CHANNEL) channel.push(proc);
+      else if (proc.kind === NODE_PROCESS_KIND.MCP_GATEWAY) mcpGateway.push(proc);
+      else if (proc.kind === NODE_PROCESS_KIND.ORPHAN) orphan.push(proc);
+      else if (proc.kind === NODE_PROCESS_KIND.CLI_SESSION) cliSession.push(proc);
     }
-    return { daemon, channel, orphan, cliSession };
+    return { daemon, channel, mcpGateway, orphan, cliSession };
   }, [snapshot]);
 
-  const orphanCount = grouped.orphan.length;
+  const orphanProcesses = useMemo(
+    () => snapshot?.processes.filter((proc) => proc.orphan) ?? [],
+    [snapshot],
+  );
+  const orphanCount = orphanProcesses.length;
   const totalCount = snapshot?.totals.all ?? 0;
   const diagnostics = snapshot?.diagnostics;
 
@@ -458,7 +467,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     // Orphans skip confirmation — they're already known-bad processes the user
     // explicitly wants to nuke. Live daemon / channel processes carry running
     // conversations, so we always confirm those.
-    if (proc.kind === 'ORPHAN') {
+    if (proc.orphan) {
       markPending(proc.pid);
       killNodeProcess(proc.pid, proc.id);
       return;
@@ -469,7 +478,7 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
   const handleKillAllOrphans = useCallback(() => {
     if (orphanCount === 0) return;
     setPendingConfirm({ kind: 'killAll', orphans: grouped.orphan });
-  }, [grouped.orphan, orphanCount]);
+  }, [orphanCount, orphanProcesses]);
 
   // Confirmation handlers — pulled out so the JSX stays declarative and the
   // tests can target the side-effect path independently of dialog rendering.
@@ -511,16 +520,18 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     // CLI_SESSION rows are read-only (daemon-mode design §5.2): lifecycle is owned
     // by CliPersistentProcessRegistry (idle reclaim / tab close / project close),
     // so no kill button — just a lock badge hinting the protection.
-    const isCliSession = proc.kind === 'CLI_SESSION';
+    const isCliSession = proc.kind === NODE_PROCESS_KIND.CLI_SESSION;
     // The leading icon's color already encodes provider (claude=green, codex=yellow,
     // orphan=red, cli-session=blue), so the title only carries the parts that are
     // not already implied visually. Provider stays in the hover tooltip below.
     const titleParts: string[] = [];
-    if (proc.kind === 'DAEMON') {
+    if (proc.kind === NODE_PROCESS_KIND.DAEMON) {
       titleParts.push(t(`config.nodeProcesses.kind.daemonShort`, { defaultValue: 'Daemon' }));
-    } else if (proc.kind === 'CHANNEL') {
+    } else if (proc.kind === NODE_PROCESS_KIND.CHANNEL) {
       titleParts.push(t(`config.nodeProcesses.kind.channelShort`, { defaultValue: 'Channel' }));
-    } else if (proc.kind === 'CLI_SESSION') {
+    } else if (proc.kind === NODE_PROCESS_KIND.MCP_GATEWAY) {
+      titleParts.push(t('config.nodeProcesses.kind.mcpGatewayShort', { defaultValue: 'MCP Gateway' }));
+    } else if (proc.kind === NODE_PROCESS_KIND.CLI_SESSION) {
       titleParts.push(t(`config.nodeProcesses.kind.cliSessionShort`, { defaultValue: 'CLI Session' }));
     } else {
       titleParts.push(t(`config.nodeProcesses.kind.orphanShort`, { defaultValue: 'Orphan' }));
@@ -566,8 +577,8 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     }
     const rowTooltip = tooltipLines.join('\n');
 
-    const killIconClass = proc.kind === 'CHANNEL' ? 'codicon-debug-stop' : 'codicon-close';
-    const killHintKey = proc.kind === 'CHANNEL'
+    const killIconClass = proc.kind === NODE_PROCESS_KIND.CHANNEL ? 'codicon-debug-stop' : 'codicon-close';
+    const killHintKey = proc.kind === NODE_PROCESS_KIND.CHANNEL
       ? 'config.nodeProcesses.interrupt'
       : 'config.nodeProcesses.kill';
 
@@ -765,6 +776,12 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
             'codicon-comment-discussion',
           )}
           {renderGroup(
+            t('config.nodeProcesses.groups.mcpGateway', { defaultValue: 'MCP Gateway' }),
+            grouped.mcpGateway,
+            GROUP_HEADER_STYLE,
+            'codicon-server-process',
+          )}
+          {renderGroup(
             `${t('config.nodeProcesses.groups.cliSession')} · ${t('config.nodeProcesses.autoManaged')}`,
             grouped.cliSession,
             GROUP_HEADER_CLI_SESSION_STYLE,
@@ -827,4 +844,3 @@ export const NodeProcessSelect = ({ embedded = false, onClose, onToast }: NodePr
     </>
   );
 };
-
