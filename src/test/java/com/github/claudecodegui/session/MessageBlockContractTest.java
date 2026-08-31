@@ -7,6 +7,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -272,6 +273,35 @@ public class MessageBlockContractTest {
         String firstId = first.get(CommonConstants.JSON_KEY_TOOL_USE_ID).getAsString();
         String secondId = second.get(CommonConstants.JSON_KEY_TOOL_USE_ID).getAsString();
         assertFalse(firstId.equals(secondId));
+    }
+
+    @Test
+    public void diagnosticsTrackPendingAndOrphanToolLifecycle() {
+        List<MessageBlockContract.ToolDiagnostics> observed = new ArrayList<>();
+        MessageBlockContract.ToolLedger ledger = new MessageBlockContract.ToolLedger(observed::add);
+
+        assertEquals(new MessageBlockContract.ToolDiagnostics(0, 0), observed.get(observed.size() - 1));
+
+        ledger.normalizeToolUse(toolUse("call-1", "search", "q1"), "live-1");
+        assertEquals(new MessageBlockContract.ToolDiagnostics(1, 0), observed.get(observed.size() - 1));
+
+        ledger.normalizeToolResult(result("missing", "not found", true));
+        assertEquals(new MessageBlockContract.ToolDiagnostics(1, 1), observed.get(observed.size() - 1));
+
+        ledger.normalizeToolResult(result("missing", "duplicate", true));
+        assertEquals(new MessageBlockContract.ToolDiagnostics(1, 1), observed.get(observed.size() - 1));
+
+        ledger.normalizeToolResult(result("call-1", "ok", false));
+        assertEquals(new MessageBlockContract.ToolDiagnostics(0, 1), observed.get(observed.size() - 1));
+
+        ledger.normalizeToolUse(toolUse("missing", "search", "q2"), "live-2");
+        assertEquals(new MessageBlockContract.ToolDiagnostics(0, 0), observed.get(observed.size() - 1));
+
+        ledger.normalizeToolUse(toolUse("unresolved", "search", "q3"), "live-3");
+        assertEquals(new MessageBlockContract.ToolDiagnostics(1, 0), observed.get(observed.size() - 1));
+
+        ledger.markUnpairedToolUses();
+        assertEquals(new MessageBlockContract.ToolDiagnostics(0, 0), observed.get(observed.size() - 1));
     }
 
     @Test

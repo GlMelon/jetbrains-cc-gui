@@ -2,6 +2,7 @@ package com.github.claudecodegui.handler.permission;
 
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.permission.PermissionService;
+import com.github.claudecodegui.service.PendingInteractionDiagnosticsService;
 import com.google.gson.JsonObject;
 import org.junit.After;
 import org.junit.Before;
@@ -105,6 +106,34 @@ public class PermissionActionHandlersTest {
         assertTrue(getPlanApprovalMap().isEmpty());
     }
 
+    @Test
+    public void pendingDiagnosticsFollowAskUserQuestionLifecycle() throws Exception {
+        RecordingSource diagnosticsSource = new RecordingSource();
+        PermissionActionHandlers diagnosticHandlers = new PermissionActionHandlers(
+                contextStub(),
+                (task, delaySeconds) -> () -> { },
+                diagnosticsSource);
+        try {
+            assertEquals(PendingInteractionDiagnosticsService.Snapshot.empty(), diagnosticsSource.latest);
+
+            CompletableFuture<JsonObject> future = new CompletableFuture<>();
+            injectAskUserFuture(diagnosticHandlers, "diagnostic-ask", future);
+            publishPendingDiagnostics(diagnosticHandlers);
+            assertEquals(1, diagnosticsSource.latest.pendingPermissionRequests());
+
+            diagnosticHandlers.handleAskUserQuestionResponse(
+                    "{\"requestId\":\"diagnostic-ask\",\"answers\":{\"answer\":\"yes\"}}");
+
+            assertEquals("yes", future.get(2, TimeUnit.SECONDS).get("answer").getAsString());
+            assertEquals(PendingInteractionDiagnosticsService.Snapshot.empty(), diagnosticsSource.latest);
+        } finally {
+            diagnosticHandlers.dispose();
+        }
+
+        assertTrue(diagnosticsSource.closed);
+        assertEquals(PendingInteractionDiagnosticsService.Snapshot.empty(), diagnosticsSource.latest);
+    }
+
     // --- clearPendingRequests tests ---
 
     @Test
@@ -183,6 +212,22 @@ public class PermissionActionHandlersTest {
         assertEquals(0, handlers.getPendingRequestCount());
     }
 
+    private static final class RecordingSource implements PendingInteractionDiagnosticsService.Source {
+        private PendingInteractionDiagnosticsService.Snapshot latest =
+                PendingInteractionDiagnosticsService.Snapshot.empty();
+        private boolean closed;
+
+        @Override
+        public void update(PendingInteractionDiagnosticsService.Snapshot snapshot) {
+            latest = snapshot;
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+    }
+
     // --- Reflection helpers ---
 
     @SuppressWarnings("unchecked")
@@ -218,7 +263,25 @@ public class PermissionActionHandlersTest {
     }
 
     private void injectAskUserFuture(String requestId, CompletableFuture<JsonObject> future) throws Exception {
-        getAskUserMap().put(requestId, future);
+        injectAskUserFuture(handlers, requestId, future);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void injectAskUserFuture(
+            PermissionActionHandlers target,
+            String requestId,
+            CompletableFuture<JsonObject> future
+    ) throws Exception {
+        Field field = PermissionActionHandlers.class.getDeclaredField(
+                "pendingAskUserQuestionRequests");
+        field.setAccessible(true);
+        ((Map<String, CompletableFuture<JsonObject>>) field.get(target)).put(requestId, future);
+    }
+
+    private static void publishPendingDiagnostics(PermissionActionHandlers target) throws Exception {
+        var method = PermissionActionHandlers.class.getDeclaredMethod("publishPendingDiagnostics");
+        method.setAccessible(true);
+        method.invoke(target);
     }
 
     private void injectPlanApprovalFuture(String requestId, CompletableFuture<JsonObject> future) throws Exception {

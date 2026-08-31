@@ -59,6 +59,28 @@ public class RuntimeResourceDiagnosticsTest {
     }
 
     @Test
+    public void captureIncludesBackendAggregatedPendingInteractions() {
+        RuntimeResourceDiagnostics diagnostics = RuntimeResourceDiagnostics.capture(
+                Collections.emptyList(),
+                null,
+                null,
+                new PendingInteractionDiagnosticsService.Snapshot(2, 3, 4));
+
+        assertEquals(2, diagnostics.pendingInteractions().pendingPermissionRequests());
+        assertEquals(3, diagnostics.pendingInteractions().pendingToolCalls());
+        assertEquals(4, diagnostics.pendingInteractions().orphanToolResults());
+    }
+
+    @Test
+    public void captureUsesEmptyPendingInteractionsForNullInput() {
+        RuntimeResourceDiagnostics diagnostics = RuntimeResourceDiagnostics.capture(
+                Collections.emptyList(), null, null, null);
+
+        assertEquals(PendingInteractionDiagnosticsService.Snapshot.empty(),
+                diagnostics.pendingInteractions());
+    }
+
+    @Test
     public void captureClampsNegativeGatewayActiveProcessCount() {
         McpGatewayService.Diagnostics gateway = new McpGatewayService.Diagnostics(
                 McpGatewayLifecycleState.FAILED.value(),
