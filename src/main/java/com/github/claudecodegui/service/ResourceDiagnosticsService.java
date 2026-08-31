@@ -26,6 +26,10 @@ public final class ResourceDiagnosticsService {
         CliPersistentProcessRegistry.Diagnostics persistentRegistry =
                 CliPersistentProcessRegistry.getInstance(project).diagnostics();
         McpGatewayService.Diagnostics gateway = McpGatewayService.getInstance(project).diagnostics();
-        return RuntimeResourceDiagnostics.capture(processes, persistentRegistry, gateway);
+        PendingInteractionDiagnosticsService.Snapshot pendingInteractions = project
+                .getService(PendingInteractionDiagnosticsService.class)
+                .snapshot();
+        return RuntimeResourceDiagnostics.capture(
+                processes, persistentRegistry, gateway, pendingInteractions);
     }
 }

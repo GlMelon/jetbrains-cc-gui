@@ -16,7 +16,8 @@ import java.util.List;
 public record RuntimeResourceDiagnostics(
         ActiveProcessCounts activeProcesses,
         CliPersistentProcessRegistry.Diagnostics persistentRegistry,
-        McpGatewayService.Diagnostics gateway
+        McpGatewayService.Diagnostics gateway,
+        PendingInteractionDiagnosticsService.Snapshot pendingInteractions
 ) {
 
     /** Active child process counts split by lifecycle owner. */
@@ -27,6 +28,19 @@ public record RuntimeResourceDiagnostics(
             List<NodeProcessInfo> processes,
             CliPersistentProcessRegistry.Diagnostics persistentRegistry,
             McpGatewayService.Diagnostics gateway
+    ) {
+        return capture(
+                processes,
+                persistentRegistry,
+                gateway,
+                PendingInteractionDiagnosticsService.Snapshot.empty());
+    }
+
+    public static RuntimeResourceDiagnostics capture(
+            List<NodeProcessInfo> processes,
+            CliPersistentProcessRegistry.Diagnostics persistentRegistry,
+            McpGatewayService.Diagnostics gateway,
+            PendingInteractionDiagnosticsService.Snapshot pendingInteractions
     ) {
         List<NodeProcessInfo> safeProcesses = processes == null ? Collections.emptyList() : processes;
         int activeNodeCount = 0;
@@ -50,7 +64,10 @@ public record RuntimeResourceDiagnostics(
         return new RuntimeResourceDiagnostics(
                 activeProcesses,
                 persistentRegistry == null ? emptyPersistentRegistry() : persistentRegistry,
-                gateway == null ? emptyGateway() : gateway);
+                gateway == null ? emptyGateway() : gateway,
+                pendingInteractions == null
+                        ? PendingInteractionDiagnosticsService.Snapshot.empty()
+                        : pendingInteractions);
     }
 
     public static RuntimeResourceDiagnostics empty() {

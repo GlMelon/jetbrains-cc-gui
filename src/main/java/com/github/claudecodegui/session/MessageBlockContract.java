@@ -39,13 +39,41 @@ public final class MessageBlockContract {
     private MessageBlockContract() {
     }
 
+    /** Current tool pairing diagnostics for one live turn or history replay. */
+    public record ToolDiagnostics(int pendingToolCalls, int orphanToolResults) {
+        public ToolDiagnostics {
+            pendingToolCalls = Math.max(0, pendingToolCalls);
+            orphanToolResults = Math.max(0, orphanToolResults);
+        }
+    }
+
+    @FunctionalInterface
+    public interface ToolDiagnosticsObserver {
+        void onDiagnostics(ToolDiagnostics diagnostics);
+    }
+
     /** Stateful identity and lifecycle ledger for one live turn or history replay. */
     public static final class ToolLedger {
+        private static final ToolDiagnosticsObserver NOOP_DIAGNOSTICS_OBSERVER = diagnostics -> { };
+
         private final Set<String> toolUseIds = new LinkedHashSet<>();
         private final Set<String> completedResultIds = new LinkedHashSet<>();
+        private final Set<String> orphanResultIds = new LinkedHashSet<>();
+        private final ToolDiagnosticsObserver diagnosticsObserver;
         private int generatedToolSequence;
         private int generatedResultSequence;
         private boolean finalized;
+
+        public ToolLedger() {
+            this(NOOP_DIAGNOSTICS_OBSERVER);
+        }
+
+        public ToolLedger(ToolDiagnosticsObserver diagnosticsObserver) {
+            this.diagnosticsObserver = diagnosticsObserver == null
+                    ? NOOP_DIAGNOSTICS_OBSERVER
+                    : diagnosticsObserver;
+            publishDiagnostics();
+        }
 
         public JsonObject normalizeToolUse(JsonObject source) {
             return normalizeToolUse(source, "tool-" + (++generatedToolSequence));
@@ -69,6 +97,7 @@ public final class MessageBlockContract {
                     : generatedIdentity(GENERATED_TOOL_PREFIX, identitySeed, name, normalizedInput);
 
             toolUseIds.add(id);
+            orphanResultIds.remove(id);
             JsonObject block = input.deepCopy();
             block.addProperty(CommonConstants.JSON_KEY_TYPE, CommonConstants.BLOCK_TYPE_TOOL_USE);
             block.addProperty(CommonConstants.JSON_KEY_ID, id);
@@ -79,6 +108,7 @@ public final class MessageBlockContract {
                     ? MessageBlockToolIdSource.EXPLICIT.value()
                     : MessageBlockToolIdSource.GENERATED.value());
             applyToolUseStatus(block, id);
+            publishDiagnostics();
             return block;
         }
 
@@ -105,6 +135,11 @@ public final class MessageBlockContract {
 
             boolean duplicate = !completedResultIds.add(id);
             boolean known = toolUseIds.contains(id);
+            if (known) {
+                orphanResultIds.remove(id);
+            } else if (!duplicate) {
+                orphanResultIds.add(id);
+            }
             String content = contentString(input.get(CommonConstants.JSON_KEY_CONTENT));
             if (content == null) {
                 content = contentString(input.get(CommonConstants.JSON_KEY_RESULT));
@@ -126,12 +161,14 @@ public final class MessageBlockContract {
                     : known
                             ? MessageBlockToolStatus.COMPLETED.value()
                             : MessageBlockToolStatus.ORPHANED.value());
+            publishDiagnostics();
             return block;
         }
 
         /** Mark the current turn/replay terminal; synchronization applies unpaired status by ID. */
         public void markUnpairedToolUses() {
             finalized = true;
+            publishDiagnostics();
         }
 
         /** Apply ledger state to the authoritative content array of an envelope. */
@@ -176,6 +213,22 @@ public final class MessageBlockContract {
 
         public Set<String> toolUseIds() {
             return Collections.unmodifiableSet(toolUseIds);
+        }
+
+        public ToolDiagnostics diagnostics() {
+            int pendingToolCalls = 0;
+            if (!finalized) {
+                for (String id : toolUseIds) {
+                    if (!completedResultIds.contains(id)) {
+                        pendingToolCalls++;
+                    }
+                }
+            }
+            return new ToolDiagnostics(pendingToolCalls, orphanResultIds.size());
+        }
+
+        private void publishDiagnostics() {
+            diagnosticsObserver.onDiagnostics(diagnostics());
         }
 
         private String onlyPendingToolUseId(Collection<String> pendingCandidates) {

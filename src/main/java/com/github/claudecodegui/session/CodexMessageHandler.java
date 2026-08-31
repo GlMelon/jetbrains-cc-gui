@@ -57,7 +57,8 @@ public class CodexMessageHandler implements MessageCallback {
     private Message currentAssistantMessage = null;
 
     /** Tracks tool identity and lifecycle for the current live turn. */
-    private MessageBlockContract.ToolLedger toolLedger = new MessageBlockContract.ToolLedger();
+    private final MessageBlockContract.ToolDiagnosticsObserver toolDiagnosticsObserver;
+    private MessageBlockContract.ToolLedger toolLedger;
 
     /**
      * Deduplicates streaming deltas that were already included via conservative full-message sync.
@@ -109,10 +110,22 @@ public class CodexMessageHandler implements MessageCallback {
             String expectedRuntimeSessionEpoch,
             long expectedResponseTurnEpoch
     ) {
+        this(state, callbackHandler, expectedRuntimeSessionEpoch, expectedResponseTurnEpoch, null);
+    }
+
+    public CodexMessageHandler(
+            SessionState state,
+            CallbackHandler callbackHandler,
+            String expectedRuntimeSessionEpoch,
+            long expectedResponseTurnEpoch,
+            MessageBlockContract.ToolDiagnosticsObserver toolDiagnosticsObserver
+    ) {
         this.state = state;
         this.callbackHandler = callbackHandler;
         this.expectedRuntimeSessionEpoch = expectedRuntimeSessionEpoch;
         this.expectedResponseTurnEpoch = expectedResponseTurnEpoch;
+        this.toolDiagnosticsObserver = toolDiagnosticsObserver;
+        this.toolLedger = new MessageBlockContract.ToolLedger(toolDiagnosticsObserver);
     }
 
     /**
@@ -1274,7 +1287,7 @@ public class CodexMessageHandler implements MessageCallback {
         replayDedup.reset();
         currentTurnContextUsage = null;
         resetStreamingAccumulator();
-        toolLedger = new MessageBlockContract.ToolLedger();
+        toolLedger = new MessageBlockContract.ToolLedger(toolDiagnosticsObserver);
         callbackHandler.notifyStreamStart();
         LOG.debug("Codex stream started");
     }

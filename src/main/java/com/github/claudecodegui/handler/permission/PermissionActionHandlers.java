@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.permission;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.permission.PermissionService;
+import com.github.claudecodegui.service.PendingInteractionDiagnosticsService;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
@@ -55,6 +56,7 @@ public class PermissionActionHandlers implements Disposable {
 
     private final HandlerContext context;
     private final SafetyNetScheduler safetyNetScheduler;
+    private final PendingInteractionDiagnosticsService.Source diagnosticsSource;
     private final Disposable lifecycleDisposable = Disposer.newDisposable("PermissionActionHandlers");
     private final Alarm frontendReadyAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, lifecycleDisposable);
     private final Map<String, Runnable> pendingFrontendChecks = new ConcurrentHashMap<>();
@@ -80,8 +82,20 @@ public class PermissionActionHandlers implements Disposable {
     }
 
     PermissionActionHandlers(HandlerContext context, SafetyNetScheduler safetyNetScheduler) {
+        this(context, safetyNetScheduler, createDiagnosticsSource(context));
+    }
+
+    PermissionActionHandlers(
+            HandlerContext context,
+            SafetyNetScheduler safetyNetScheduler,
+            PendingInteractionDiagnosticsService.Source diagnosticsSource
+    ) {
         this.context = context;
         this.safetyNetScheduler = safetyNetScheduler;
+        this.diagnosticsSource = diagnosticsSource == null
+                ? PendingInteractionDiagnosticsService.noopSource()
+                : diagnosticsSource;
+        publishPendingDiagnostics();
     }
 
     public void setPermissionDeniedCallback(PermissionDeniedCallback callback) {
@@ -135,6 +149,7 @@ public class PermissionActionHandlers implements Disposable {
         LOG.info("[PERM_SHOW] showFrontendPermissionDialog called: channelId=" + channelId + ", toolName=" + toolName);
 
         pendingPermissionRequests.put(channelId, future);
+        publishPendingDiagnostics();
         LOG.info("[PERM_SHOW] Stored pending request, total pending: " + pendingPermissionRequests.size());
 
         try {
@@ -167,12 +182,14 @@ public class PermissionActionHandlers implements Disposable {
                 if (future.complete(PermissionService.PermissionResponse.DENY.getValue())) {
                     LOG.warn("[PERM_SHOW] Safety-net timeout fired (webview unreachable) for channelId=" + channelId);
                     pendingPermissionRequests.remove(channelId, future);
+                    publishPendingDiagnostics();
                 }
             });
 
         } catch (Exception e) {
             LOG.error("[PERM_SHOW] ERROR: errorClass=" + e.getClass().getSimpleName(), e);
             pendingPermissionRequests.remove(channelId);
+            publishPendingDiagnostics();
             future.complete(PermissionService.PermissionResponse.DENY.getValue());
         }
 
@@ -196,6 +213,7 @@ public class PermissionActionHandlers implements Disposable {
         LOG.debug("[ASK_USER_QUESTION][SHOW_DIALOG] requestId=" + requestId);
 
         CompletableFuture<JsonObject> previous = pendingAskUserQuestionRequests.put(requestId, future);
+        publishPendingDiagnostics();
         if (previous != null) {
             previous.complete(null);
         }
@@ -224,12 +242,14 @@ public class PermissionActionHandlers implements Disposable {
                 if (future.complete(new JsonObject())) {
                     LOG.warn("[ASK_USER_QUESTION][SHOW_DIALOG] Safety-net timeout fired (webview unreachable) for requestId=" + requestId);
                     pendingAskUserQuestionRequests.remove(requestId, future);
+                    publishPendingDiagnostics();
                 }
             });
 
         } catch (Exception e) {
             LOG.error("[ASK_USER_QUESTION][SHOW_DIALOG] ERROR: errorClass=" + e.getClass().getSimpleName(), e);
             pendingAskUserQuestionRequests.remove(requestId);
+            publishPendingDiagnostics();
             future.complete(new JsonObject());
         }
 
@@ -257,6 +277,7 @@ public class PermissionActionHandlers implements Disposable {
         LOG.debug("[PLAN_APPROVAL][SHOW_DIALOG] requestId=" + requestId);
 
         CompletableFuture<JsonObject> previous = pendingPlanApprovalRequests.put(requestId, future);
+        publishPendingDiagnostics();
         if (previous != null) {
             previous.complete(null);
         }
@@ -289,12 +310,14 @@ public class PermissionActionHandlers implements Disposable {
                 if (future.complete(timeoutResponse)) {
                     LOG.warn("[PLAN_APPROVAL][SHOW_DIALOG] Safety-net timeout fired (webview unreachable) for requestId=" + requestId);
                     pendingPlanApprovalRequests.remove(requestId, future);
+                    publishPendingDiagnostics();
                 }
             });
 
         } catch (Exception e) {
             LOG.error("[PLAN_APPROVAL][SHOW_DIALOG] ERROR: errorClass=" + e.getClass().getSimpleName(), e);
             pendingPlanApprovalRequests.remove(requestId);
+            publishPendingDiagnostics();
             JsonObject errorResponse = new JsonObject();
             errorResponse.addProperty("approved", false);
             errorResponse.addProperty("targetMode", CommonConstants.PERMISSION_MODE_DEFAULT);
@@ -324,6 +347,7 @@ public class PermissionActionHandlers implements Disposable {
             LOG.info("[PERM_DECISION] channelId=" + channelId + ", allow=" + allow + ", remember=" + remember);
 
             CompletableFuture<Integer> pendingFuture = pendingPermissionRequests.remove(channelId);
+            publishPendingDiagnostics();
 
             if (pendingFuture != null) {
                 int responseValue;
@@ -362,6 +386,7 @@ public class PermissionActionHandlers implements Disposable {
                 : new JsonObject();
 
             CompletableFuture<JsonObject> pendingFuture = pendingAskUserQuestionRequests.remove(requestId);
+            publishPendingDiagnostics();
 
             if (pendingFuture != null) {
                 LOG.debug("[ASK_USER_QUESTION][HANDLE_RESPONSE] Completing future with answerCount=" + answers.size());
@@ -385,6 +410,7 @@ public class PermissionActionHandlers implements Disposable {
             String targetMode = response.has("targetMode") ? response.get("targetMode").getAsString() : CommonConstants.PERMISSION_MODE_DEFAULT;
 
             CompletableFuture<JsonObject> pendingFuture = pendingPlanApprovalRequests.remove(requestId);
+            publishPendingDiagnostics();
 
             if (pendingFuture != null) {
                 JsonObject result = new JsonObject();
@@ -436,6 +462,7 @@ public class PermissionActionHandlers implements Disposable {
             }
         }
 
+        publishPendingDiagnostics();
         LOG.info("[PERM_CLEAR] Cleared: " + permissionCount + " permission, " +
                  askUserCount + " askUser, " + planCount + " plan requests");
     }
@@ -453,6 +480,24 @@ public class PermissionActionHandlers implements Disposable {
                 + pendingPlanApprovalRequests.size();
     }
 
+    private void publishPendingDiagnostics() {
+        diagnosticsSource.update(new PendingInteractionDiagnosticsService.Snapshot(
+                getPendingRequestCount(), 0, 0));
+    }
+
+    private static PendingInteractionDiagnosticsService.Source createDiagnosticsSource(
+            HandlerContext context
+    ) {
+        if (context == null || context.getProject() == null) {
+            return PendingInteractionDiagnosticsService.noopSource();
+        }
+        PendingInteractionDiagnosticsService service = context.getProject()
+                .getService(PendingInteractionDiagnosticsService.class);
+        return service == null
+                ? PendingInteractionDiagnosticsService.noopSource()
+                : service.registerSource();
+    }
+
     @Override
     public void dispose() {
         if (disposed) {
@@ -460,6 +505,7 @@ public class PermissionActionHandlers implements Disposable {
         }
         disposed = true;
         clearPendingRequests();
+        diagnosticsSource.close();
         frontendReadyAlarm.cancelAllRequests();
         Disposer.dispose(lifecycleDisposable);
     }

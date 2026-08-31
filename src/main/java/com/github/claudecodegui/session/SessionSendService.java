@@ -8,6 +8,8 @@ import com.github.claudecodegui.config.ProviderRuntimePolicy;
 import com.github.claudecodegui.config.RuntimePolicyConfig;
 import com.github.claudecodegui.i18n.ClaudeCodeGuiBundle;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
+import com.github.claudecodegui.provider.common.MessageCallback;
+import com.github.claudecodegui.service.PendingInteractionDiagnosticsService;
 import com.github.claudecodegui.session.normalize.MessageNormalizers;
 import com.github.claudecodegui.session.runtime.*;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -37,6 +39,7 @@ public class SessionSendService {
     private final SessionContextService contextService;
     private final SessionRuntimeRouter runtimeRouter;
     private final CliSessionTitleService cliTitleService;
+    private final PendingInteractionDiagnosticsService pendingInteractionDiagnosticsService;
     private volatile long responseStatusTurnStartedAtMillis = 0L;
 
     public SessionSendService(
@@ -57,6 +60,9 @@ public class SessionSendService {
         this.contextService = contextService;
         this.runtimeRouter = new SessionRuntimeRouter(project);
         this.cliTitleService = new CliSessionTitleService();
+        this.pendingInteractionDiagnosticsService = project == null
+                ? null
+                : project.getService(PendingInteractionDiagnosticsService.class);
     }
 
     public void prepareContextCollector(EditorContextCollector contextCollector) {
@@ -290,12 +296,6 @@ public class SessionSendService {
         // 绑定当前运行时会话 epoch:运行时切换后(见 ModelProviderHandler 旋转 epoch),
         // 旧 Codex 进程的回调会因 epoch 不匹配被 CodexMessageHandler 丢弃(防串台,与 Claude 侧一致)。
         long responseTurnEpoch = state.beginResponseTurn();
-        CodexMessageHandler handler = new CodexMessageHandler(
-                state,
-                callbackFacade.getCallbackHandler(),
-                state.getRuntimeSessionEpoch(),
-                responseTurnEpoch
-        );
         String accessMode = CodemossSettingsService.CODEX_RUNTIME_ACCESS_INACTIVE;
         try {
             accessMode = CodemossSettingsService.getInstance().getCodexRuntimeAccessMode();
@@ -305,7 +305,12 @@ public class SessionSendService {
 
         String accessError = getCodexRuntimeAccessError(accessMode);
         if (accessError != null) {
-            handler.onError(accessError);
+            new CodexMessageHandler(
+                    state,
+                    callbackFacade.getCallbackHandler(),
+                    state.getRuntimeSessionEpoch(),
+                    responseTurnEpoch
+            ).onError(accessError);
             return CompletableFuture.completedFuture(null);
         }
 
@@ -343,10 +348,16 @@ public class SessionSendService {
                 Map.of()
         );
 
-        return runtimeRouter.send(
-                request,
-                MessageNormalizers.forProvider(CommonConstants.PROVIDER_CODEX, handler)
-        ).thenApply(result -> null);
+        PendingInteractionDiagnosticsService.Source diagnosticsSource = registerToolDiagnosticsSource();
+        CodexMessageHandler handler = new CodexMessageHandler(
+                state,
+                callbackFacade.getCallbackHandler(),
+                state.getRuntimeSessionEpoch(),
+                responseTurnEpoch,
+                toolDiagnosticsObserver(diagnosticsSource)
+        );
+        return sendWithToolDiagnostics(
+                request, CommonConstants.PROVIDER_CODEX, handler, diagnosticsSource);
     }
 
     /**
@@ -368,12 +379,6 @@ public class SessionSendService {
             String effectivePermissionMode
     ) {
         long responseTurnEpoch = state.beginResponseTurn();
-        CodexMessageHandler handler = new CodexMessageHandler(
-                state,
-                callbackFacade.getCallbackHandler(),
-                state.getRuntimeSessionEpoch(),
-                responseTurnEpoch
-        );
 
         // 复用 provider 中性的上下文构造(workspace/module/file);buildCodexContextAppend 实为通用,
         // 并非 Codex 专有——openedFilesJson/fileTagPaths 派生的项目结构上下文对 Codex 协议族同样有效。
@@ -411,10 +416,15 @@ public class SessionSendService {
                 Map.of()
         );
 
-        return runtimeRouter.send(
-                request,
-                MessageNormalizers.forProvider(provider, handler)
-        ).thenApply(result -> null);
+        PendingInteractionDiagnosticsService.Source diagnosticsSource = registerToolDiagnosticsSource();
+        CodexMessageHandler handler = new CodexMessageHandler(
+                state,
+                callbackFacade.getCallbackHandler(),
+                state.getRuntimeSessionEpoch(),
+                responseTurnEpoch,
+                toolDiagnosticsObserver(diagnosticsSource)
+        );
+        return sendWithToolDiagnostics(request, provider, handler, diagnosticsSource);
     }
 
     private CompletableFuture<Void> sendToClaude(
@@ -444,17 +454,6 @@ public class SessionSendService {
             }
         }
         long responseTurnEpoch = state.beginResponseTurn();
-        ClaudeMessageHandler handler = new ClaudeMessageHandler(
-                project,
-                state,
-                callbackFacade.getCallbackHandler(),
-                messageParser,
-                messageMerger,
-                gson,
-                state.getRuntimeSessionEpoch(),
-                responseTurnEpoch,
-                CodemossSettingsService.getInstance()
-        );
 
         Boolean streaming = readStreamingEnabled();
         final String runtimeSessionEpoch = state.getRuntimeSessionEpoch();
@@ -490,10 +489,53 @@ public class SessionSendService {
                 Map.of()
         );
 
-        return runtimeRouter.send(
-                request,
-                MessageNormalizers.forProvider(CommonConstants.PROVIDER_CLAUDE, handler)
-        ).thenApply(result -> null);
+        PendingInteractionDiagnosticsService.Source diagnosticsSource = registerToolDiagnosticsSource();
+        ClaudeMessageHandler handler = new ClaudeMessageHandler(
+                project,
+                state,
+                callbackFacade.getCallbackHandler(),
+                messageParser,
+                messageMerger,
+                gson,
+                state.getRuntimeSessionEpoch(),
+                responseTurnEpoch,
+                CodemossSettingsService.getInstance(),
+                toolDiagnosticsObserver(diagnosticsSource)
+        );
+        return sendWithToolDiagnostics(
+                request, CommonConstants.PROVIDER_CLAUDE, handler, diagnosticsSource);
+    }
+
+    private PendingInteractionDiagnosticsService.Source registerToolDiagnosticsSource() {
+        return pendingInteractionDiagnosticsService == null
+                ? PendingInteractionDiagnosticsService.noopSource()
+                : pendingInteractionDiagnosticsService.registerSource();
+    }
+
+    private MessageBlockContract.ToolDiagnosticsObserver toolDiagnosticsObserver(
+            PendingInteractionDiagnosticsService.Source diagnosticsSource
+    ) {
+        return diagnostics -> diagnosticsSource.update(
+                new PendingInteractionDiagnosticsService.Snapshot(
+                        0,
+                        diagnostics.pendingToolCalls(),
+                        diagnostics.orphanToolResults()));
+    }
+
+    private CompletableFuture<Void> sendWithToolDiagnostics(
+            SessionRequest request,
+            String provider,
+            MessageCallback handler,
+            PendingInteractionDiagnosticsService.Source diagnosticsSource
+    ) {
+        try {
+            return runtimeRouter.send(request, MessageNormalizers.forProvider(provider, handler))
+                    .whenComplete((result, error) -> diagnosticsSource.close())
+                    .thenApply(result -> null);
+        } catch (RuntimeException error) {
+            diagnosticsSource.close();
+            throw error;
+        }
     }
 
     /**

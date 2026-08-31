@@ -47,7 +47,8 @@ public class ClaudeMessageHandler implements MessageCallback {
     private Message currentAssistantMessage = null;
 
     /** Tracks tool identity and lifecycle for the current live turn. */
-    private MessageBlockContract.ToolLedger toolLedger = new MessageBlockContract.ToolLedger();
+    private final MessageBlockContract.ToolDiagnosticsObserver toolDiagnosticsObserver;
+    private MessageBlockContract.ToolLedger toolLedger;
 
     // Whether the AI is currently in thinking mode
     private boolean isThinking = false;
@@ -84,6 +85,22 @@ public class ClaudeMessageHandler implements MessageCallback {
             long expectedResponseTurnEpoch,
             CodemossSettingsService settingsService
     ) {
+        this(project, state, callbackHandler, messageParser, messageMerger, gson,
+                expectedRuntimeSessionEpoch, expectedResponseTurnEpoch, settingsService, null);
+    }
+
+    public ClaudeMessageHandler(
+            Project project,
+            SessionState state,
+            CallbackHandler callbackHandler,
+            MessageParser messageParser,
+            MessageMerger messageMerger,
+            Gson gson,
+            String expectedRuntimeSessionEpoch,
+            long expectedResponseTurnEpoch,
+            CodemossSettingsService settingsService,
+            MessageBlockContract.ToolDiagnosticsObserver toolDiagnosticsObserver
+    ) {
         this.project = project;
         this.state = state;
         this.callbackHandler = callbackHandler;
@@ -93,6 +110,8 @@ public class ClaudeMessageHandler implements MessageCallback {
         this.expectedRuntimeSessionEpoch = expectedRuntimeSessionEpoch;
         this.expectedResponseTurnEpoch = expectedResponseTurnEpoch;
         this.settingsService = settingsService != null ? settingsService : new CodemossSettingsService();
+        this.toolDiagnosticsObserver = toolDiagnosticsObserver;
+        this.toolLedger = new MessageBlockContract.ToolLedger(toolDiagnosticsObserver);
     }
 
     public ClaudeMessageHandler(
@@ -872,7 +891,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         }
         callbackHandler.notifyBlockReset();
         currentAssistantMessage = null;
-        toolLedger = new MessageBlockContract.ToolLedger();
+        toolLedger = new MessageBlockContract.ToolLedger(toolDiagnosticsObserver);
         assistantContent.setLength(0);
         textSegmentActive = false;
         thinkingSegmentActive = false;
@@ -1033,7 +1052,7 @@ public class ClaudeMessageHandler implements MessageCallback {
         errorReportedThisTurn = false;
         lastReportedError = null;
         resetSegmentState();
-        toolLedger = new MessageBlockContract.ToolLedger();
+        toolLedger = new MessageBlockContract.ToolLedger(toolDiagnosticsObserver);
         callbackHandler.notifyStreamStart();
     }
 
