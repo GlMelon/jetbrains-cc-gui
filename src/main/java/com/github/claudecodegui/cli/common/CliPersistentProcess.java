@@ -1,6 +1,10 @@
 package com.github.claudecodegui.cli.common;
 
 import com.github.claudecodegui.provider.common.CliResult;
+import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
+import com.github.claudecodegui.service.lifecycle.LifecycleProcessKind;
+import com.github.claudecodegui.service.lifecycle.ProcessLifecycleMetadata;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -69,7 +73,11 @@ public final class CliPersistentProcess {
             String sessionId,
             State state,
             long startedAtMs,
-            long lastActiveAtMs
+            long lastActiveAtMs,
+            String projectLifecycleId,
+            String runtimeSessionEpoch,
+            Long responseTurnEpoch,
+            Long processGeneration
     ) {
     }
 
@@ -134,9 +142,13 @@ public final class CliPersistentProcess {
 
     private final String provider;
     private final String tabId;
+    private final LifecycleObservabilityService lifecycleService;
+    private final Long processGeneration;
     private final long startedAtMs = System.currentTimeMillis();
     private volatile long lastActiveAtMs = startedAtMs;
     private volatile String sessionId;
+    private volatile String runtimeSessionEpoch;
+    private volatile Long responseTurnEpoch;
 
     private volatile Process process;
     private volatile OutputStreamWriter stdinWriter;
@@ -156,8 +168,16 @@ public final class CliPersistentProcess {
     private volatile Supplier<String> interruptLineSupplier;
 
     public CliPersistentProcess(String provider, String tabId) {
+        this(provider, tabId, null, null);
+    }
+
+    public CliPersistentProcess(String provider, String tabId,
+                                LifecycleObservabilityService lifecycleService,
+                                Long processGeneration) {
         this.provider = provider;
         this.tabId = tabId;
+        this.lifecycleService = lifecycleService;
+        this.processGeneration = processGeneration;
     }
 
     /** 绑定 provider 中断协议行构造器(spawn 前由 Registry 从 spec 注入)。 */
@@ -192,6 +212,7 @@ public final class CliPersistentProcess {
             started = pb.start();
             process = started;
             stdinWriter = new OutputStreamWriter(started.getOutputStream(), StandardCharsets.UTF_8);
+            recordLifecycle(LifecycleEventType.SPAWN, started, "persistent CLI spawned");
 
             // Start draining stdout before waiting for the ready window. A CLI may emit a
             // large startup banner/diagnostic and block on a full pipe otherwise.
@@ -292,10 +313,12 @@ public final class CliPersistentProcess {
                 LOG.info("[CliPersistentProcess] graceful close timed out, terminating: provider="
                         + provider + ", tab=" + tabId + ", pid=" + p.pid());
                 PlatformUtils.terminateProcess(p);
+                recordLifecycle(LifecycleEventType.TERMINATE, p, "graceful close timeout");
                 p.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
             }
         } catch (InterruptedException e) {
             PlatformUtils.terminateProcess(p);
+            recordLifecycle(LifecycleEventType.TERMINATE, p, "graceful close interrupted");
             Thread.currentThread().interrupt();
         } finally {
             joinReader(reader);
@@ -314,6 +337,11 @@ public final class CliPersistentProcess {
      * @throws IllegalStateException 已有活跃轮(上层 per-tab inFlight 链之外的防御断言)
      */
     public TurnHandle startTurn(String stdinLine, TurnLineHandler handler) {
+        return startTurn(stdinLine, handler, null, null);
+    }
+
+    public TurnHandle startTurn(String stdinLine, TurnLineHandler handler,
+                                String runtimeSessionEpoch, Long responseTurnEpoch) {
         if (handler == null) {
             throw new IllegalArgumentException("turn handler must not be null");
         }
@@ -337,6 +365,8 @@ public final class CliPersistentProcess {
                     "Persistent CLI process became unusable: provider=" + provider + ", tab=" + tabId);
         }
         lastActiveAtMs = System.currentTimeMillis();
+        this.runtimeSessionEpoch = runtimeSessionEpoch;
+        this.responseTurnEpoch = responseTurnEpoch;
         // 轮超时:超时即轮卡死,须杀进程(进程句柄私有,只能在此处理)。
         turn.future.orTimeout(CliConstants.CLI_REQUEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
         turn.future.whenComplete((result, error) -> {
@@ -430,7 +460,9 @@ public final class CliPersistentProcess {
         State state = currentTurn.get() != null ? State.STREAMING
                 : isAlive() ? State.IDLE : State.DEAD;
         return new PersistentProcessInfo(safePid(), provider, tabId, sessionId, state,
-                startedAtMs, lastActiveAtMs);
+                startedAtMs, lastActiveAtMs,
+                lifecycleService != null ? lifecycleService.projectLifecycleId() : null,
+                runtimeSessionEpoch, responseTurnEpoch, processGeneration);
     }
 
     // ── 内部实现 ───────────────────────────────────────────────────────────────
@@ -483,6 +515,10 @@ public final class CliPersistentProcess {
         } catch (Exception e) {
             LOG.warn("[CliPersistentProcess] reader loop ended: provider=" + provider
                     + ", tab=" + tabId + ", error=" + e.getMessage());
+        }
+        recordLifecycle(LifecycleEventType.STDOUT_EOF, p, "persistent stdout EOF");
+        if (!p.isAlive()) {
+            recordLifecycle(LifecycleEventType.EXIT, p, "persistent CLI exited: " + safeExitCode(p));
         }
         try {
             // stdout 关闭(进程退出前兆):未完成轮异常收尾,由上层走 one-shot 兜底。
@@ -626,6 +662,7 @@ public final class CliPersistentProcess {
         }
         if (target.isAlive()) {
             PlatformUtils.terminateProcess(target);
+            recordLifecycle(LifecycleEventType.TERMINATE, target, "process tree terminated");
         }
         try {
             target.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
@@ -657,9 +694,23 @@ public final class CliPersistentProcess {
         if (writer != null) {
             try {
                 writer.close();
+                recordLifecycle(LifecycleEventType.STDIN_CLOSE, process, "persistent stdin closed");
             } catch (IOException ignored) {
             }
         }
+    }
+
+    private void recordLifecycle(LifecycleEventType type, Process target, String detail) {
+        if (lifecycleService == null) {
+            return;
+        }
+        ProcessLifecycleMetadata metadata = lifecycleService.metadata(
+                LifecycleProcessKind.CLI_PERSISTENT,
+                runtimeSessionEpoch,
+                responseTurnEpoch,
+                processGeneration);
+        long pid = target != null ? target.pid() : -1L;
+        lifecycleService.record(type, metadata, pid, detail);
     }
 
     private static String preview(String line) {

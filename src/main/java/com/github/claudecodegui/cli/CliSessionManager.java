@@ -9,10 +9,12 @@ import com.github.claudecodegui.cli.opencode.OpenCodeCliSessionFactory;
 import com.github.claudecodegui.cli.grok.GrokCliSessionFactory;
 import com.github.claudecodegui.cli.kimi.KimiCliSessionFactory;
 import com.github.claudecodegui.cli.pi.PiCliSessionFactory;
+import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.intellij.openapi.diagnostic.Logger;
@@ -90,14 +92,22 @@ public class CliSessionManager {
     public CliSessionManager(Project project) {
         this(List.of(
                 new ClaudeCliSessionFactory(McpGatewayService.getInstance(project),
-                        CliPersistentProcessRegistry.getInstance(project)),
-                new CodexCliSessionFactory(McpGatewayService.getInstance(project)),
-                new OpenCodeCliSessionFactory(McpGatewayService.getInstance(project)),
-                new GrokCliSessionFactory(),
-                new KimiCliSessionFactory(McpGatewayService.getInstance(project)),
-                new PiCliSessionFactory(),
-                new com.github.claudecodegui.cli.omp.OmpCliSessionFactory(),
-                new com.github.claudecodegui.cli.dsh.DshCliSessionFactory()
+                        CliPersistentProcessRegistry.getInstance(project),
+                        LifecycleObservabilityService.getInstance(project)),
+                new CodexCliSessionFactory(McpGatewayService.getInstance(project),
+                        LifecycleObservabilityService.getInstance(project)),
+                new OpenCodeCliSessionFactory(McpGatewayService.getInstance(project),
+                        LifecycleObservabilityService.getInstance(project)),
+                new GrokCliSessionFactory(McpGatewayService.getInstance(project),
+                        LifecycleObservabilityService.getInstance(project)),
+                new KimiCliSessionFactory(McpGatewayService.getInstance(project),
+                        LifecycleObservabilityService.getInstance(project)),
+                new PiCliSessionFactory(McpGatewayService.getInstance(project),
+                        LifecycleObservabilityService.getInstance(project)),
+                new com.github.claudecodegui.cli.omp.OmpCliSessionFactory(NodeService.getInstance(),
+                        LifecycleObservabilityService.getInstance(project)),
+                new com.github.claudecodegui.cli.dsh.DshCliSessionFactory(NodeService.getInstance(),
+                        LifecycleObservabilityService.getInstance(project))
         ));
     }
 

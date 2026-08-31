@@ -7,6 +7,7 @@ import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.cli.kimi.acp.KimiAcpChannelGate;
 import com.github.claudecodegui.cli.kimi.acp.KimiAcpCliSession;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -25,13 +26,20 @@ public class KimiCliSessionFactory implements CliSessionFactory {
     private static final Logger LOG = Logger.getInstance(KimiCliSessionFactory.class);
 
     private final McpGatewayService gatewayService;
+    private final LifecycleObservabilityService lifecycleService;
 
     public KimiCliSessionFactory() {
-        this(null);
+        this(null, null);
     }
 
     public KimiCliSessionFactory(McpGatewayService gatewayService) {
+        this(gatewayService, null);
+    }
+
+    public KimiCliSessionFactory(McpGatewayService gatewayService,
+                                 LifecycleObservabilityService lifecycleService) {
         this.gatewayService = gatewayService;
+        this.lifecycleService = lifecycleService;
     }
 
     @Override
@@ -49,9 +57,10 @@ public class KimiCliSessionFactory implements CliSessionFactory {
         // 命中」的假设不成立。检测成本与 legacy 路径首次 send 的 findExecutable 相同,只是提前。
         ensureVersionCached();
         if (KimiAcpChannelGate.isAcpEligible()) {
-            return new KimiAcpCliSession(tabId, gatewayService);
+            return new KimiAcpCliSession(tabId, gatewayService, lifecycleService);
         }
-        return new KimiRunOnceCliSession(tabId, gatewayService, KimiAcpChannelGate.degradationReason());
+        return new KimiRunOnceCliSession(tabId, gatewayService,
+                KimiAcpChannelGate.degradationReason(), lifecycleService);
     }
 
     /**

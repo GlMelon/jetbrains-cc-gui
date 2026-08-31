@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
@@ -53,26 +54,51 @@ final class KimiAcpConnection {
         JsonObject respond(String method, JsonObject params);
     }
 
+    interface LifecycleCallbacks {
+        void onStdinClose();
+
+        void onStdoutEof();
+
+        void onExit(int exitCode);
+
+        void onTerminate();
+    }
+
     private final Process process;
     /** 通知行转发目标(即当前 turn 的 parser)。长驻复用时每 turn 经 {@link #rebindLineSink} 换新。 */
     private volatile Consumer<String> lineSink;
     private final ServerRequestResponder responder;
     private final Consumer<String> stderrSink;
+    private final LifecycleCallbacks lifecycleCallbacks;
 
     private final AtomicLong nextId = new AtomicLong(1);
     private final ConcurrentHashMap<Long, CompletableFuture<JsonObject>> pending = new ConcurrentHashMap<>();
     private final Object stdinLock = new Object();
     private volatile boolean closed = false;
+    private final AtomicBoolean stdinClosed = new AtomicBoolean();
+    private final AtomicBoolean stdoutEof = new AtomicBoolean();
+    private final AtomicBoolean exitObserved = new AtomicBoolean();
+    private final AtomicBoolean terminated = new AtomicBoolean();
     private final StringBuilder stderrBuffer = new StringBuilder();
 
     KimiAcpConnection(Process process,
                       Consumer<String> lineSink,
                       ServerRequestResponder responder,
                       Consumer<String> stderrSink) {
+        this(process, lineSink, responder, stderrSink, null);
+    }
+
+    KimiAcpConnection(Process process,
+                      Consumer<String> lineSink,
+                      ServerRequestResponder responder,
+                      Consumer<String> stderrSink,
+                      LifecycleCallbacks lifecycleCallbacks) {
         this.process = process;
         this.lineSink = lineSink;
         this.responder = responder;
         this.stderrSink = stderrSink;
+        this.lifecycleCallbacks = lifecycleCallbacks;
+        process.onExit().whenComplete((ignored, error) -> notifyExit());
     }
 
     /** 启动 stdout/stderr drain 线程。 */
@@ -201,15 +227,18 @@ final class KimiAcpConnection {
                     os.close();
                 }
             }
+            notifyStdinClose();
         } catch (Exception ignored) {
             // 进程可能已退出
         }
         try {
             if (!process.waitFor(GRACEFUL_CLOSE_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                notifyTerminate();
                 CliProcessLifecycle.terminate(process);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            notifyTerminate();
             CliProcessLifecycle.terminate(process);
         }
         rejectAllPending("connection closed");
@@ -218,6 +247,11 @@ final class KimiAcpConnection {
     /** 优雅关闭失败的兜底(interrupt 时杀进程树后,让阻塞中的 request 立即失败)。 */
     void abortActiveRequests() {
         rejectAllPending("aborted");
+    }
+
+    /** 标记外部进程树终止，保持每个物理进程只发一次 TERMINATE。 */
+    void markTerminated() {
+        notifyTerminate();
     }
 
     // ── 内部 ─────────────────────────────────────────────────────────────────
@@ -241,6 +275,7 @@ final class KimiAcpConnection {
                 LOG.warn("[KimiAcp] stdout drain ended", e);
             }
         } finally {
+            notifyStdoutEof();
             rejectAllPending("stdout closed");
         }
     }
@@ -365,6 +400,36 @@ final class KimiAcpConnection {
             f.completeExceptionally(new AcpConnectionClosedException(reason));
         }
         pending.clear();
+    }
+
+    private void notifyStdinClose() {
+        if (stdinClosed.compareAndSet(false, true) && lifecycleCallbacks != null) {
+            lifecycleCallbacks.onStdinClose();
+        }
+    }
+
+    private void notifyStdoutEof() {
+        if (stdoutEof.compareAndSet(false, true) && lifecycleCallbacks != null) {
+            lifecycleCallbacks.onStdoutEof();
+        }
+    }
+
+    private void notifyExit() {
+        if (exitObserved.compareAndSet(false, true) && lifecycleCallbacks != null) {
+            int exitCode = -1;
+            try {
+                exitCode = process.exitValue();
+            } catch (IllegalThreadStateException ignored) {
+                // onExit normally guarantees termination; keep diagnostics defensive.
+            }
+            lifecycleCallbacks.onExit(exitCode);
+        }
+    }
+
+    private void notifyTerminate() {
+        if (terminated.compareAndSet(false, true) && lifecycleCallbacks != null) {
+            lifecycleCallbacks.onTerminate();
+        }
     }
 
     private static JsonObject cancelledOutcome() {

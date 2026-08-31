@@ -7,6 +7,7 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 
 import java.util.List;
@@ -34,6 +35,11 @@ public class OpenCodeCliSession extends AbstractRunOnceCliSession {
 
     public OpenCodeCliSession(String tabId, McpGatewayService gatewayService) {
         super(ProviderType.OPENCODE, tabId, gatewayService);
+    }
+
+    public OpenCodeCliSession(String tabId, McpGatewayService gatewayService,
+                              LifecycleObservabilityService lifecycleService) {
+        super(ProviderType.OPENCODE, tabId, gatewayService, lifecycleService);
     }
 
     @Override

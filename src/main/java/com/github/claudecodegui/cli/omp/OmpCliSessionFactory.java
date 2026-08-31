@@ -6,6 +6,7 @@ import com.github.claudecodegui.cli.CliSessionFactory;
 import com.github.claudecodegui.cli.common.ChannelCliSession;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 
 /**
  * OMP CLI 会话工厂(E1·开闭路由化)。
@@ -20,12 +21,20 @@ public class OmpCliSessionFactory implements CliSessionFactory {
     // Application 单例):CliSessionManager 装配发生在 ClaudeSession 构造链上,纯 JUnit
     // 环境(无 Application)会 NPE。惰性到 create() 首次调用。
     private volatile NodeService nodeService;
+    private final LifecycleObservabilityService lifecycleService;
 
     public OmpCliSessionFactory() {
+        this(null, null);
     }
 
     public OmpCliSessionFactory(NodeService nodeService) {
         this.nodeService = nodeService;
+        this.lifecycleService = null;
+    }
+
+    public OmpCliSessionFactory(NodeService nodeService, LifecycleObservabilityService lifecycleService) {
+        this.nodeService = nodeService;
+        this.lifecycleService = lifecycleService;
     }
 
     private NodeService nodeService() {
@@ -42,6 +51,6 @@ public class OmpCliSessionFactory implements CliSessionFactory {
 
     @Override
     public CliSession create(String tabId) {
-        return new ChannelCliSession(tabId, ProviderType.OMP, nodeService());
+        return new ChannelCliSession(tabId, ProviderType.OMP, nodeService(), lifecycleService);
     }
 }

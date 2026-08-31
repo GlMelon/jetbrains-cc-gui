@@ -8,6 +8,7 @@ import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliImagePromptInjections;
 import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.session.SessionCapabilityDegradationReason;
 import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
@@ -54,7 +55,13 @@ public class KimiRunOnceCliSession extends AbstractRunOnceCliSession {
 
     public KimiRunOnceCliSession(String tabId, McpGatewayService gatewayService,
                                  SessionCapabilityDegradationReason degradationReason) {
-        super(ProviderType.KIMI, tabId, gatewayService);
+        this(tabId, gatewayService, degradationReason, null);
+    }
+
+    public KimiRunOnceCliSession(String tabId, McpGatewayService gatewayService,
+                                 SessionCapabilityDegradationReason degradationReason,
+                                 LifecycleObservabilityService lifecycleService) {
+        super(ProviderType.KIMI, tabId, gatewayService, lifecycleService);
         this.degradationReason = degradationReason == null
                 ? SessionCapabilityDegradationReason.LEGACY_FALLBACK : degradationReason;
     }

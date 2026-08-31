@@ -24,6 +24,9 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
+import com.github.claudecodegui.service.lifecycle.LifecycleProcessKind;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -53,6 +56,7 @@ public class ClaudeCliSession implements CliSession {
     private final CliMcpConfig mcpConfig;
     private final McpGatewayService gatewayService;
     private final ClaudeSessionEntrypointRewriter entrypointRewriter;
+    private final LifecycleObservabilityService lifecycleService;
     private volatile String permissionDir;
     private volatile String cliPermissionSessionId;
 
@@ -73,11 +77,11 @@ public class ClaudeCliSession implements CliSession {
     private volatile CliPersistentProcess activePersistentProcess;
 
     public ClaudeCliSession(String tabId) {
-        this(tabId, null, new ClaudeSessionEntrypointRewriter(), null);
+        this(tabId, null, new ClaudeSessionEntrypointRewriter(), null, null);
     }
 
     public ClaudeCliSession(String tabId, McpGatewayService gatewayService) {
-        this(tabId, gatewayService, new ClaudeSessionEntrypointRewriter(), null);
+        this(tabId, gatewayService, new ClaudeSessionEntrypointRewriter(), null, null);
     }
 
     ClaudeCliSession(
@@ -85,7 +89,7 @@ public class ClaudeCliSession implements CliSession {
             McpGatewayService gatewayService,
             ClaudeSessionEntrypointRewriter entrypointRewriter
     ) {
-        this(tabId, gatewayService, entrypointRewriter, null);
+        this(tabId, gatewayService, entrypointRewriter, null, null);
     }
 
     ClaudeCliSession(
@@ -94,11 +98,22 @@ public class ClaudeCliSession implements CliSession {
             ClaudeSessionEntrypointRewriter entrypointRewriter,
             CliPersistentProcessRegistry registry
     ) {
+        this(tabId, gatewayService, entrypointRewriter, registry, null);
+    }
+
+    ClaudeCliSession(
+            String tabId,
+            McpGatewayService gatewayService,
+            ClaudeSessionEntrypointRewriter entrypointRewriter,
+            CliPersistentProcessRegistry registry,
+            LifecycleObservabilityService lifecycleService
+    ) {
         this.tabId = tabId;
         this.mcpConfig = new CliMcpConfig(tabId);
         this.gatewayService = gatewayService;
         this.entrypointRewriter = entrypointRewriter;
         this.registry = registry;
+        this.lifecycleService = lifecycleService;
         this.persistentSendPath = new ClaudePersistentSendPath(this);
     }
 
@@ -502,7 +517,8 @@ public class ClaudeCliSession implements CliSession {
         CliPersistentProcess.TurnHandle turn = null;
         try {
             String messageLine = persistentSendPath.buildUserMessageLine(prompt, blocks);
-            turn = process.startTurn(messageLine, turnContext.handler);
+            turn = process.startTurn(messageLine, turnContext.handler,
+                    request.runtimeSessionEpoch(), request.responseTurnEpoch());
             LOG.info("[CliPathDecision] tab=" + tabId + ", path=persistent, turnId=" + turn.turnId());
             LOG.info("[CliConcurrencyDiag][ClaudeCliSession] persistent turn started" + ": tabId=" + tabId
                     + ", turnId=" + turn.turnId()
@@ -584,6 +600,7 @@ public class ClaudeCliSession implements CliSession {
         AtomicBoolean completedWithStructuredError = new AtomicBoolean(false);
         Process process = null;
         CliProcessHandle currentHandle = null;
+        Long processGeneration = null;
         try {
             LOG.info("[CliConcurrencyDiag][ClaudeCliSession] building command" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
                     sendStartNanos) + ", thread=" + Thread.currentThread().getName());
@@ -620,6 +637,8 @@ public class ClaudeCliSession implements CliSession {
             process = pb.start();
             currentHandle = new CliProcessHandle(process, "claude-tab-" + tabId);
             activeHandle = currentHandle;
+            processGeneration = lifecycleService == null ? null : lifecycleService.nextProcessGeneration();
+            recordLifecycle(LifecycleEventType.SPAWN, process, request, processGeneration, "claude CLI spawned");
             LOG.info("[CliConcurrencyDiag][ClaudeCliSession] process started" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
                     sendStartNanos) + ", thread=" + Thread.currentThread()
                     .getName());
@@ -627,6 +646,8 @@ public class ClaudeCliSession implements CliSession {
                 currentHandle.interrupt();
             } else {
                 writePromptToStdin(process, prompt);
+                recordLifecycle(LifecycleEventType.STDIN_CLOSE, process, request, processGeneration,
+                        "claude CLI stdin closed");
             }
             LOG.debug(
                     "[CliConcurrencyDiag][ClaudeCliSession] prompt written to stdin" + ": tabId=" + tabId + ", promptChars=" + prompt.length() + ", elapsedMs=" + elapsedMillis(
@@ -640,7 +661,11 @@ public class ClaudeCliSession implements CliSession {
                             completedWithStructuredError, interruptHandled)
             );
             CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
+            recordLifecycle(LifecycleEventType.STDOUT_EOF, process, request, processGeneration,
+                    "claude CLI stdout drained");
             int exitCode = outcome.exitCode();
+            recordLifecycle(LifecycleEventType.EXIT, process, request, processGeneration,
+                    "claude CLI exited: " + exitCode);
             boolean interrupted = wasInterrupted();
             LOG.info(
                     "[CliConcurrencyDiag][ClaudeCliSession] process exited" + ": tabId=" + tabId + ", exitCode=" + exitCode + ", " +
@@ -670,11 +695,28 @@ public class ClaudeCliSession implements CliSession {
                 callback.onComplete(false, null, e.getMessage());
             }
         } finally {
+            if (process != null && process.isAlive()) {
+                recordLifecycle(LifecycleEventType.TERMINATE, process, request, processGeneration,
+                        "claude CLI process terminated");
+            }
             CliProcessLifecycle.terminate(process);
             if (activeHandle == currentHandle) {
                 activeHandle = null;
             }
         }
+    }
+
+    private void recordLifecycle(LifecycleEventType type, Process process, CliSendRequest request,
+                                 Long processGeneration, String detail) {
+        if (lifecycleService == null) {
+            return;
+        }
+        lifecycleService.record(type,
+                lifecycleService.metadata(LifecycleProcessKind.CLI_ONE_SHOT,
+                        request != null ? request.runtimeSessionEpoch() : null,
+                        request != null ? request.responseTurnEpoch() : null,
+                        processGeneration),
+                process != null ? process.pid() : -1L, detail);
     }
 
     /**

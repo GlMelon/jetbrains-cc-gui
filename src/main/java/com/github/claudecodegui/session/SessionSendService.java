@@ -345,7 +345,8 @@ public class SessionSendService {
                 null,
                 null,
                 thinkingOutputEnabled,
-                Map.of()
+                Map.of(),
+                responseTurnEpoch
         );
 
         PendingInteractionDiagnosticsService.Source diagnosticsSource = registerToolDiagnosticsSource();
@@ -413,7 +414,8 @@ public class SessionSendService {
                 null,
                 null,
                 thinkingOutputEnabled,
-                Map.of()
+                Map.of(),
+                responseTurnEpoch
         );
 
         PendingInteractionDiagnosticsService.Source diagnosticsSource = registerToolDiagnosticsSource();
@@ -486,7 +488,8 @@ public class SessionSendService {
                 streaming,
                 null, // disableThinking 废弃:思考预算改由 reasoning effort 控制,三 provider 统一 null(思考区开关下沉为显示控制,见 SessionCallbackAdapter/TurnPushGate)
                 thinkingOutputEnabled,
-                Map.of()
+                Map.of(),
+                responseTurnEpoch
         );
 
         PendingInteractionDiagnosticsService.Source diagnosticsSource = registerToolDiagnosticsSource();

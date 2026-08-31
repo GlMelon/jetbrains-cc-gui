@@ -4,6 +4,7 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionFactory;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 
 /**
  * OpenCode CLI 会话工厂(E1·开闭路由化)。
@@ -13,13 +14,20 @@ import com.github.claudecodegui.mcp.McpGatewayService;
  */
 public class OpenCodeCliSessionFactory implements CliSessionFactory {
     private final McpGatewayService gatewayService;
+    private final LifecycleObservabilityService lifecycleService;
 
     public OpenCodeCliSessionFactory() {
-        this(null);
+        this(null, null);
     }
 
     public OpenCodeCliSessionFactory(McpGatewayService gatewayService) {
+        this(gatewayService, null);
+    }
+
+    public OpenCodeCliSessionFactory(McpGatewayService gatewayService,
+                                     LifecycleObservabilityService lifecycleService) {
         this.gatewayService = gatewayService;
+        this.lifecycleService = lifecycleService;
     }
 
     @Override
@@ -29,6 +37,6 @@ public class OpenCodeCliSessionFactory implements CliSessionFactory {
 
     @Override
     public CliSession create(String tabId) {
-        return new OpenCodeCliSession(tabId, gatewayService);
+        return new OpenCodeCliSession(tabId, gatewayService, lifecycleService);
     }
 }

@@ -7,6 +7,7 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
@@ -68,6 +69,11 @@ public class GrokRunOnceCliSession extends AbstractRunOnceCliSession {
 
     public GrokRunOnceCliSession(String tabId, McpGatewayService gatewayService) {
         super(ProviderType.GROK, tabId, gatewayService);
+    }
+
+    public GrokRunOnceCliSession(String tabId, McpGatewayService gatewayService,
+                                 LifecycleObservabilityService lifecycleService) {
+        super(ProviderType.GROK, tabId, gatewayService, lifecycleService);
     }
 
     @Override

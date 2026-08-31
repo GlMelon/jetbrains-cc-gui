@@ -13,6 +13,9 @@ import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.CliTempDir;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
+import com.github.claudecodegui.service.lifecycle.LifecycleProcessKind;
 import com.google.gson.Gson;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -69,6 +72,7 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     private final Gson gson = GsonHolder.GSON;
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
     private final McpGatewayService gatewayService;
+    private final LifecycleObservabilityService lifecycleService;
 
     // 当前 session ID(从事件流提取,续接时以 -s 传入)
     private volatile String sessionId;
@@ -79,9 +83,16 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     private volatile ProviderCliResolver resolver;
 
     protected AbstractRunOnceCliSession(ProviderType providerType, String tabId, McpGatewayService gatewayService) {
+        this(providerType, tabId, gatewayService, null);
+    }
+
+    protected AbstractRunOnceCliSession(ProviderType providerType, String tabId,
+                                        McpGatewayService gatewayService,
+                                        LifecycleObservabilityService lifecycleService) {
         this.providerType = providerType;
         this.tabId = tabId;
         this.gatewayService = gatewayService;
+        this.lifecycleService = lifecycleService;
     }
 
     // ── 钩子 ──────────────────────────────────────────────────────────────────
@@ -184,6 +195,8 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                             + ", thread=" + Thread.currentThread().getName());
                     sessionId = null;
                     diagnostic.setLength(0);
+                    recordLifecycle(LifecycleEventType.FALLBACK, null, request, null,
+                            "continuation session invalidated; retrying as fresh one-shot turn");
                     if (!userInterrupted.get()) {
                         runOnce(request, callback, null, attachFiles, diagnostic, sendStartNanos);
                     }
@@ -277,6 +290,11 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                 + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                 + ", thread=" + Thread.currentThread().getName());
         Process process = pb.start();
+        Long processGeneration = lifecycleService != null
+                ? lifecycleService.nextProcessGeneration() : null;
+        recordLifecycle(LifecycleEventType.SPAWN, process, request, processGeneration, "one-shot CLI spawned");
+        recordLifecycle(LifecycleEventType.STDIN_CLOSE, process, request, processGeneration,
+                "one-shot stdin redirected to EOF");
         LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] process started"
                 + ": tabId=" + tabId
                 + ", effectiveSessionId=" + effectiveSessionDisplay
@@ -318,10 +336,14 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                         processLine(lineBuf, parser, diagnostic);
                     }
                 }
+                recordLifecycle(LifecycleEventType.STDOUT_EOF, process, request, processGeneration,
+                        "one-shot stdout EOF");
             });
 
             CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
             int exitCode = outcome.exitCode();
+            recordLifecycle(LifecycleEventType.EXIT, process, request, processGeneration,
+                    "one-shot CLI exited: " + exitCode);
             LOG.info("[CliConcurrencyDiag][" + sessionTag() + "] process exited"
                     + ": tabId=" + tabId
                     + ", effectiveSessionId=" + effectiveSessionDisplay
@@ -386,11 +408,28 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
             callback.onComplete(false, parser.accumulatedText(), err);
             return false;
         } finally {
+            if (process.isAlive()) {
+                recordLifecycle(LifecycleEventType.TERMINATE, process, request, processGeneration,
+                        "one-shot process terminated");
+            }
             CliProcessLifecycle.terminate(process);
             if (activeHandle == currentHandle) {
                 activeHandle = null;
             }
         }
+    }
+
+    private void recordLifecycle(LifecycleEventType type, Process process, CliSendRequest request,
+                                 Long processGeneration, String detail) {
+        if (lifecycleService == null) {
+            return;
+        }
+        lifecycleService.record(type,
+                lifecycleService.metadata(LifecycleProcessKind.CLI_ONE_SHOT,
+                        request != null ? request.runtimeSessionEpoch() : null,
+                        request != null ? request.responseTurnEpoch() : null,
+                        processGeneration),
+                process != null ? process.pid() : -1L, detail);
     }
 
     @Override

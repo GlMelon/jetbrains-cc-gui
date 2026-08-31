@@ -26,7 +26,9 @@ public record CliSendRequest(
         String reasoningEffort,
         String permissionSessionId,
         Boolean thinkingOutputEnabled,
-        Map<String, String> extraEnv
+        Map<String, String> extraEnv,
+        String runtimeSessionEpoch,
+        long responseTurnEpoch
 ) {
     public CliSendRequest(
             String tabId,
@@ -61,7 +63,9 @@ public record CliSendRequest(
                 reasoningEffort,
                 permissionSessionId,
                 Boolean.TRUE,
-                extraEnv
+                extraEnv,
+                null,
+                0L
         );
     }
 

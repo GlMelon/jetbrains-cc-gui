@@ -21,6 +21,9 @@ import com.github.claudecodegui.session.SessionCapabilityState;
 import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
+import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
+import com.github.claudecodegui.service.lifecycle.LifecycleProcessKind;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -68,10 +71,13 @@ public class KimiAcpCliSession implements CliSession {
 
     private final String tabId;
     private final McpGatewayService gatewayService;
+    private final LifecycleObservabilityService lifecycleService;
     private final Gson gson = GsonHolder.GSON;
     private final ProviderCliResolver resolver = new ProviderCliResolver(ProviderType.KIMI, "kimi");
 
     private volatile CliProcessHandle activeHandle;
+    private volatile KimiAcpConnection activeConnection;
+    private volatile CliSendRequest activeLifecycleRequest;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
     private final AtomicLong turnSequence = new AtomicLong();
     private volatile long activeTurnId;
@@ -85,14 +91,21 @@ public class KimiAcpCliSession implements CliSession {
     private volatile KimiAcpConnection persistentConn;
     private volatile String persistentSessionId;
     private volatile CliProcessHandle persistentHandle;
+    private volatile Long persistentProcessGeneration;
     /** 当前 session 的思考档位目录(session/new 或 load 的 configOptions 解析),随 clearPersistent 清空。 */
     private volatile ThinkingOptions thinkingOptions;
     private volatile SessionNegotiatedCapabilities negotiatedCapabilities =
             SessionNegotiatedCapabilities.unknown();
 
     public KimiAcpCliSession(String tabId, McpGatewayService gatewayService) {
+        this(tabId, gatewayService, null);
+    }
+
+    public KimiAcpCliSession(String tabId, McpGatewayService gatewayService,
+                             LifecycleObservabilityService lifecycleService) {
         this.tabId = tabId;
         this.gatewayService = gatewayService;
+        this.lifecycleService = lifecycleService;
     }
 
     @Override
@@ -107,6 +120,7 @@ public class KimiAcpCliSession implements CliSession {
         activeTurnId = turnId;
         return CliSessionExecutor.runAsync(() -> {
             StringBuilder diagnostic = new StringBuilder();
+            activeLifecycleRequest = request;
             try {
                 // 续接 id 与 claude/codex(--resume 语义)对齐:优先用 request.sessionId()
                 // (前端/state 持有的会话 id,历史回load、跨通道切换后仍指向用户认可的会话),
@@ -138,6 +152,7 @@ public class KimiAcpCliSession implements CliSession {
                 }
             } finally {
                 if (activeTurnId == turnId) {
+                    activeLifecycleRequest = null;
                     activeHandle = null;
                     activeTurnId = 0L;
                     userInterrupted.set(false);
@@ -164,6 +179,7 @@ public class KimiAcpCliSession implements CliSession {
         String resolvedSessionId = null;
         CliProcessHandle currentHandle = null;
         boolean freshSpawn = false;
+        Long currentProcessGeneration = null;
 
         try {
             // ── 复用长驻连接 or 新建 ──
@@ -178,6 +194,7 @@ public class KimiAcpCliSession implements CliSession {
                 conn = existing;
                 resolvedSessionId = persistentSessionId;
                 currentHandle = persistentHandle;
+                currentProcessGeneration = persistentProcessGeneration;
                 activeHandle = currentHandle;
                 // 关键:通知行换绑到本轮新 parser(构造时绑定的旧 parser 已随上一 turn 结束)。
                 // 另补 attachSessionId:复用分支不走 establishSession,本轮 title payload 需要它。
@@ -236,6 +253,11 @@ public class KimiAcpCliSession implements CliSession {
                     return false;
                 }
                 currentHandle = new CliProcessHandle(process, "kimi-acp-tab-" + tabId);
+                final Long spawnedGeneration = lifecycleService != null
+                        ? lifecycleService.nextProcessGeneration() : null;
+                currentProcessGeneration = spawnedGeneration;
+                recordLifecycle(LifecycleEventType.SPAWN, process, request, spawnedGeneration,
+                        "ACP process spawned");
                 activeHandle = currentHandle;
                 if (userInterrupted.get()) {
                     currentHandle.interrupt();
@@ -243,7 +265,33 @@ public class KimiAcpCliSession implements CliSession {
                 conn = new KimiAcpConnection(process,
                         parser::parseLine,
                         (method, params) -> handleServerRequest(method, params),
-                        line -> CliErrorFormatter.appendDiagnosticLine(diagnostic, line));
+                        line -> CliErrorFormatter.appendDiagnosticLine(diagnostic, line),
+                        new KimiAcpConnection.LifecycleCallbacks() {
+                            @Override
+                            public void onStdinClose() {
+                                recordLifecycle(LifecycleEventType.STDIN_CLOSE, process, request,
+                                        spawnedGeneration, "ACP stdin closed");
+                            }
+
+                            @Override
+                            public void onStdoutEof() {
+                                recordLifecycle(LifecycleEventType.STDOUT_EOF, process, request,
+                                        spawnedGeneration, "ACP stdout EOF");
+                            }
+
+                            @Override
+                            public void onExit(int exitCode) {
+                                recordLifecycle(LifecycleEventType.EXIT, process, request,
+                                        spawnedGeneration, "ACP process exited: " + exitCode);
+                            }
+
+                            @Override
+                            public void onTerminate() {
+                                recordLifecycle(LifecycleEventType.TERMINATE, process, request,
+                                        spawnedGeneration, "ACP process tree terminated");
+                            }
+                        });
+                activeConnection = conn;
                 conn.start();
                 // ── 握手 ──
                 try {
@@ -280,6 +328,7 @@ public class KimiAcpCliSession implements CliSession {
                 persistentConn = conn;
                 persistentSessionId = resolvedSessionId;
                 persistentHandle = currentHandle;
+                persistentProcessGeneration = currentProcessGeneration;
                 this.sessionId = resolvedSessionId;
             }
 
@@ -380,6 +429,9 @@ public class KimiAcpCliSession implements CliSession {
             }
             if (activeHandle == currentHandle) {
                 activeHandle = null;
+            }
+            if (activeConnection == conn) {
+                activeConnection = null;
             }
         }
     }
@@ -792,6 +844,10 @@ public class KimiAcpCliSession implements CliSession {
         // 退化:无长驻连接或 cancel 失败 → 杀进程(下 turn 重建)
         CliProcessHandle h = activeHandle;
         if (h != null) {
+            KimiAcpConnection active = activeConnection;
+            if (active != null) {
+                active.markTerminated();
+            }
             h.interrupt();
         }
     }
@@ -811,6 +867,7 @@ public class KimiAcpCliSession implements CliSession {
                     LOG.warn("[KimiAcpCliSession][" + tabId + "] session/cancel fallback after "
                             + CliConstants.CLI_INTERRUPT_FALLBACK_MS + "ms; terminating process tree");
                     if (handle != null) {
+                        conn.markTerminated();
                         handle.interrupt();
                     }
                 });
@@ -819,18 +876,7 @@ public class KimiAcpCliSession implements CliSession {
     @Override
     public void dispose() {
         interrupt();
-        // 关闭长驻连接(进程退出)
-        KimiAcpConnection conn = persistentConn;
-        if (conn != null) {
-            try {
-                conn.close();
-            } catch (Exception ignored) {
-            }
-            persistentConn = null;
-            persistentSessionId = null;
-            persistentHandle = null;
-            thinkingOptions = null;
-        }
+        clearPersistent();
     }
 
     static SessionNegotiatedCapabilities degradedCapabilities(
@@ -873,10 +919,33 @@ public class KimiAcpCliSession implements CliSession {
 
     /** 清除长驻状态(进程死/握手失败/turn 失效时,下 turn 重建)。 */
     private void clearPersistent() {
+        KimiAcpConnection old = persistentConn;
         persistentConn = null;
         persistentSessionId = null;
         persistentHandle = null;
+        persistentProcessGeneration = null;
         thinkingOptions = null;
+        if (old != null) {
+            try {
+                old.close();
+            } catch (Exception ignored) {
+                // 关闭路径必须尽力终止,不覆盖原始 turn 错误。
+            }
+        }
+    }
+
+    private void recordLifecycle(LifecycleEventType type, Process process,
+                                 CliSendRequest request, Long generation, String detail) {
+        if (lifecycleService == null) {
+            return;
+        }
+        lifecycleService.record(type,
+                lifecycleService.metadata(LifecycleProcessKind.CLI_PERSISTENT,
+                        request != null ? request.runtimeSessionEpoch() : null,
+                        request != null ? request.responseTurnEpoch() : null,
+                        generation),
+                process != null ? process.pid() : -1L,
+                detail);
     }
     private boolean wasInterrupted() {
         CliProcessHandle handle = activeHandle;

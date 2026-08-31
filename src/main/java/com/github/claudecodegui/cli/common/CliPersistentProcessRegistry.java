@@ -1,6 +1,8 @@
 package com.github.claudecodegui.cli.common;
 
 import com.github.claudecodegui.cli.CliSessionExecutor;
+import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
@@ -103,12 +105,18 @@ public final class CliPersistentProcessRegistry implements Disposable {
 
     private final ScheduledExecutorService sweeper = com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService();
     private final ScheduledFuture<?> sweeperFuture;
+    private final LifecycleObservabilityService lifecycleService;
 
     public static CliPersistentProcessRegistry getInstance(@NotNull Project project) {
         return project.getService(CliPersistentProcessRegistry.class);
     }
 
     public CliPersistentProcessRegistry() {
+        this(null);
+    }
+
+    public CliPersistentProcessRegistry(LifecycleObservabilityService lifecycleService) {
+        this.lifecycleService = lifecycleService;
         sweeperFuture = sweeper.scheduleWithFixedDelay(this::sweepIdleProcesses,
                 CliConstants.CLI_PERSISTENT_SWEEP_INTERVAL_MS,
                 CliConstants.CLI_PERSISTENT_SWEEP_INTERVAL_MS,
@@ -191,6 +199,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
      * 当前消息不被阻塞(已走 one-shot);并发重建经 pendingRebuilds 防抖。
      */
     public void rebuildInBackground(String tabId, String provider, CliProcessSpec spec) {
+        recordLifecycle(LifecycleEventType.REBUILD, tabId, provider, -1L, "persistent process rebuild requested");
         SlotKey key = new SlotKey(tabId, provider);
         final long epoch;
         final long generation;
@@ -521,7 +530,9 @@ public final class CliPersistentProcessRegistry implements Disposable {
     }
 
     private CliPersistentProcess spawn(String tabId, String provider, CliProcessSpec spec) {
-        CliPersistentProcess process = new CliPersistentProcess(provider, tabId);
+        Long physicalGeneration = lifecycleService != null
+                ? lifecycleService.nextProcessGeneration() : null;
+        CliPersistentProcess process = new CliPersistentProcess(provider, tabId, lifecycleService, physicalGeneration);
         process.bindInterruptSupplier(spec.interruptLineSupplier());
         boolean started = process.start(spec.command(), spec.env(), spec.cwd(),
                 CliConstants.CLI_PERSISTENT_READY_WINDOW_MS);
@@ -531,6 +542,15 @@ public final class CliPersistentProcessRegistry implements Disposable {
             return null;
         }
         return process;
+    }
+
+    private void recordLifecycle(LifecycleEventType type, String tabId, String provider, long pid, String detail) {
+        if (lifecycleService == null) {
+            return;
+        }
+        lifecycleService.record(type,
+                lifecycleService.metadata(com.github.claudecodegui.service.lifecycle.LifecycleProcessKind.CLI_PERSISTENT,
+                        null, null, null), pid, detail + ": tab=" + tabId + ", provider=" + provider);
     }
 
     /**

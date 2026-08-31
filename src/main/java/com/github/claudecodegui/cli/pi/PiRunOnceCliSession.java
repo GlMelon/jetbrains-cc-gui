@@ -8,6 +8,7 @@ import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliImagePromptInjections;
 import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 
 import java.io.File;
@@ -46,6 +47,11 @@ public class PiRunOnceCliSession extends AbstractRunOnceCliSession {
 
     public PiRunOnceCliSession(String tabId, McpGatewayService gatewayService) {
         super(ProviderType.PI, tabId, gatewayService);
+    }
+
+    public PiRunOnceCliSession(String tabId, McpGatewayService gatewayService,
+                               LifecycleObservabilityService lifecycleService) {
+        super(ProviderType.PI, tabId, gatewayService, lifecycleService);
     }
 
     @Override

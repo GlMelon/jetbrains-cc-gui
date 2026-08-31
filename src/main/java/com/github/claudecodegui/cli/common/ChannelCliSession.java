@@ -8,6 +8,9 @@ import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
+import com.github.claudecodegui.service.lifecycle.LifecycleProcessKind;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -41,6 +44,7 @@ public class ChannelCliSession implements CliSession {
     private final NodeService nodeService;
     private final Gson gson = GsonHolder.GSON;
     private final MarkerCliStreamParserFactory parserFactory;
+    private final LifecycleObservabilityService lifecycleService;
 
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
@@ -52,15 +56,27 @@ public class ChannelCliSession implements CliSession {
     }
 
     public ChannelCliSession(String tabId, ProviderType providerType, NodeService nodeService) {
-        this(tabId, providerType, nodeService, MarkerCliStreamParser::new);
+        this(tabId, providerType, nodeService, MarkerCliStreamParser::new, null);
     }
 
     public ChannelCliSession(String tabId, ProviderType providerType, NodeService nodeService,
                              MarkerCliStreamParserFactory parserFactory) {
+        this(tabId, providerType, nodeService, parserFactory, null);
+    }
+
+    public ChannelCliSession(String tabId, ProviderType providerType, NodeService nodeService,
+                             MarkerCliStreamParserFactory parserFactory,
+                             LifecycleObservabilityService lifecycleService) {
         this.tabId = tabId;
         this.providerType = providerType;
         this.nodeService = nodeService;
         this.parserFactory = parserFactory;
+        this.lifecycleService = lifecycleService;
+    }
+
+    public ChannelCliSession(String tabId, ProviderType providerType, NodeService nodeService,
+                             LifecycleObservabilityService lifecycleService) {
+        this(tabId, providerType, nodeService, MarkerCliStreamParser::new, lifecycleService);
     }
 
     @Override
@@ -144,7 +160,10 @@ public class ChannelCliSession implements CliSession {
         byte[] stdinJson = buildStdinJson(request);
 
         callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.UNDERSTANDING.value());
-        Process process = pb.start();
+         Process process = pb.start();
+         Long processGeneration = lifecycleService != null
+                 ? lifecycleService.nextProcessGeneration() : null;
+         recordLifecycle(LifecycleEventType.SPAWN, process, request, processGeneration, "channel CLI spawned");
         CliProcessHandle currentHandle = new CliProcessHandle(process, providerType.value() + "-tab-" + tabId);
         activeHandle = currentHandle;
 
@@ -154,15 +173,17 @@ public class ChannelCliSession implements CliSession {
             }
             // stdin writer:写完即关闭,触发 ai-bridge stdin EOF
             CompletableFuture<Void> stdinWriter = CliSessionExecutor.runAsync(() -> {
-                try (OutputStream os = process.getOutputStream()) {
+                 try (OutputStream os = process.getOutputStream()) {
                     os.write(stdinJson);
                     os.flush();
-                } catch (Exception ignored) {
+                 } catch (Exception ignored) {
                     // 进程可能已退出/被中断,忽略
-                }
-            });
+                 }
+                 recordLifecycle(LifecycleEventType.STDIN_CLOSE, process, request, processGeneration,
+                         "channel stdin closed");
+             });
             CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(process, () -> {
-                try (InputStream rawIn = process.getInputStream()) {
+                 try (InputStream rawIn = process.getInputStream()) {
                     CliOutputLimits.LineBuffer lineBuf = new CliOutputLimits.LineBuffer();
                     byte[] readBuf = new byte[8192];
                     int n;
@@ -179,8 +200,10 @@ public class ChannelCliSession implements CliSession {
                     if (lineBuf.size() > 0) {
                         processLine(lineBuf, parser, diagnostic);
                     }
-                }
-            });
+                 }
+                 recordLifecycle(LifecycleEventType.STDOUT_EOF, process, request, processGeneration,
+                         "channel stdout EOF");
+             });
 
             CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
             try {
@@ -188,7 +211,9 @@ public class ChannelCliSession implements CliSession {
             } catch (Exception ignored) {
                 // stdin writer 超时未结束(进程已退出/被中断),忽略
             }
-            int exitCode = outcome.exitCode();
+             int exitCode = outcome.exitCode();
+             recordLifecycle(LifecycleEventType.EXIT, process, request, processGeneration,
+                     "channel CLI exited: " + exitCode);
 
             if (outcome.timedOut() && !wasInterrupted()) {
                 String err = CliErrorFormatter.formatError(providerType.displayLabel(), "CLI request timed out");
@@ -232,6 +257,10 @@ public class ChannelCliSession implements CliSession {
             callback.onError(err);
             callback.onComplete(false, parser.accumulatedText(), err);
         } finally {
+            if (process.isAlive()) {
+                recordLifecycle(LifecycleEventType.TERMINATE, process, request, processGeneration,
+                        "channel process terminated");
+            }
             CliProcessLifecycle.terminate(process);
             if (activeHandle == currentHandle) {
                 activeHandle = null;
@@ -280,6 +309,19 @@ public class ChannelCliSession implements CliSession {
 
     private static String stdinEnvKey(ProviderType providerType) {
         return providerType.value().toUpperCase(java.util.Locale.ROOT) + "_USE_STDIN";
+    }
+
+    private void recordLifecycle(LifecycleEventType type, Process process, CliSendRequest request,
+                                 Long processGeneration, String detail) {
+        if (lifecycleService == null) {
+            return;
+        }
+        lifecycleService.record(type,
+                lifecycleService.metadata(LifecycleProcessKind.CHANNEL,
+                        request != null ? request.runtimeSessionEpoch() : null,
+                        request != null ? request.responseTurnEpoch() : null,
+                        processGeneration),
+                process != null ? process.pid() : -1L, detail);
     }
 
     @Override

@@ -15,6 +15,9 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.PlatformUtils;
+import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
+import com.github.claudecodegui.service.lifecycle.LifecycleProcessKind;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -91,6 +94,7 @@ public class CodexCliSession implements CliSession {
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
     private final CodexCliEventNormalizer eventNormalizer = new CodexCliEventNormalizer();
     private final McpGatewayService gatewayService;
+    private final LifecycleObservabilityService lifecycleService;
 
     // 当前 thread_id（从 thread.started 事件获取）
     private volatile String threadId;
@@ -138,12 +142,18 @@ public class CodexCliSession implements CliSession {
     }
 
     public CodexCliSession(String tabId) {
-        this(tabId, null);
+        this(tabId, null, null);
     }
 
     public CodexCliSession(String tabId, McpGatewayService gatewayService) {
+        this(tabId, gatewayService, null);
+    }
+
+    public CodexCliSession(String tabId, McpGatewayService gatewayService,
+                           LifecycleObservabilityService lifecycleService) {
         this.tabId = tabId;
         this.gatewayService = gatewayService;
+        this.lifecycleService = lifecycleService;
     }
 
     private static long elapsedMillis(long startNanos) {
@@ -162,8 +172,9 @@ public class CodexCliSession implements CliSession {
             List<File> tempFiles = new ArrayList<>();
             StringBuilder diagnostic = new StringBuilder();
             StringBuilder cliError = new StringBuilder();
-            Process process = null;
-            CliProcessHandle currentHandle = null;
+                Process process = null;
+                CliProcessHandle currentHandle = null;
+                Long processGeneration = null;
             try {
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] send task started"
                         + ": tabId=" + tabId
@@ -230,6 +241,8 @@ public class CodexCliSession implements CliSession {
                 process = pb.start();
                 currentHandle = new CliProcessHandle(process, "codex-tab-" + tabId);
                 activeHandle = currentHandle;
+                processGeneration = lifecycleService == null ? null : lifecycleService.nextProcessGeneration();
+                recordLifecycle(LifecycleEventType.SPAWN, process, request, processGeneration, "codex CLI spawned");
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] process started"
                         + ": tabId=" + tabId
                         + ", elapsedMs=" + elapsedMillis(sendStartNanos)
@@ -242,6 +255,8 @@ public class CodexCliSession implements CliSession {
                         stdin.write(promptInput);
                         stdin.flush();
                     }
+                    recordLifecycle(LifecycleEventType.STDIN_CLOSE, process, request, processGeneration,
+                            "codex CLI stdin closed");
                 }
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] prompt written to stdin"
                         + ": tabId=" + tabId
@@ -287,6 +302,8 @@ public class CodexCliSession implements CliSession {
                 });
 
                 CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
+                recordLifecycle(LifecycleEventType.STDOUT_EOF, process, request, processGeneration,
+                        "codex CLI stdout drained");
 
                 if (fatalAbort) {
                     // 致命 provider/API 错误(parseEvent 已 onError):强制终止卡死的重连进程,
@@ -295,6 +312,8 @@ public class CodexCliSession implements CliSession {
                     return;
                 }
                 int exitCode = outcome.exitCode();
+                recordLifecycle(LifecycleEventType.EXIT, process, request, processGeneration,
+                        "codex CLI exited: " + exitCode);
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] process exited"
                         + ": tabId=" + tabId
                         + ", exitCode=" + exitCode
@@ -345,6 +364,10 @@ public class CodexCliSession implements CliSession {
                     callback.onComplete(false, null, err);
                 }
             } finally {
+                if (process != null && process.isAlive()) {
+                    recordLifecycle(LifecycleEventType.TERMINATE, process, request, processGeneration,
+                            "codex CLI process terminated");
+                }
                 CliProcessLifecycle.terminate(process);
                 if (activeHandle == currentHandle) {
                     activeHandle = null;
@@ -353,6 +376,19 @@ public class CodexCliSession implements CliSession {
                 userInterrupted.set(false);
             }
         });
+    }
+
+    private void recordLifecycle(LifecycleEventType type, Process process, CliSendRequest request,
+                                 Long processGeneration, String detail) {
+        if (lifecycleService == null) {
+            return;
+        }
+        lifecycleService.record(type,
+                lifecycleService.metadata(LifecycleProcessKind.CLI_ONE_SHOT,
+                        request != null ? request.runtimeSessionEpoch() : null,
+                        request != null ? request.responseTurnEpoch() : null,
+                        processGeneration),
+                process != null ? process.pid() : -1L, detail);
     }
 
     public void interrupt() {

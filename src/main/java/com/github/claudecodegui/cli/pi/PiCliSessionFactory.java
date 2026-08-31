@@ -4,6 +4,7 @@ import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionFactory;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 
 /**
  * Pi CLI 会话工厂(E1·开闭路由化)。
@@ -14,13 +15,20 @@ import com.github.claudecodegui.mcp.McpGatewayService;
  */
 public class PiCliSessionFactory implements CliSessionFactory {
     private final McpGatewayService gatewayService;
+    private final LifecycleObservabilityService lifecycleService;
 
     public PiCliSessionFactory() {
-        this(null);
+        this(null, null);
     }
 
     public PiCliSessionFactory(McpGatewayService gatewayService) {
+        this(gatewayService, null);
+    }
+
+    public PiCliSessionFactory(McpGatewayService gatewayService,
+                               LifecycleObservabilityService lifecycleService) {
         this.gatewayService = gatewayService;
+        this.lifecycleService = lifecycleService;
     }
 
     @Override
@@ -30,6 +38,6 @@ public class PiCliSessionFactory implements CliSessionFactory {
 
     @Override
     public CliSession create(String tabId) {
-        return new PiRunOnceCliSession(tabId, gatewayService);
+        return new PiRunOnceCliSession(tabId, gatewayService, lifecycleService);
     }
 }

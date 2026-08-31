@@ -1,6 +1,7 @@
 package com.github.claudecodegui.bridge;
 
 import com.github.claudecodegui.session.runtime.RuntimeKey;
+import com.github.claudecodegui.service.lifecycle.ProcessLifecycleMetadata;
 import com.intellij.openapi.diagnostic.Logger;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.util.concurrency.AppExecutorUtil;
@@ -24,14 +25,20 @@ import java.util.concurrent.TimeUnit;
  */
 public class ProcessManager {
 
+    /** Immutable channel process snapshot with caller-supplied lifecycle metadata. */
+    public record ActiveProcess(Process process, long startedAtMs, ProcessLifecycleMetadata metadata) {
+    }
+
     private static final Logger LOG = Logger.getInstance(ProcessManager.class);
     private static final String CLAUDE_TEMP_DIR_NAME = "claude-agent-tmp";
 
     private final Map<String, Process> activeChannelProcesses = new ConcurrentHashMap<>();
     private final Map<String, Long> channelStartTimes = new ConcurrentHashMap<>();
+    private final Map<String, ProcessLifecycleMetadata> channelMetadata = new ConcurrentHashMap<>();
     private final Set<String> interruptedChannels = ConcurrentHashMap.newKeySet();
     private final Set<String> startingChannels = ConcurrentHashMap.newKeySet();
     private final Map<RuntimeKey, Process> activeRuntimeProcesses = new ConcurrentHashMap<>();
+    private final Map<RuntimeKey, ProcessLifecycleMetadata> runtimeMetadata = new ConcurrentHashMap<>();
     private final Set<RuntimeKey> interruptedRuntimes = ConcurrentHashMap.newKeySet();
     /**
      * 账本泄漏 watchdog 的周期任务句柄({@link #startStaleChannelSweeper()})。
@@ -111,9 +118,23 @@ public class ProcessManager {
      * Registers an active process.
      */
     public void registerProcess(String channelId, Process process) {
+        registerProcess(channelId, process, null);
+    }
+
+    /** Registers a channel process without guessing its project/session ownership. */
+    public void registerProcess(
+            String channelId,
+            Process process,
+            ProcessLifecycleMetadata metadata
+    ) {
         if (channelId != null && process != null) {
             activeChannelProcesses.put(channelId, process);
             channelStartTimes.put(channelId, System.currentTimeMillis());
+            if (metadata != null) {
+                channelMetadata.put(channelId, metadata);
+            } else {
+                channelMetadata.remove(channelId);
+            }
             startingChannels.remove(channelId);
             if (interruptedChannels.contains(channelId)) {
                 LOG.info("[Interrupt] Channel was cancelled before process registration: " + channelId);
@@ -126,8 +147,22 @@ public class ProcessManager {
      * Registers an active process for a tab-scoped runtime.
      */
     public void registerProcess(RuntimeKey key, Process process) {
+        registerProcess(key, process, null);
+    }
+
+    /** Registers a runtime process with explicit lifecycle metadata. */
+    public void registerProcess(
+            RuntimeKey key,
+            Process process,
+            ProcessLifecycleMetadata metadata
+    ) {
         if (key != null && process != null) {
             activeRuntimeProcesses.put(key, process);
+            if (metadata != null) {
+                runtimeMetadata.put(key, metadata);
+            } else {
+                runtimeMetadata.remove(key);
+            }
             interruptedRuntimes.remove(key);
         }
     }
@@ -139,6 +174,7 @@ public class ProcessManager {
         if (channelId != null) {
             activeChannelProcesses.remove(channelId, process);
             channelStartTimes.remove(channelId);
+            channelMetadata.remove(channelId);
             startingChannels.remove(channelId);
             interruptedChannels.remove(channelId);
         }
@@ -150,6 +186,7 @@ public class ProcessManager {
     public void unregisterProcess(RuntimeKey key, Process process) {
         if (key != null) {
             activeRuntimeProcesses.remove(key, process);
+            runtimeMetadata.remove(key);
         }
     }
 
@@ -158,6 +195,25 @@ public class ProcessManager {
      */
     public Process getProcess(String channelId) {
         return activeChannelProcesses.get(channelId);
+    }
+
+    /**
+     * Returns channel processes and the metadata supplied at registration time.
+     * No UI/window lookup is performed here.
+     */
+    public Map<String, ActiveProcess> getActiveChannelProcessSnapshot() {
+        Map<String, ActiveProcess> snapshot = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, Process> entry : activeChannelProcesses.entrySet()) {
+            String channelId = entry.getKey();
+            Process process = entry.getValue();
+            if (process != null) {
+                snapshot.put(channelId, new ActiveProcess(
+                        process,
+                        channelStartTimes.getOrDefault(channelId, -1L),
+                        channelMetadata.get(channelId)));
+            }
+        }
+        return Map.copyOf(snapshot);
     }
 
     /**
@@ -371,9 +427,11 @@ public class ProcessManager {
 
         activeChannelProcesses.clear();
         channelStartTimes.clear();
+        channelMetadata.clear();
         interruptedChannels.clear();
         startingChannels.clear();
         activeRuntimeProcesses.clear();
+        runtimeMetadata.clear();
         interruptedRuntimes.clear();
 
         // Clean up stale temp files on shutdown (safe for concurrent sessions)

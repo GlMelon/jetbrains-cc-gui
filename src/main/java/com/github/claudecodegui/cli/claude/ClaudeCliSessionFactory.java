@@ -6,6 +6,7 @@ import com.github.claudecodegui.cli.CliSessionFactory;
 import com.github.claudecodegui.cli.common.CliPersistentProcessRegistry;
 import com.github.claudecodegui.handler.history.ClaudeSessionEntrypointRewriter;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 
 /**
  * Claude CLI 会话工厂(E1·开闭路由化)。
@@ -16,13 +17,14 @@ import com.github.claudecodegui.mcp.McpGatewayService;
 public class ClaudeCliSessionFactory implements CliSessionFactory {
     private final McpGatewayService gatewayService;
     private final CliPersistentProcessRegistry persistentRegistry;
+    private final LifecycleObservabilityService lifecycleService;
 
     public ClaudeCliSessionFactory() {
-        this(null, null);
+        this(null, null, null);
     }
 
     public ClaudeCliSessionFactory(McpGatewayService gatewayService) {
-        this(gatewayService, null);
+        this(gatewayService, null, null);
     }
 
     /**
@@ -30,8 +32,15 @@ public class ClaudeCliSessionFactory implements CliSessionFactory {
      * registry 为 null(测试/无 Project 路径)时 ClaudeCliSession 永远走 one-shot,自然降级。
      */
     public ClaudeCliSessionFactory(McpGatewayService gatewayService, CliPersistentProcessRegistry persistentRegistry) {
+        this(gatewayService, persistentRegistry, null);
+    }
+
+    public ClaudeCliSessionFactory(McpGatewayService gatewayService,
+                                   CliPersistentProcessRegistry persistentRegistry,
+                                   LifecycleObservabilityService lifecycleService) {
         this.gatewayService = gatewayService;
         this.persistentRegistry = persistentRegistry;
+        this.lifecycleService = lifecycleService;
     }
 
     @Override
@@ -41,6 +50,7 @@ public class ClaudeCliSessionFactory implements CliSessionFactory {
 
     @Override
     public CliSession create(String tabId) {
-        return new ClaudeCliSession(tabId, gatewayService, new ClaudeSessionEntrypointRewriter(), persistentRegistry);
+        return new ClaudeCliSession(tabId, gatewayService, new ClaudeSessionEntrypointRewriter(),
+                persistentRegistry, lifecycleService);
     }
 }
