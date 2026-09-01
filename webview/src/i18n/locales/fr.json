@@ -942,7 +942,11 @@
       "listTitle": "Outils CLI locaux",
       "summary": "{{installed}} / {{total}} installés",
       "moreComingSoon": "D’autres à venir",
-      "copyPath": "Copier le chemin"
+      "copyPath": "Copier le chemin",
+      "visibility": {
+        "hide": "Masquer dans le sélecteur de fournisseur",
+        "show": "Afficher dans le sélecteur de fournisseur"
+      }
     },
     "sponsor": "Sponsor",
     "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",

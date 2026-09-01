@@ -285,6 +285,44 @@
   box-sizing: border-box;
 }
 
+/* Provider switcher: hairline separators between rows (upstream de693952) */
+.provider-dropdown .selector-option + .selector-option {
+  border-top: 1px solid var(--dropdown-border);
+}
+
+/* Footer entry: jump to CLI management(本地:Settings → 依赖/CLI 环境) */
+.provider-cli-footer {
+  border-top: 1px solid var(--dropdown-border);
+  margin-top: 4px;
+  padding: 6px 6px 2px;
+}
+
+.provider-cli-footer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 12px;
+  border: 1px solid var(--dropdown-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.provider-cli-footer-btn:hover {
+  background: var(--dropdown-hover);
+  color: var(--text-primary);
+}
+
+.provider-cli-footer-btn .codicon {
+  font-size: 13px;
+}
+
 /* Model dropdown: group headers (upstream v0.5.4, OpenCode long catalogs) */
 .model-selector-group-header {
   display: flex;

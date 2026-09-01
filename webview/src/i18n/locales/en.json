@@ -676,6 +676,10 @@
       "summary": "{{installed}} / {{total}} installed",
       "moreComingSoon": "More coming soon",
       "copyPath": "Copy path",
+      "visibility": {
+        "hide": "Hide in provider switcher",
+        "show": "Show in provider switcher"
+      },
       "dsh": {
         "groupTitle": "DeepSeek Harness",
         "cliRowTitle": "CLI install",
@@ -2239,7 +2243,8 @@
     },
     "dsh": {
       "label": "DeepSeek Harness"
-    }
+    },
+    "manageCli": "CLI Settings"
   },
   "promptEnhancer": {
     "title": "Prompt Enhancer",

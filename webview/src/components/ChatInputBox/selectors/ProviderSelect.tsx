@@ -12,6 +12,7 @@ import {
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
 import { SpinLoader } from '../../react-bits';
+import { useHiddenCliProviders } from '../../../hooks/useCliProviderVisibility';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
 const CHEVRON_ICON_STYLE: React.CSSProperties = { fontSize: '10px', marginLeft: '2px' };
@@ -64,6 +65,8 @@ interface ProviderSelectProps {
   onChange?: (providerId: string) => void;
   /** When true, shows only the provider icon without text or chevron */
   compact?: boolean;
+  /** Open Settings → Providers → CLI management from the dropdown footer */
+  onOpenCliSettings?: () => void;
 }
 
 /**
@@ -71,7 +74,7 @@ interface ProviderSelectProps {
  * Supports switching between Claude, Codex, and other providers
  * compact mode: icon-only button for toolbar use
  */
-export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSelectProps) => {
+export const ProviderSelect = ({ value, onChange, compact = false, onOpenCliSettings }: ProviderSelectProps) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -90,6 +93,10 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
   const { positionedStyle, recalculate } = useDropdownPosition({ buttonRef, dropdownRef, isOpen });
 
   const currentProvider = AVAILABLE_PROVIDERS.find(p => p.id === value) || AVAILABLE_PROVIDERS[0];
+  // Hidden CLI providers stay usable when already active; they are only
+  // removed from the switcher menu below.
+  const hiddenProviders = useHiddenCliProviders();
+  const visibleProviders = AVAILABLE_PROVIDERS.filter((p) => !hiddenProviders.has(p.id));
 
   // Helper function to get translated provider label
   const getProviderLabel = (providerId: string) => {
@@ -337,10 +344,10 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
         {isOpen && (
           <div
             ref={dropdownRef}
-            className="selector-dropdown"
+            className="selector-dropdown provider-dropdown"
             style={{ ...DROPDOWN_STYLE, ...positionedStyle }}
           >
-            {AVAILABLE_PROVIDERS.map((provider) => {
+            {visibleProviders.map((provider) => {
               // CLI 未安装门控(方案A):置灰+划线+badge;检测未知时 cliMissing=false 放行
               const cliMissing = provider.enabled && cliInstall.isNotInstalled(provider.id);
               return (
@@ -413,6 +420,21 @@ export const ProviderSelect = ({ value, onChange, compact = false }: ProviderSel
               )}
               <span>{rechecking ? t('settings.cli.rechecking') : t('settings.cli.recheck')}</span>
             </div>
+            {onOpenCliSettings && (
+              <div className="provider-cli-footer">
+                <button
+                  type="button"
+                  className="provider-cli-footer-btn"
+                  onClick={() => {
+                    setIsOpen(false);
+                    onOpenCliSettings();
+                  }}
+                >
+                  <span className="codicon codicon-settings" />
+                  <span>{t('providers.manageCli', { defaultValue: 'CLI Settings' })}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

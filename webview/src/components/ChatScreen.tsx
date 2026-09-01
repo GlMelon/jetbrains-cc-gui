@@ -393,6 +393,12 @@ export const ChatScreen = ({
             setSettingsInitialTab('agents');
             setCurrentView('settings');
           }}
+          onOpenCliSettings={() => {
+            // 本地适配:CLI 管理面在「依赖/CLI 环境」页(CliEnvironmentSection),
+            // 无 upstream 的 providers→cli 子页签,深链直指 dependencies。
+            setSettingsInitialTab('dependencies');
+            setCurrentView('settings');
+          }}
           onOpenPromptSettings={() => {
             setSettingsInitialTab('prompts');
             setCurrentView('settings');

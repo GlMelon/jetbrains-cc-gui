@@ -591,6 +591,8 @@ export interface ChatInputBoxProps {
   onOpenPromptSettings?: () => void;
   /** Open model settings (navigate to provider management to add models) */
   onOpenModelSettings?: () => void;
+  /** Open CLI management settings (Settings → Providers → CLI) */
+  onOpenCliSettings?: () => void;
 
   /** Whether has messages (for rewind button display) */
   hasMessages?: boolean;
@@ -687,6 +689,8 @@ export interface ButtonAreaProps {
   onClearAgent?: () => void;
   /** Open agent settings callback */
   onOpenAgentSettings?: () => void;
+  /** Open CLI management settings(本地:Settings → 依赖/CLI 环境) */
+  onOpenCliSettings?: () => void;
 }
 
 /**

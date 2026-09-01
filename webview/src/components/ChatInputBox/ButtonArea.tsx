@@ -109,6 +109,7 @@ export const ButtonArea = ({
   onAgentSelect,
   onOpenAgentSettings,
   onAddModel,
+  onOpenCliSettings,
   longContextEnabled = true,
   onLongContextChange,
 }: ButtonAreaProps) => {
@@ -333,6 +334,7 @@ export const ButtonArea = ({
         <ProviderSelect
           value={currentProvider}
           onChange={handleProviderSelect}
+          onOpenCliSettings={onOpenCliSettings}
           compact
         />
         <ModeSelect value={permissionMode} onChange={handleModeSelect} provider={currentProvider} />

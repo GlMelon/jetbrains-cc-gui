@@ -111,6 +111,40 @@
   margin-bottom: 12px;
 }
 
+/* 切换菜单可见性开关(upstream de693952,本地落点为本卡片) */
+.visibilityBtn {
+  margin-left: auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: var(--text-primary);
+    background: var(--dropdown-hover);
+  }
+}
+
+/* 隐藏于切换菜单的卡片:除可见性按钮外整体压暗 */
+.switcherHidden {
+  .cliIcon,
+  .cliInfo,
+  .cliDetails,
+  .cliActions,
+  .errorMessage {
+    opacity: 0.4;
+    filter: grayscale(0.7);
+    transition: opacity 0.15s, filter 0.15s;
+  }
+}
+
 .cliIcon {
   width: 40px;
   height: 40px;

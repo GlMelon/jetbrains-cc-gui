@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { HoverLift } from '../../react-bits/HoverLift';
 import { SpinLoader } from '../../react-bits/SpinLoader';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
-import { RefreshIcon, AlertIcon, ExternalLinkIcon, DownloadIcon } from '../../Icons';
+import { RefreshIcon, AlertIcon, ExternalLinkIcon, DownloadIcon, EyeIcon, EyeOffIcon } from '../../Icons';
+import { useHiddenCliProviders } from '../../../hooks/useCliProviderVisibility';
+import { setCliProviderHidden } from '../../../utils/cliProviderVisibility';
 import styles from './style.module.less';
 
 interface CliEnvironmentStatus {
@@ -102,6 +104,8 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
   const [installingTools, setInstallingTools] = useState<Set<string>>(new Set());
   const [updatingTools, setUpdatingTools] = useState<Set<string>>(new Set());
   const isActiveRef = useRef(isActive);
+  // 切换菜单可见性(upstream de693952,本地落点从 CliSection 迁到本卡片)
+  const hiddenProviders = useHiddenCliProviders();
 
   useEffect(() => {
     isActiveRef.current = isActive;
@@ -213,10 +217,14 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
     const isToolInstalling = installingTools.has(tool.id);
     const isToolUpdating = updatingTools.has(tool.id);
     const showVersionLoading = isToolChecking && status?.installed;
+    const switcherHidden = hiddenProviders.has(tool.id);
+    const visibilityLabel = switcherHidden
+      ? t('settings.cli.visibility.show', { defaultValue: 'Show in provider switcher' })
+      : t('settings.cli.visibility.hide', { defaultValue: 'Hide in provider switcher' });
 
     return (
       <HoverLift key={tool.id} shadowIntensity={0.5}>
-        <div className={`${styles.cliCard} ${isToolChecking ? styles.loading : ''}`}>
+        <div className={`${styles.cliCard} ${isToolChecking ? styles.loading : ''} ${switcherHidden ? styles.switcherHidden : ''}`}>
           {isToolChecking && <div className={styles.loadingBar} />}
           <div className={styles.cliHeader}>
             <div className={`${styles.cliIcon} ${styles[tool.icon]}`}>
@@ -239,6 +247,16 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
               </div>
               <div className={styles.cliDescription}>{t(tool.description)}</div>
             </div>
+            <button
+              type="button"
+              className={styles.visibilityBtn}
+              onClick={() => setCliProviderHidden(tool.id, !switcherHidden)}
+              title={visibilityLabel}
+              aria-label={visibilityLabel}
+              aria-pressed={switcherHidden}
+            >
+              {switcherHidden ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
+            </button>
           </div>
 
           <div className={`${styles.cliDetails} ${isToolChecking ? styles.dimmed : ''}`}>

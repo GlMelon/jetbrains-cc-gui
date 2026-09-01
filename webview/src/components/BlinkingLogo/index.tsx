@@ -6,6 +6,7 @@ import { AVAILABLE_PROVIDERS } from '../ChatInputBox/types';
 import { ProviderModelIcon } from '../shared/ProviderModelIcon';
 import { CheckIcon } from '../Icons';
 import { useCliInstallStatus } from '../../hooks/useCliInstallStatus';
+import { useHiddenCliProviders } from '../../hooks/useCliProviderVisibility';
 
 const ROOT_STYLE: React.CSSProperties = {
   position: 'relative',
@@ -51,6 +52,10 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
   const containerRef = useRef<HTMLDivElement>(null);
   // CLI 安装门控(方案A):与 ProviderSelect 同一判定,未知放行
   const cliInstall = useCliInstallStatus();
+  // 隐藏的 CLI provider 不出现在切换菜单(upstream de693952);已激活的隐藏
+  // provider 仍可用,仅从菜单省略。
+  const hiddenProviders = useHiddenCliProviders();
+  const visibleProviders = AVAILABLE_PROVIDERS.filter((p) => !hiddenProviders.has(p.id));
 
   useEffect(() => {
     if (provider !== prevProviderRef.current || modelId !== prevModelIdRef.current) {
@@ -170,14 +175,14 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
         {isOpen && (
           <motion.div
             ref={dropdownRef}
-            className="selector-dropdown"
+            className="selector-dropdown provider-dropdown"
             style={DROPDOWN_STYLE}
             initial={{ opacity: 0, y: -8, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
           >
-            {AVAILABLE_PROVIDERS.map((p) => {
+            {visibleProviders.map((p) => {
               const cliMissing = p.enabled && cliInstall.isNotInstalled(p.id);
               return (
               <div

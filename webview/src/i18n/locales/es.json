@@ -942,7 +942,11 @@
       "listTitle": "Herramientas CLI locales",
       "summary": "{{installed}} / {{total}} instaladas",
       "moreComingSoon": "Pronto más compatibilidad",
-      "copyPath": "Copiar ruta"
+      "copyPath": "Copiar ruta",
+      "visibility": {
+        "hide": "Ocultar en el selector de proveedor",
+        "show": "Mostrar en el selector de proveedor"
+      }
     },
     "sponsor": "Sponsor",
     "sponsorDesc": "If this project helps you, consider sponsoring to support ongoing maintenance!",
