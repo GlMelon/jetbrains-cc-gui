@@ -332,6 +332,8 @@ export const PI_MODELS: ModelInfo[] = [];
 // 模型真相源唯一为后端 MODEL_REGISTRY 下发(ReadOnlyDefaultModels → ModelRegistryService.serialize);
 // 前端经 utils/modelRegistry 订阅,空 registry 时显示 loading,不回退本地表。
 // 能力(supports1MContext)/归一化(normalizeClaudeModelId 等)随 A2/A3 切片进一步下沉。
+// OMP model roles(smol/slow/plan/…)经 ModeSelect 选择并设为 role id,
+// 不出现在模型下拉列表(upstream 460a62b5 语义,本地沿用)。
 
 /**
  * AI provider information

@@ -5,7 +5,6 @@ const CLAUDE_MODELS: ModelInfo[] = [];
 const CODEX_MODELS: ModelInfo[] = [];
 const GROK_MODELS: ModelInfo[] = [];
 const OMP_MODELS: ModelInfo[] = [];
-const OMP_ROLE_MODELS: ModelInfo[] = [];
 import { buildCodexModelList } from './codexModelList';
 import {
   applyClaudeModelMapping,
@@ -22,11 +21,6 @@ export interface ResolveProviderModelsInput {
    * for Codex (see buildCodexModelList).
    */
   cliCatalogHasEntries?: boolean;
-  /**
-   * Dynamic OMP model roles (useOmpRoles). Absent/empty → static
-   * smol/slow/plan role entries. Only consumed for provider 'omp'.
-   */
-  cliRoles?: ModelInfo[];
   claudeCustomModels?: ModelInfo[];
   codexCustomModels?: ModelInfo[];
   claudeMapping?: ClaudeModelMapping | null;
@@ -44,7 +38,6 @@ export function resolveProviderModels({
   provider,
   cliModels,
   cliCatalogHasEntries = false,
-  cliRoles,
   claudeCustomModels = [],
   codexCustomModels = [],
   claudeMapping = null,
@@ -69,16 +62,18 @@ export function resolveProviderModels({
   }
 
   if (provider === 'omp') {
-    // Built-ins first: 'auto' plus the role entries (dynamic from listModels,
-    // static smol/slow/plan until loaded), then the dynamic catalog appended.
-    // Dedupe by id — the role selector entries win on collision, and the
-    // static-fallback 'auto' must not duplicate the OMP_MODELS one.
-    const roles = cliRoles && cliRoles.length > 0 ? cliRoles : OMP_ROLE_MODELS;
-    const merged = [...OMP_MODELS, ...roles, ...cliModels];
-    const seenIds = new Set<string>();
+    // 'auto' first, then the dynamic catalog. Model roles (smol/slow/plan/…)
+    // are NOT listed here — they live in the mode selector (ModeSelect),
+    // which sets the model to the role id as a shortcut.
+    // Dedupe by identifier(同名 id 不同 URL 的条目靠 identifier 区分,4324bc09
+    // 语义,不可按裸 id 去重);无 identifier 时回退裸 id(静态 fallback 场景
+    // cliModels 即 OMP_MODELS,'auto' 会重复,需去重)。
+    const merged = [...OMP_MODELS, ...cliModels];
+    const seenKeys = new Set<string>();
     return merged.filter((m) => {
-      if (seenIds.has(m.id)) return false;
-      seenIds.add(m.id);
+      const key = m.identifier ?? m.id;
+      if (seenKeys.has(key)) return false;
+      seenKeys.add(key);
       return true;
     });
   }
