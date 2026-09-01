@@ -102,7 +102,7 @@ public class EnvironmentConfigurator {
         String currentPath = newPath.toString();
         if (PlatformUtils.isWindows()) {
             // Windows 常见二进制 shim 目录(经 UserPathResolver 统一构造,内部已处理 env 缺失,
-            // 覆盖 npm 全局 / scoop / volta / nodejs / bun——修复经这些途径安装的二进制在插件内找不到)。
+            // 覆盖 npm 全局 / scoop / volta / nodejs / bun / omp 原生安装器——修复经这些途径安装的二进制在插件内找不到)。
             for (String p : UserPathResolver.commonWindowsShimDirs()) {
                 if (!pathContains(currentPath, p)) {
                     newPath.append(separator).append(p);
@@ -131,6 +131,13 @@ public class EnvironmentConfigurator {
                     userHome + "/.grok/bin",
                     userHome + "/.pi/bin",
                     userHome + "/.omp/bin",
+                    // Bun global installs (bun add -g) land here, e.g. omp CLI
+                    userHome + "/.bun/bin",
+                    // Yarn classic global installs
+                    userHome + "/.yarn/bin",
+                    // pnpm global installs (PNPM_HOME defaults per platform)
+                    userHome + "/Library/pnpm",
+                    userHome + "/.local/share/pnpm",
                     userHome + "/.claude/bin",
                     // DeepSeek Harness (Hermes installer keeps node + dsh together)
                     userHome + "/.hermes/node/bin",

@@ -113,6 +113,7 @@ public final class UserPathResolver {
         }
         if (localAppData != null && !localAppData.isBlank()) {
             dirs.add(localAppData + "\\Volta\\bin"); // volta shim(node/binary manager)
+            dirs.add(localAppData + "\\omp"); // OMP Windows 原生安装器(%LOCALAPPDATA%\omp\omp.exe)
             dirs.add(localAppData + "\\Programs\\nodejs"); // nodejs 官方安装器(per-user)
         }
         if (programFiles != null && !programFiles.isBlank()) {
