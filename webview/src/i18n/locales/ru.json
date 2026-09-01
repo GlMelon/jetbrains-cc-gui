@@ -92,6 +92,8 @@
     "localProject": "Локальный",
     "disabled": "Отключено",
     "openSourceBanner": "Этот проект гарантированно 100% с открытым исходным кодом и бесплатный (остерегайтесь пиратских проектов)",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarAria": "Открыть репозиторий на GitHub и поставить звезду",
     "commandNotImplemented": "Функция `{{command}}` ещё не реализована.",
     "clearCommandDescription": "Очистить историю и начать новый чат",
     "helpCommandTitle": "Доступные команды",

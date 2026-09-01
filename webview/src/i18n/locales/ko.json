@@ -92,6 +92,8 @@
     "localProject": "로컬",
     "disabled": "비활성화됨",
     "openSourceBanner": "이 프로젝트는 100% 오픈소스이며 무료입니다 (유사품에 주의하세요)",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarAria": "GitHub에서 저장소를 열고 Star",
     "commandNotImplemented": "`{{command}}` 기능은 아직 구현되지 않았습니다.",
     "clearCommandDescription": "대화 기록을 지우고 새 세션을 시작합니다",
     "helpCommandTitle": "사용 가능한 명령",

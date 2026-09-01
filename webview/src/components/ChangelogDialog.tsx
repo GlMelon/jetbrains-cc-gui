@@ -5,6 +5,7 @@ import { summarizeChangelog, escapeHtml, type ChangelogSummary } from '../versio
 import { BaseDialog } from './shared/BaseDialog';
 import { CloseIcon, SearchIcon } from './Icons';
 import { AnimatedList, GradientText, ClickSpark } from './react-bits';
+import { openBrowser, GITHUB_REPO_URL } from '../utils/bridge';
 
 interface ChangelogDialogProps {
   isOpen: boolean;
@@ -202,6 +203,22 @@ const ChangelogDialog = ({ isOpen, onClose, entries, initialPage = 0 }: Changelo
             </div>
             <button className="wn-b-close" onClick={onClose} aria-label={t('changelog.close')}>
               <CloseIcon size={16} />
+            </button>
+          </div>
+
+          {/* Open source banner(复用 chat header 的 banner 样式,upstream f20958e3) */}
+          <div className="open-source-banner">
+            <span className="banner-text">{t('chat.openSourceBanner')}</span>
+            <button
+              type="button"
+              className="banner-star"
+              aria-label={t('chat.openSourceBannerStarAria')}
+              onClick={() => openBrowser(GITHUB_REPO_URL)}
+            >
+              <svg className="star-icon" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+                <path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.9l-5.8 3.05 1.11-6.46-4.7-4.58 6.49-.94z" />
+              </svg>
+              <span className="banner-star-text">{t('chat.openSourceBannerStar')}</span>
             </button>
           </div>
 

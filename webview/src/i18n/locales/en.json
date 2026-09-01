@@ -95,6 +95,8 @@
     "disabled": "Disabled",
     "planModeEnabled": "Plan mode enabled",
     "openSourceBanner": "This project is guaranteed to be 100% open source and free (beware of pirated projects)",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarAria": "Open the repository on GitHub and star it",
     "commandNotImplemented": "`{{command}}` feature is not yet implemented.",
     "clearCommandDescription": "Clear conversation history and start a new session",
     "helpCommandTitle": "Available commands",

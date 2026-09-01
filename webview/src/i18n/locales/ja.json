@@ -92,6 +92,8 @@
     "localProject": "ローカル",
     "disabled": "無効",
     "openSourceBanner": "このプロジェクトは100%オープンソースかつ無料を保証します（海賊版プロジェクトにご注意ください）",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarAria": "GitHub でリポジトリを開いてスター",
     "commandNotImplemented": "`{{command}}` 機能はまだ実装されていません。",
     "clearCommandDescription": "会話履歴をクリアして新しいセッションを開始",
     "helpCommandTitle": "利用可能なコマンド",
