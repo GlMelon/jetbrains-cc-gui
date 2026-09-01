@@ -17,8 +17,7 @@
 > 原名：Claude Code GUI，现更名为 AI Code GUI 以支持多种AI编码工具。对于安全方面，后续每个小版本发版前都进行
 > /security-review 审查，每隔10个小版本进行一次整体的 claude-code-security 审查
 
-一个功能强大的 IntelliJ IDEA 插件，为开发者提供 **Claude Code**、 **OpenAI Codex** 和 **OpenCode** 三 AI 工具的可视化操作界面，让
-AI 辅助编程变得更加高效和直观。
+一个功能强大的 IntelliJ IDEA 插件，为开发者提供 **Claude Code**、**OpenAI Codex** 以及更多 AI 编程 CLI的可视化操作界面，让 AI 辅助编程变得更加高效和直观。
 
 <img width="850" alt="Image" src="/docs/img/banner.png" />
 
@@ -32,11 +31,15 @@ AI 辅助编程变得更加高效和直观。
 
 ## 核心特性
 
-### 三 AI 引擎支持
-
+### 多 AI 引擎支持
 - **Claude Code** - Anthropic 官方 AI 编程助手，支持 Opus 4.5 等多模型
 - **OpenAI Codex** - OpenAI 强大的代码生成引擎
-- **OpenCode** - 开源 AI 编程助手，支持灵活的模型配置
+- **Grok CLI**（Beta）- xAI 的命令行 AI 编程助手
+- **Kimi CLI**（Beta）- 月之暗面（Moonshot AI）的命令行 AI 编程助手
+- **OpenCode**（Beta）- 开源终端 AI 编程 Agent
+- **PI CLI**（Beta）- PI 命令行 AI 编程助手
+- **OMP CLI**（Beta）- OMP 命令行 AI 编程助手
+- **DeepSeek Harness**（Beta）- DeepSeek 的命令行编程 Harness
 
 ### 智能对话功能
 

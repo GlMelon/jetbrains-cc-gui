@@ -16,7 +16,7 @@
 
 > Originally Claude Code GUI, now renamed to AI Code GUI to support multiple AI coding tools. Regarding security, a /security-review audit will be conducted before each minor version release, and a comprehensive claude-code-security audit will be performed every 10 minor versions. 
 
-A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Code**, **OpenAI Codex**, and **OpenCode** triple AI tools, making AI-assisted programming more efficient and intuitive.
+A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Code**, **OpenAI Codex** and more AI coding CLIs, making AI-assisted programming more efficient and intuitive.
 
 <img width="850" alt="Image" src="/docs/img/banner.png" />
 
@@ -30,10 +30,15 @@ A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Co
 
 ## Key Features
 
-### Triple AI Engine Support
+### Multi AI Engine Support
 - **Claude Code** - Anthropic's official AI programming assistant, supporting Opus 4.5 and other models
 - **OpenAI Codex** - OpenAI's powerful code generation engine
-- **OpenCode** - Open-source AI coding assistant with flexible model support
+- **Grok CLI** (Beta) - xAI's command-line coding assistant
+- **Kimi CLI** (Beta) - Moonshot AI's command-line coding assistant
+- **OpenCode** (Beta) - open-source AI coding agent for the terminal
+- **PI CLI** (Beta) - PI command-line coding assistant
+- **OMP CLI** (Beta) - OMP command-line coding assistant
+- **DeepSeek Harness** (Beta) - DeepSeek's command-line coding harness
 
 ### Intelligent Conversation
 - Context-aware AI coding assistant
