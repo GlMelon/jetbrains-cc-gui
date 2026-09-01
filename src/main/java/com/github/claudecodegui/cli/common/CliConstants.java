@@ -237,6 +237,8 @@ public final class CliConstants {
     public static final String CODEX_ARG_JSON = "--json";
     public static final String CODEX_ARG_COLOR = "--color";
     public static final String CODEX_ARG_NEVER = "never";
+    /** Codex CLI v0.149.0 removed 'untrusted'; its ask-before-run semantics merged into 'on-request'. */
+    public static final String CODEX_ARG_APPROVAL_ON_REQUEST = "on-request";
     public static final String CODEX_ARG_SANDBOX = "--sandbox";
     public static final String CODEX_ARG_C = "-C";
     public static final String CODEX_ARG_M = "-m";

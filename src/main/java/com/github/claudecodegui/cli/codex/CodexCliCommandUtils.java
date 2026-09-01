@@ -29,10 +29,10 @@ public final class CodexCliCommandUtils {
     static PermissionSelection selectPermission(String permissionMode, String configuredSandbox) {
         String sandbox = normalizeSandbox(configuredSandbox);
         return switch (permissionMode == null ? "" : permissionMode) {
-            case CommonConstants.PERMISSION_MODE_BYPASS -> new PermissionSelection("never", CliConstants.SANDBOX_DANGER_FULL_ACCESS);
-            case CommonConstants.PERMISSION_MODE_PLAN   -> new PermissionSelection("untrusted", CliConstants.SANDBOX_READ_ONLY);
-            case CommonConstants.PERMISSION_MODE_ACCEPT_EDITS, CommonConstants.PERMISSION_MODE_AUTO_EDIT -> new PermissionSelection("on-request", sandbox);
-            default -> new PermissionSelection("untrusted", sandbox);
+            case CommonConstants.PERMISSION_MODE_BYPASS -> new PermissionSelection(CliConstants.CODEX_ARG_NEVER, CliConstants.SANDBOX_DANGER_FULL_ACCESS);
+            case CommonConstants.PERMISSION_MODE_PLAN   -> new PermissionSelection(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, CliConstants.SANDBOX_READ_ONLY);
+            case CommonConstants.PERMISSION_MODE_ACCEPT_EDITS, CommonConstants.PERMISSION_MODE_AUTO_EDIT -> new PermissionSelection(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, sandbox);
+            default -> new PermissionSelection(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, sandbox);
         };
     }
 

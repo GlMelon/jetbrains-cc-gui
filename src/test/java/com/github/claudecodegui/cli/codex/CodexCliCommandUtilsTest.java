@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.codex;
 
+import com.github.claudecodegui.cli.common.CliConstants;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -14,7 +15,7 @@ public class CodexCliCommandUtilsTest {
         CodexCliCommandUtils.PermissionSelection selection =
                 CodexCliCommandUtils.selectPermission("default", "workspace-write");
 
-        assertEquals("untrusted", selection.approval());
+        assertEquals(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, selection.approval());
         assertEquals("workspace-write", selection.sandbox());
     }
 
@@ -23,7 +24,7 @@ public class CodexCliCommandUtilsTest {
         CodexCliCommandUtils.PermissionSelection selection =
                 CodexCliCommandUtils.selectPermission("plan", "danger-full-access");
 
-        assertEquals("untrusted", selection.approval());
+        assertEquals(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, selection.approval());
         assertEquals("read-only", selection.sandbox());
     }
 
@@ -50,7 +51,7 @@ public class CodexCliCommandUtilsTest {
         CodexCliCommandUtils.PermissionSelection selection =
                 CodexCliCommandUtils.selectPermission("unknown", "workspace-write");
 
-        assertEquals("untrusted", selection.approval());
+        assertEquals(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, selection.approval());
         assertEquals("workspace-write", selection.sandbox());
     }
 
