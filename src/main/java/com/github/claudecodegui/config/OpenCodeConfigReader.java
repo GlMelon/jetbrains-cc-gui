@@ -190,20 +190,35 @@ public final class OpenCodeConfigReader {
         // 构建描述
         String description = "只读 · 来自 ~/.config/opencode/opencode.json (" + providerDisplayName + ")";
 
-        // role 保存 OpenCode 子 provider,供后端生成全局唯一 identifier。
-        // actualModel 始终保存 CLI 真正接收的裸模型名;identifier 只参与选择定位,不得传入 CLI。
+        // role 保存 OpenCode 子 provider,供后端生成全局唯一 identifier;identifier 只参与选择定位。
+        // actualModel 是 CLI -m 透传值:opencode --model 要求 provider/model 格式(如 openglm/glm-5.2),
+        // 传裸名(如 glm-5.2)会被 server 以 500 "Unexpected server error" 拒绝(acbcff7c 曾误删此前缀,
+        // 见 caa347f5)。canonical id(modelId)保持裸名作选择键/去重,前端零改。
         return new ModelConfig(
                 modelId,
                 CommonConstants.PROVIDER_OPENCODE,
                 providerName,             // role 存储 provider 名称
                 modelName,
-                modelId,
+                withProviderPrefix(providerName, modelId),  // actualModel = provider/model(CLI -m 透传)
                 description,
                 contextWindow,
                 false,                    // supports1MContext
                 true,                     // enabled
                 true                      // readOnly
         );
+    }
+
+    /**
+     * 将裸模型 id 规整为 opencode {@code --model} 所需的 {@code provider/model} 格式。
+     * <p>opencode 配置中模型恒嵌套于 provider 下(modelId 为裸名,如 {@code glm-5.2}),
+     * 故拼 {@code providerName + "/" + modelId};若 modelId 已含 "/"(已限定的边界场景),
+     * 原样返回避免重复前缀。
+     */
+    private static String withProviderPrefix(String providerName, String modelId) {
+        if (modelId != null && modelId.contains("/")) {
+            return modelId;
+        }
+        return providerName + "/" + modelId;
     }
 
     /**
