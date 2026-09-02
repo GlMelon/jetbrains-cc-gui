@@ -4,6 +4,7 @@ import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.session.ClaudeSession;
 import com.github.claudecodegui.settings.CodemossSettingsService;
+import com.github.claudecodegui.util.JsUtils;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.jcef.JBCefBrowser;
@@ -48,9 +49,16 @@ public class HandlerContext {
          * 下行总线语义化入口(归一化重构)。Phase 0 双轨:内部走 window.__bridge.dispatch,
          * 经既有 callJavaScript 路径,行为等价于旧 window.xxx 调用。
          * 详见 plan: typed-booping-newt.md。
+         *
+         * <p>转义契约(SSOT,序列化出口统一):payload 参数必须是<strong>未转义</strong>的
+         * 原始字符串(JSON 或裸文本),由本出口统一 {@link JsUtils#escapeJs} 后嵌入
+         * callJavaScript 参数。调用方<strong>禁止</strong>再手动 escapeJs —— 出口会再次
+         * 转义造成双转义损坏 payload。守卫测试 BatchedWebviewCallArgSafetyTest /
+         * DispatchEventEscapingContractTest 强制此契约。</p>
          */
         default void dispatchEvent(String type, String payloadJson) {
-            callJavaScript("window.__bridge.dispatch", type, payloadJson == null ? "" : payloadJson);
+            callJavaScript("window.__bridge.dispatch", type,
+                    JsUtils.escapeJs(payloadJson == null ? "" : payloadJson));
         }
     }
 

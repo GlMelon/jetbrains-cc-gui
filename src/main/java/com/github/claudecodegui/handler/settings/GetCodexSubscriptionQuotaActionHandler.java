@@ -52,6 +52,6 @@ public final class GetCodexSubscriptionQuotaActionHandler implements FrontendAct
 
     private void sendPayload(HandlerContext ctx, JsonObject payload) {
         ApplicationManager.getApplication().invokeLater(() ->
-                ctx.dispatchEvent(DownstreamEvent.CODEX_SUBSCRIPTION_QUOTA.value(), ctx.escapeJs(GSON.toJson(payload))));
+                ctx.dispatchEvent(DownstreamEvent.CODEX_SUBSCRIPTION_QUOTA.value(), GSON.toJson(payload)));
     }
 }

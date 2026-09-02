@@ -170,13 +170,13 @@ public class NodeProcessActionHandlers {
 
     private void pushUpdate(String json) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent(DownstreamEvent.NODE_PROCESS_LIST.value(), context.escapeJs(json))
+            context.dispatchEvent(DownstreamEvent.NODE_PROCESS_LIST.value(), json)
         );
     }
 
     private void pushKillResult(String json) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent(DownstreamEvent.NODE_PROCESS_KILL_RESULT.value(), context.escapeJs(json))
+            context.dispatchEvent(DownstreamEvent.NODE_PROCESS_KILL_RESULT.value(), json)
         );
     }
 

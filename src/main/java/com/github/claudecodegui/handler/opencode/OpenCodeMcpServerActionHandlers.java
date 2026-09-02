@@ -75,12 +75,12 @@ public class OpenCodeMcpServerActionHandlers {
             LOG.info("[OpenCodeMcpServerActionHandlers] Loaded " + adapted.size() + " OpenCode MCP servers");
 
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_LIST.value(), context.escapeJs(json))
+                context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_LIST.value(), json)
             );
         } catch (Exception e) {
             LOG.error("[OpenCodeMcpServerActionHandlers] Failed to get OpenCode MCP servers: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_LIST.value(), context.escapeJs("[]"))
+                context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_LIST.value(), "[]")
             );
         }
     }
@@ -101,12 +101,12 @@ public class OpenCodeMcpServerActionHandlers {
                 String json = gson.toJson(result);
 
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_STATUS.value(), context.escapeJs(json))
+                    context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_STATUS.value(), json)
                 );
             } catch (Exception e) {
                 LOG.warn("[OpenCodeMcpServerActionHandlers] Failed to get OpenCode MCP server status: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_STATUS.value(), context.escapeJs("[]"))
+                    context.dispatchEvent(DownstreamEvent.OPENCODE_MCP_SERVER_STATUS.value(), "[]")
                 );
             }
         }, ASYNC_POOL);
@@ -191,7 +191,7 @@ public class OpenCodeMcpServerActionHandlers {
 
     private void dispatchError(String message) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(message))
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), message)
         );
     }
 

@@ -53,10 +53,6 @@ public class AgentActionHandlers {
         context.dispatchEvent(event, data);
     }
 
-    private String escapeJs(String s) {
-        return context.escapeJs(s);
-    }
-
     // ── business logic ──
 
     public void handleGetAgents() {
@@ -64,12 +60,12 @@ public class AgentActionHandlers {
             List<JsonObject> agents = settingsService.getAgents();
             String agentsJson = gson.toJson(agents);
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_LIST.value(), escapeJs(agentsJson));
+                dispatchEvent(DownstreamEvent.AGENT_LIST.value(), agentsJson);
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to get agents: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_LIST.value(), escapeJs("[]"));
+                dispatchEvent(DownstreamEvent.AGENT_LIST.value(), "[]");
             });
         }
     }
@@ -80,7 +76,7 @@ public class AgentActionHandlers {
             settingsService.addAgent(agent);
             ApplicationManager.getApplication().invokeLater(() -> {
                 handleGetAgents();
-                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"add\"}"));
+                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), "{\"success\":true,\"operation\":\"add\"}");
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to add agent: " + e.getMessage(), e);
@@ -89,7 +85,7 @@ public class AgentActionHandlers {
             errorResult.addProperty("operation", "add");
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), escapeJs(gson.toJson(errorResult)));
+                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), gson.toJson(errorResult));
             });
         }
     }
@@ -102,7 +98,7 @@ public class AgentActionHandlers {
             settingsService.updateAgent(id, updates);
             ApplicationManager.getApplication().invokeLater(() -> {
                 handleGetAgents();
-                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"update\"}"));
+                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), "{\"success\":true,\"operation\":\"update\"}");
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to update agent: " + e.getMessage(), e);
@@ -111,7 +107,7 @@ public class AgentActionHandlers {
             errorResult.addProperty("operation", "update");
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), escapeJs(gson.toJson(errorResult)));
+                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), gson.toJson(errorResult));
             });
         }
     }
@@ -126,14 +122,14 @@ public class AgentActionHandlers {
                     String selectedId = settingsService.getSelectedAgentId();
                     if (id.equals(selectedId)) {
                         settingsService.setSelectedAgentId(null);
-                        dispatchEvent(DownstreamEvent.AGENT_SELECTED_CHANGED.value(), escapeJs("null"));
+                        dispatchEvent(DownstreamEvent.AGENT_SELECTED_CHANGED.value(), "null");
                     }
                 } catch (Exception ex) {
                     LOG.warn("[AgentHandler] Failed to check/clear selected agent: " + ex.getMessage());
                 }
                 ApplicationManager.getApplication().invokeLater(() -> {
                     handleGetAgents();
-                    dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"delete\"}"));
+                    dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), "{\"success\":true,\"operation\":\"delete\"}");
                 });
             } else {
                 JsonObject errorResult = new JsonObject();
@@ -141,7 +137,7 @@ public class AgentActionHandlers {
                 errorResult.addProperty("operation", "delete");
                 errorResult.addProperty("error", "Agent not found");
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), escapeJs(gson.toJson(errorResult)));
+                    dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), gson.toJson(errorResult));
                 });
             }
         } catch (Exception e) {
@@ -151,7 +147,7 @@ public class AgentActionHandlers {
             errorResult.addProperty("operation", "delete");
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), escapeJs(gson.toJson(errorResult)));
+                dispatchEvent(DownstreamEvent.AGENT_OPERATION_RESULT.value(), gson.toJson(errorResult));
             });
         }
     }
@@ -174,12 +170,12 @@ public class AgentActionHandlers {
             }
             String resultJson = gson.toJson(result);
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_SELECTED_RECEIVED.value(), escapeJs(resultJson));
+                dispatchEvent(DownstreamEvent.AGENT_SELECTED_RECEIVED.value(), resultJson);
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to get selected agent: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_SELECTED_RECEIVED.value(), escapeJs("{\"selectedAgentId\":null}"));
+                dispatchEvent(DownstreamEvent.AGENT_SELECTED_RECEIVED.value(), "{\"selectedAgentId\":null}");
             });
         }
     }
@@ -215,7 +211,7 @@ public class AgentActionHandlers {
             }
             String resultJson = gson.toJson(result);
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_SELECTED_CHANGED.value(), escapeJs(resultJson));
+                dispatchEvent(DownstreamEvent.AGENT_SELECTED_CHANGED.value(), resultJson);
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to set selected agent: " + e.getMessage(), e);
@@ -223,7 +219,7 @@ public class AgentActionHandlers {
             errorResult.addProperty("success", false);
             errorResult.addProperty("error", e.getMessage());
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.AGENT_SELECTED_CHANGED.value(), escapeJs(gson.toJson(errorResult)));
+                dispatchEvent(DownstreamEvent.AGENT_SELECTED_CHANGED.value(), gson.toJson(errorResult));
             });
         }
     }
@@ -351,7 +347,7 @@ public class AgentActionHandlers {
                     summary.addProperty("updateCount", conflicts.size());
                     previewResult.add("summary", summary);
                     String resultJson = gson.toJson(previewResult);
-                    dispatchEvent(DownstreamEvent.AGENT_IMPORT_PREVIEW.value(), escapeJs(resultJson));
+                    dispatchEvent(DownstreamEvent.AGENT_IMPORT_PREVIEW.value(), resultJson);
                 } else {
                     LOG.info("[AgentHandler] Import cancelled by user");
                 }
@@ -388,7 +384,7 @@ public class AgentActionHandlers {
                 importResult.addProperty("imported", imported);
                 importResult.addProperty("updated", updated);
                 importResult.addProperty("skipped", skipped);
-                dispatchEvent(DownstreamEvent.AGENT_IMPORT_RESULT.value(), escapeJs(gson.toJson(importResult)));
+                dispatchEvent(DownstreamEvent.AGENT_IMPORT_RESULT.value(), gson.toJson(importResult));
             });
         } catch (Exception e) {
             LOG.error("[AgentHandler] Failed to save imported agents: " + e.getMessage(), e);
@@ -397,7 +393,7 @@ public class AgentActionHandlers {
                 JsonObject errorResult = new JsonObject();
                 errorResult.addProperty("success", false);
                 errorResult.addProperty("error", e.getMessage());
-                dispatchEvent(DownstreamEvent.AGENT_IMPORT_RESULT.value(), escapeJs(gson.toJson(errorResult)));
+                dispatchEvent(DownstreamEvent.AGENT_IMPORT_RESULT.value(), gson.toJson(errorResult));
             });
         }
     }

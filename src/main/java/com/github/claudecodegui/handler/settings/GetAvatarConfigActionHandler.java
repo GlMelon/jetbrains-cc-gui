@@ -29,6 +29,6 @@ public final class GetAvatarConfigActionHandler implements FrontendActionHandler
     public void handle(String payload, FrontendActionContext context) {
         HandlerContext ctx = context.handlerContext();
         AvatarConfigResult result = service.getConfig();
-        ctx.dispatchEvent(DownstreamEvent.AVATAR_CONFIG_APPLY.value(), ctx.escapeJs(result.configJson()));
+        ctx.dispatchEvent(DownstreamEvent.AVATAR_CONFIG_APPLY.value(), result.configJson());
     }
 }

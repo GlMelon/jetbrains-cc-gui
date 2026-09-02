@@ -144,7 +144,7 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
         }
         handlerContext.dispatchEvent(
                 DownstreamEvent.HISTORY_CODEX_PAGE_INFO.value(),
-                handlerContext.escapeJs(GsonHolder.GSON.toJson(pageInfo))
+                GsonHolder.GSON.toJson(pageInfo)
         );
     }
 
@@ -170,7 +170,7 @@ public class LoadCodexHistoryPageActionHandler implements FrontendActionHandler<
         payload.addProperty(CodexHistoryPageErrorPayloadField.ERROR.wireKey(), error);
         context.dispatchEvent(
                 DownstreamEvent.HISTORY_CODEX_PAGE_ERROR.value(),
-                context.escapeJs(GsonHolder.GSON.toJson(payload))
+                GsonHolder.GSON.toJson(payload)
         );
     }
 

@@ -90,12 +90,12 @@ public final class GetNodePathActionHandler implements FrontendActionHandler<Str
                     response.addProperty("path", finalPath);
                     response.addProperty("version", finalVersion);
                     response.addProperty("minVersion", NodeDetector.MIN_NODE_MAJOR_VERSION);
-                    ctx.dispatchEvent(DownstreamEvent.NODE_PATH.value(), ctx.escapeJs(GSON.toJson(response)));
+                    ctx.dispatchEvent(DownstreamEvent.NODE_PATH.value(), GSON.toJson(response));
                 });
             } catch (Exception e) {
                 LOG.error("[GetNodePathActionHandler] Failed to get Node.js path: " + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() ->
-                    ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs("获取 Node.js 路径失败: " + e.getMessage()))
+                    ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), "获取 Node.js 路径失败: " + e.getMessage())
                 );
             }
         }, AppExecutorUtil.getAppExecutorService()).exceptionally(ex -> {

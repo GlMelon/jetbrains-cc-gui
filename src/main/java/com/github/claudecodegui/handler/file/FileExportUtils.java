@@ -188,14 +188,14 @@ final class FileExportUtils {
 
     private static void notifySuccess(HandlerContext ctx, String message) {
         ApplicationManager.getApplication().invokeLater(() ->
-                ctx.dispatchEvent(DownstreamEvent.TOAST_SUCCESS.value(), ctx.escapeJs(message)));
+                ctx.dispatchEvent(DownstreamEvent.TOAST_SUCCESS.value(), message));
     }
 
     private static void notifyError(HandlerContext ctx, String message) {
         ApplicationManager.getApplication().invokeLater(() -> {
             String errorDetail = message != null ? message : ClaudeCodeGuiBundle.message("file.unknownError");
             String errorMessage = ClaudeCodeGuiBundle.message("file.saveFailedWithReason", errorDetail);
-            ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), ctx.escapeJs(errorMessage));
+            ctx.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMessage);
         });
     }
 }

@@ -4,7 +4,6 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.ModelRegistryResult;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
-import com.github.claudecodegui.util.JsUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.project.Project;
@@ -49,6 +48,6 @@ final class ModelRegistryEvents {
             ctx.dispatchEvent(type, payloadJson);
             return;
         }
-        ClaudeChatToolWindow.broadcastModelRegistry(project, type, JsUtils.escapeJs(payloadJson));
+        ClaudeChatToolWindow.broadcastModelRegistry(project, type, payloadJson);
     }
 }

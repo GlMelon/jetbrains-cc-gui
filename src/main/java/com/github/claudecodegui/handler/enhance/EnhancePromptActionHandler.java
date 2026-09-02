@@ -566,7 +566,7 @@ public final class EnhancePromptActionHandler implements FrontendActionHandler<S
 
         ApplicationManager.getApplication().invokeLater(() -> {
             if (isActive(ctx)) {
-                ctx.dispatchEvent(DownstreamEvent.PROMPT_ENHANCED.value(), ctx.escapeJs(resultJson));
+                ctx.dispatchEvent(DownstreamEvent.PROMPT_ENHANCED.value(), resultJson);
             }
         });
     }

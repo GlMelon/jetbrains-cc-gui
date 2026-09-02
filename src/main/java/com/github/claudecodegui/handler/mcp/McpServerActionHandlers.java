@@ -52,12 +52,12 @@ public class McpServerActionHandlers {
                 + (projectPath != null ? projectPath : "(no project)"));
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.MCP_SERVER_LIST.value(), context.escapeJs(serversJson));
+                context.dispatchEvent(DownstreamEvent.MCP_SERVER_LIST.value(), serversJson);
             });
         } catch (Exception e) {
             LOG.error("[McpServerActionHandlers] Failed to get MCP servers: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.MCP_SERVER_LIST.value(), context.escapeJs("[]"));
+                context.dispatchEvent(DownstreamEvent.MCP_SERVER_LIST.value(), "[]");
             });
         }
     }
@@ -94,13 +94,13 @@ public class McpServerActionHandlers {
             refreshGateway();
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.MCP_SERVER_ADDED.value(), context.escapeJs(content));
+                context.dispatchEvent(DownstreamEvent.MCP_SERVER_ADDED.value(), content);
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[McpServerActionHandlers] Failed to add MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                String errorMsg = context.escapeJs(ClaudeCodeGuiBundle.message("mcp.addServerFailedWithReason", e.getMessage()));
+                String errorMsg = ClaudeCodeGuiBundle.message("mcp.addServerFailedWithReason", e.getMessage());
                 context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
             });
         }
@@ -115,13 +115,13 @@ public class McpServerActionHandlers {
             refreshGateway();
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.MCP_SERVER_UPDATED.value(), context.escapeJs(content));
+                context.dispatchEvent(DownstreamEvent.MCP_SERVER_UPDATED.value(), content);
                 handleGetMcpServers();
             });
         } catch (Exception e) {
             LOG.error("[McpServerActionHandlers] Failed to update MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                String errorMsg = context.escapeJs(ClaudeCodeGuiBundle.message("mcp.updateServerFailedWithReason", e.getMessage()));
+                String errorMsg = ClaudeCodeGuiBundle.message("mcp.updateServerFailedWithReason", e.getMessage());
                 context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
             });
         }
@@ -138,21 +138,21 @@ public class McpServerActionHandlers {
             if (success) {
                 refreshGateway();
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent(DownstreamEvent.MCP_SERVER_DELETED.value(), context.escapeJs(serverId));
+                    context.dispatchEvent(DownstreamEvent.MCP_SERVER_DELETED.value(), serverId);
                     handleGetMcpServers();
                 });
             } else {
                 ApplicationManager.getApplication().invokeLater(() -> {
                     String reason = ClaudeCodeGuiBundle.message("mcp.serverNotFound");
-                    String errorMsg = context.escapeJs(ClaudeCodeGuiBundle.message(
-                            "mcp.deleteServerFailedWithReason", reason));
+                    String errorMsg = ClaudeCodeGuiBundle.message(
+                            "mcp.deleteServerFailedWithReason", reason);
                     context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
                 });
             }
         } catch (Exception e) {
             LOG.error("[McpServerActionHandlers] Failed to delete MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                String errorMsg = context.escapeJs(ClaudeCodeGuiBundle.message("mcp.deleteServerFailedWithReason", e.getMessage()));
+                String errorMsg = ClaudeCodeGuiBundle.message("mcp.deleteServerFailedWithReason", e.getMessage());
                 context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
             });
         }
@@ -176,14 +176,14 @@ public class McpServerActionHandlers {
             LOG.info("[McpServerActionHandlers] Toggled MCP server: " + serverName + " (enabled: " + isEnabled + ")");
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.MCP_SERVER_TOGGLED.value(), context.escapeJs(content));
+                context.dispatchEvent(DownstreamEvent.MCP_SERVER_TOGGLED.value(), content);
                 handleGetMcpServers();
                 handleGetMcpServerStatus();
             });
         } catch (Exception e) {
             LOG.error("[McpServerActionHandlers] Failed to toggle MCP server: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("切换 MCP 服务器状态失败: " + e.getMessage()));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), "切换 MCP 服务器状态失败: " + e.getMessage());
             });
         }
     }
@@ -197,7 +197,7 @@ public class McpServerActionHandlers {
             String validationJson = gson.toJson(validation);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.MCP_SERVER_VALIDATED.value(), context.escapeJs(validationJson));
+                context.dispatchEvent(DownstreamEvent.MCP_SERVER_VALIDATED.value(), validationJson);
             });
         } catch (Exception e) {
             LOG.error("[McpServerActionHandlers] Failed to validate MCP server: " + e.getMessage(), e);
@@ -235,14 +235,14 @@ public class McpServerActionHandlers {
                         }
 
                         ApplicationManager.getApplication().invokeLater(() -> {
-                            context.dispatchEvent(DownstreamEvent.MCP_SERVER_STATUS.value(), context.escapeJs(statusJson));
+                            context.dispatchEvent(DownstreamEvent.MCP_SERVER_STATUS.value(), statusJson);
                         });
                     })
                     .exceptionally(e -> {
                         LOG.error("[McpServerActionHandlers] Failed to get MCP server status: "
                             + e.getMessage(), e);
                         ApplicationManager.getApplication().invokeLater(() -> {
-                            context.dispatchEvent(DownstreamEvent.MCP_SERVER_STATUS.value(), context.escapeJs("[]"));
+                            context.dispatchEvent(DownstreamEvent.MCP_SERVER_STATUS.value(), "[]");
                         });
                         return null;
                     });
@@ -256,7 +256,7 @@ public class McpServerActionHandlers {
                 LOG.error("[McpServerActionHandlers] Error while waiting for bridge or fetching status: "
                     + e.getMessage(), e);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent(DownstreamEvent.MCP_SERVER_STATUS.value(), context.escapeJs("[]"));
+                    context.dispatchEvent(DownstreamEvent.MCP_SERVER_STATUS.value(), "[]");
                 });
             }
         }, AppExecutorUtil.getAppExecutorService());
@@ -300,13 +300,13 @@ public class McpServerActionHandlers {
                 publishGatewayStatus();
                 ApplicationManager.getApplication().invokeLater(() ->
                         context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(),
-                                context.escapeJs("mcp.gatewayReloaded")));
+                                "mcp.gatewayReloaded"));
             } catch (Exception e) {
                 LOG.warn("[McpServerActionHandlers] Failed to reload MCP Gateway: " + e.getMessage(), e);
                 publishGatewayStatus();
                 ApplicationManager.getApplication().invokeLater(() -> {
                     String msg = ClaudeCodeGuiBundle.message("mcp.gatewayReloadFailed", e.getMessage());
-                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(msg));
+                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), msg);
                 });
             }
         }, AppExecutorUtil.getAppExecutorService());
@@ -319,7 +319,7 @@ public class McpServerActionHandlers {
             }
             String status = McpGatewayService.getInstance(context.getProject()).statusJson();
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.MCP_GATEWAY_STATUS.value(), context.escapeJs(status));
+                context.dispatchEvent(DownstreamEvent.MCP_GATEWAY_STATUS.value(), status);
             });
         } catch (Exception e) {
             LOG.warn("[McpServerActionHandlers] Failed to publish MCP Gateway status: " + e.getMessage());
@@ -367,7 +367,7 @@ public class McpServerActionHandlers {
     private void sendToolsResponse(McpServerToolsResponse response, Gson gson) {
         String json = gson.toJson(response);
         ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent(DownstreamEvent.MCP_SERVER_TOOLS.value(), context.escapeJs(json))
+                context.dispatchEvent(DownstreamEvent.MCP_SERVER_TOOLS.value(), json)
         );
     }
 }

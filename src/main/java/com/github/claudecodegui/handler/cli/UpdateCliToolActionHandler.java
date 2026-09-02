@@ -48,7 +48,7 @@ public class UpdateCliToolActionHandler implements FrontendActionHandler<JsonObj
             errorResponse.addProperty("error", "Missing toolId parameter");
             context.handlerContext().dispatchEvent(
                 DownstreamEvent.CLI_INSTALL_RESULT.value(),
-                context.handlerContext().escapeJs(GsonHolder.GSON.toJson(errorResponse))
+                GsonHolder.GSON.toJson(errorResponse)
             );
             return;
         }
@@ -70,7 +70,7 @@ public class UpdateCliToolActionHandler implements FrontendActionHandler<JsonObj
 
                 context.handlerContext().dispatchEvent(
                     DownstreamEvent.CLI_INSTALL_RESULT.value(),
-                    context.handlerContext().escapeJs(GsonHolder.GSON.toJson(response))
+                    GsonHolder.GSON.toJson(response)
                 );
 
                 LOG.info("[CliEnvironment] Update completed for tool: " + toolId);
@@ -84,7 +84,7 @@ public class UpdateCliToolActionHandler implements FrontendActionHandler<JsonObj
 
                 context.handlerContext().dispatchEvent(
                     DownstreamEvent.CLI_INSTALL_RESULT.value(),
-                    context.handlerContext().escapeJs(GsonHolder.GSON.toJson(errorResponse))
+                    GsonHolder.GSON.toJson(errorResponse)
                 );
             }
         }, AppExecutorUtil.getAppExecutorService());

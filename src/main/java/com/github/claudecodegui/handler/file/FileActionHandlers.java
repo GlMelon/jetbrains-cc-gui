@@ -56,10 +56,6 @@ public class FileActionHandlers {
         context.dispatchEvent(event, data);
     }
 
-    private String escapeJs(String s) {
-        return context.escapeJs(s);
-    }
-
     // ============================================================================
     // Operations
     // ============================================================================
@@ -125,7 +121,7 @@ public class FileActionHandlers {
     public void handleGetLinkifyCapabilities() {
         String capabilitiesJson = OpenClassHandler.buildCapabilitiesJson();
         ApplicationManager.getApplication().invokeLater(() ->
-            dispatchEvent(DownstreamEvent.LINKIFY_UPDATE.value(), escapeJs(capabilitiesJson))
+            dispatchEvent(DownstreamEvent.LINKIFY_UPDATE.value(), capabilitiesJson)
         );
     }
 
@@ -202,7 +198,7 @@ public class FileActionHandlers {
         String resultJson = GSON.toJson(result);
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            dispatchEvent(DownstreamEvent.FILE_LIST_RESULT.value(), escapeJs(resultJson));
+            dispatchEvent(DownstreamEvent.FILE_LIST_RESULT.value(), resultJson);
         });
     }
 

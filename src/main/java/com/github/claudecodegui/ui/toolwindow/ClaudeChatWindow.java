@@ -836,14 +836,20 @@ public class ClaudeChatWindow {
      * try/catch),行为与旧 window.xxx 调用等价。后续 Phase 各 handler 由 callJavaScript("window.xxx")
      * 逐步迁移到本方法,旧 window.xxx 经前端 compat 兼容别名保留一阶段。
      *
+     * <p>转义契约(SSOT,序列化出口统一):payload 必须是未转义的原始字符串(JSON 或裸文本),
+     * 由本出口统一 {@link com.github.claudecodegui.util.JsUtils#escapeJs} 后嵌入。调用方禁止
+     * 再手动 escapeJs —— 双转义会损坏 payload。守卫测试 DispatchEventEscapingContractTest
+     * 强制此契约。</p>
+     *
      * @param type        事件类型(见前端 webview/src/bridge/events/)
-     * @param payloadJson payload 的 JSON 字符串;可为 null/空(前端收到 undefined)
+     * @param payloadJson payload 的原始字符串;可为 null/空(前端收到 undefined)
      */
     void dispatchEvent(String type, String payloadJson) {
         // 经既有 callJavaScript 路径派发到 window.__bridge.dispatch。传入全限定名,因含点,
         // callJavaScript 不会重复加 "window." 前缀(见其 contains(".") 判定);SAFE_JS_FUNCTION_NAME
         // 正则允许点号,故 "window.__bridge.dispatch" 通过校验。
-        callJavaScript("window.__bridge.dispatch", type, payloadJson == null ? "" : payloadJson);
+        callJavaScript("window.__bridge.dispatch", type,
+                com.github.claudecodegui.util.JsUtils.escapeJs(payloadJson == null ? "" : payloadJson));
     }
 
     void callJavaScript(String functionName, String... args) {
@@ -989,7 +995,7 @@ public class ClaudeChatWindow {
                     public void dispatchEvent(String type, String payloadJson) {
                         HandlerContext currentContext = ClaudeChatWindow.this.handlerContext;
                         if (currentContext != null) {
-                            currentContext.dispatchEvent(type, currentContext.escapeJs(payloadJson));
+                            currentContext.dispatchEvent(type, payloadJson);
                         }
                     }                },
                 () -> slashCommandsFetched,

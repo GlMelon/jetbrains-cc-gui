@@ -28,6 +28,6 @@ public final class GetModelRegistrySchemaActionHandler implements FrontendAction
     public void handle(String payload, FrontendActionContext context) {
         HandlerContext ctx = context.handlerContext();
         String schemaJson = service.getSchema().schema().toString();
-        ctx.dispatchEvent(DownstreamEvent.MODEL_REGISTRY_SCHEMA.value(), ctx.escapeJs(schemaJson));
+        ctx.dispatchEvent(DownstreamEvent.MODEL_REGISTRY_SCHEMA.value(), schemaJson);
     }
 }

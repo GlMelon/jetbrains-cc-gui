@@ -84,7 +84,7 @@ public class McpMarketActionHandlers {
             attachRequestId(result, fRequestId);
             final JsonObject fr = result;
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent(DownstreamEvent.MCP_MARKET_LIST.value(), context.escapeJs(GSON.toJson(fr))));
+                context.dispatchEvent(DownstreamEvent.MCP_MARKET_LIST.value(), GSON.toJson(fr)));
         }, AppExecutorUtil.getAppExecutorService());
     }
 
@@ -124,7 +124,7 @@ public class McpMarketActionHandlers {
             attachRequestId(result, fRequestId);
             final JsonObject fr = result;
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent(DownstreamEvent.MCP_MARKET_DETAIL.value(), context.escapeJs(GSON.toJson(fr))));
+                context.dispatchEvent(DownstreamEvent.MCP_MARKET_DETAIL.value(), GSON.toJson(fr)));
         }, AppExecutorUtil.getAppExecutorService());
     }
 

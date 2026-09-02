@@ -77,6 +77,6 @@ public final class McpServerImportHandler implements FrontendActionHandler<Strin
         String json = GSON.toJson(response);
         var ctx = context.handlerContext();
         ApplicationManager.getApplication().invokeLater(
-            () -> ctx.dispatchEvent(DownstreamEvent.MCP_IMPORT_PREVIEW.value(), ctx.escapeJs(json)));
+            () -> ctx.dispatchEvent(DownstreamEvent.MCP_IMPORT_PREVIEW.value(), json));
     }
 }

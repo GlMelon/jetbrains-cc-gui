@@ -39,7 +39,7 @@ public final class GetSessionCapabilitiesActionHandler implements FrontendAction
                     + ", backendProvider=" + backendProvider);
             handlerContext.dispatchEvent(
                     DownstreamEvent.SESSION_CAPABILITIES.value(),
-                    handlerContext.escapeJs(json)
+                    json
             );
         }, AppExecutorUtil.getAppExecutorService());
     }

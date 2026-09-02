@@ -148,7 +148,7 @@ class HistoryExportService {
                 ? ClaudeCodeGuiBundle.message("file.printPdfOpened")
                 : ClaudeCodeGuiBundle.message("file.printPdfFailed");
         DownstreamEvent event = success ? DownstreamEvent.TOAST_SUCCESS : DownstreamEvent.TOAST_ERROR;
-        context.dispatchEvent(event.value(), context.escapeJs(message));
+        context.dispatchEvent(event.value(), message);
     }
 
     /** Extracts the rendered HTML content carried inside the export envelope. */

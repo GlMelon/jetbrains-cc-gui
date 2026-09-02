@@ -516,7 +516,7 @@ nodeService.setSessionId(sessionId);
         ThemeConfigService.registerThemeChangeListener(themeConfig ->
                 ApplicationManager.getApplication().invokeLater(() ->
                         handlerContext.dispatchEvent(DownstreamEvent.THEME_CHANGED.value(),
-                                handlerContext.escapeJs(themeConfig.toString()))));
+                                themeConfig.toString())));
 
         // Typed frontend action dispatcher: all actions (model registry, appearance, project
         // config, user language, runtime policy, etc.) are served by dedicated typed handlers.
@@ -1113,7 +1113,7 @@ nodeService.setSessionId(sessionId);
             final HandlerContext ctx = host.getHandlerContext();
             ApplicationManager.getApplication().invokeLater(() -> {
                 if (!host.isDisposed() && host.getBrowser() != null) {
-                    ctx.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(), ctx.escapeJs(registryJson));
+                    ctx.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(), registryJson);
                 }
             });
         } catch (Exception e) {
@@ -1143,7 +1143,7 @@ nodeService.setSessionId(sessionId);
             final String avatarConfigJson = new AvatarConfigService().serializeAuthoritativeConfig();
             ApplicationManager.getApplication().invokeLater(() -> {
                 if (!host.isDisposed() && host.getBrowser() != null) {
-                    ctx.dispatchEvent(DownstreamEvent.AVATAR_CONFIG_APPLY.value(), ctx.escapeJs(avatarConfigJson));
+                    ctx.dispatchEvent(DownstreamEvent.AVATAR_CONFIG_APPLY.value(), avatarConfigJson);
                 }
             });
         } catch (Exception e) {
@@ -1169,7 +1169,7 @@ nodeService.setSessionId(sessionId);
             final String payload = ModelProviderHandler.buildModelSelectionPayload(selection).toString();
             ApplicationManager.getApplication().invokeLater(() -> {
                 if (!host.isDisposed() && host.getBrowser() != null) {
-                    ctx.dispatchEvent(DownstreamEvent.MODEL_SELECTION.value(), ctx.escapeJs(payload));
+                    ctx.dispatchEvent(DownstreamEvent.MODEL_SELECTION.value(), payload);
                 }
             });
         } catch (Exception e) {

@@ -217,10 +217,10 @@ public class ModelProviderHandler {
             if (confirmedSelection.identifier() != null) {
                 confirmedPayload.addProperty("identifier", confirmedSelection.identifier());
             }
-            context.dispatchEvent(DownstreamEvent.MODEL_CONFIRMED.value(), context.escapeJs(gson.toJson(confirmedPayload)));
+            context.dispatchEvent(DownstreamEvent.MODEL_CONFIRMED.value(), gson.toJson(confirmedPayload));
             context.dispatchEvent(
                     DownstreamEvent.MODEL_SELECTION.value(),
-                    context.escapeJs(gson.toJson(buildModelSelectionPayload(confirmedSelection)))
+                    gson.toJson(buildModelSelectionPayload(confirmedSelection))
             );
             if (realModelSwitch) {
                 usagePushService.pushUsageUpdateAfterModelChange(newMaxTokens);
@@ -421,9 +421,9 @@ public class ModelProviderHandler {
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 try {
-                    context.dispatchEvent(DownstreamEvent.SLASH_COMMANDS.value(), context.escapeJs(json));
+                    context.dispatchEvent(DownstreamEvent.SLASH_COMMANDS.value(), json);
                     if (codexJson != null) {
-                        context.dispatchEvent(DownstreamEvent.SLASH_DOLLAR_COMMANDS.value(), context.escapeJs(codexJson));
+                        context.dispatchEvent(DownstreamEvent.SLASH_DOLLAR_COMMANDS.value(), codexJson);
                     }
                 } catch (Exception e) {
                     LOG.warn("[ModelProviderHandler] Failed to refresh slash commands: " + e.getMessage());

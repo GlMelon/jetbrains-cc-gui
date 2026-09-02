@@ -87,7 +87,7 @@ public class ProviderImportExportSupport {
 
                     String jsonStr = GSON.toJson(response);
                     LOG.info("[ProviderHandler] Successfully read " + providers.size() + " provider configs");
-                    context.dispatchEvent(DownstreamEvent.PROVIDER_IMPORT_PREVIEW.value(), context.escapeJs(jsonStr));
+                    context.dispatchEvent(DownstreamEvent.PROVIDER_IMPORT_PREVIEW.value(), jsonStr);
 
                 } catch (Exception e) {
                     String errorDetails = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.ccswitch.readFailed") + ": " + e.getMessage();
@@ -195,7 +195,7 @@ public class ProviderImportExportSupport {
 
                         String jsonStr = GSON.toJson(response);
                         LOG.info("[ProviderHandler] Successfully read " + providers.size() + " provider configs, sending to frontend");
-                        context.dispatchEvent(DownstreamEvent.PROVIDER_IMPORT_PREVIEW.value(), context.escapeJs(jsonStr));
+                        context.dispatchEvent(DownstreamEvent.PROVIDER_IMPORT_PREVIEW.value(), jsonStr);
 
                     } catch (Exception e) {
                         String errorDetails = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.ccswitch.readFailed") + ": " + e.getMessage();

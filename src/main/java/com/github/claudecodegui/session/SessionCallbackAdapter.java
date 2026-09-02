@@ -28,8 +28,14 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
     public interface JsTarget {
         void callJavaScript(String functionName, String... args);
 
+        /**
+         * 下行总线语义化入口。转义契约与 {@code HandlerContext.JsCallback#dispatchEvent}
+         * 一致:payload 必须是未转义的原始字符串,由本出口统一 escapeJs;调用方禁止
+         * 再手动转义(双转义会损坏 payload)。
+         */
         default void dispatchEvent(String type, String payloadJson) {
-            callJavaScript("window.__bridge.dispatch", type, payloadJson == null ? "" : payloadJson);
+            callJavaScript("window.__bridge.dispatch", type,
+                    JsUtils.escapeJs(payloadJson == null ? "" : payloadJson));
         }
     }
 
@@ -404,11 +410,7 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
             if (isInactive()) {
                 return;
             }
-            jsTarget.callJavaScript(
-                    "window.__bridge.dispatch",
-                    DownstreamEvent.STREAM_RESPONSE_PHASE.value(),
-                    JsUtils.escapeJs(json)
-            );
+            jsTarget.dispatchEvent(DownstreamEvent.STREAM_RESPONSE_PHASE.value(), json);
         });
     }
 

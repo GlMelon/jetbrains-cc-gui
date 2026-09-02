@@ -193,11 +193,10 @@ public class ConfigFileWatcherService implements Disposable, BulkFileListener {
         if (registryJson == null || registryJson.trim().isEmpty()) {
             return;
         }
-        String escaped = JsUtils.escapeJs(registryJson);
         for (Project project : ProjectManager.getInstance().getOpenProjects()) {
             try {
                 ClaudeChatToolWindow.broadcastModelRegistry(
-                        project, DownstreamEvent.MODEL_REGISTRY.value(), escaped);
+                        project, DownstreamEvent.MODEL_REGISTRY.value(), registryJson);
             } catch (Exception e) {
                 LOG.warn("[ConfigFileWatcher] Failed to broadcast model registry to project "
                         + project.getName() + ": " + e.getMessage(), e);

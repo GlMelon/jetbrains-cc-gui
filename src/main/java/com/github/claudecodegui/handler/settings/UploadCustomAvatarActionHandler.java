@@ -67,6 +67,6 @@ public final class UploadCustomAvatarActionHandler implements FrontendActionHand
             return;
         }
         AvatarConfigResult result = service.uploadCustom(payload, Path.of(file.getPath()), file.getName());
-        ctx.dispatchEvent(DownstreamEvent.AVATAR_CONFIG_APPLY.value(), ctx.escapeJs(result.configJson()));
+        ctx.dispatchEvent(DownstreamEvent.AVATAR_CONFIG_APPLY.value(), result.configJson());
     }
 }

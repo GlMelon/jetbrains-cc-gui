@@ -134,17 +134,18 @@ public class ClaudeChatToolWindow implements ToolWindowFactory, DumbAware {
      * 导致在 A 标签配置模型后 B 标签下拉不刷新(多标签 webview 单例隔离)。registry 的任意读取/变更
      * (get/set/reload)都应经此广播同步到全部 tab 的前端 {@code currentRegistry} 单例。
      *
-     * <p>{@code escapedJson} 由调用方预先 {@link com.github.claudecodegui.util.JsUtils#escapeJs} 转义
-     * (escapeJs 为纯字符串操作,循环外做一次即可)。
+     * <p>{@code payloadJson} 必须是<strong>未转义</strong>的原始 JSON —— 转义由
+     * {@link ClaudeChatWindow#dispatchEvent} 出口统一完成(与下行总线 dispatchEvent 契约一致),
+     * 调用方预转义会被双转义损坏 payload。
      *
      * @see com.github.claudecodegui.ui.ChatWindowDelegate#sendCurrentModelRegistryToFrontend 新 tab 就绪回灌
      */
     public static void broadcastModelRegistry(@NotNull Project project, @NotNull String type,
-                                              @NotNull String escapedJson) {
+                                              @NotNull String payloadJson) {
         Set<ClaudeChatWindow> windows = collectProjectChatWindows(project);
         for (ClaudeChatWindow window : windows) {
             try {
-                window.dispatchEvent(type, escapedJson);
+                window.dispatchEvent(type, payloadJson);
             } catch (Exception e) {
                 LOG.warn("[Broadcast] Failed to push model registry to tab: " + e.getMessage());
             }

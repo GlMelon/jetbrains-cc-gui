@@ -32,6 +32,6 @@ public final class SetAppearanceConfigActionHandler implements FrontendActionHan
         // 与原 SettingsHandler.handleSetAppearanceConfig + pushAppearanceConfig 逐字等价。
         AppearanceConfigResult result = service.apply(payload);
         ctx.dispatchEvent(DownstreamEvent.APPEARANCE_APPLY.value(),
-                ctx.escapeJs(result.configJson()));
+                result.configJson());
     }
 }

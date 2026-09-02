@@ -121,7 +121,7 @@ public final class RewindFilesActionHandler implements FrontendActionHandler<Str
             }
             context.dispatchEvent(
                     DownstreamEvent.REWIND_RESULT.value(),
-                    context.escapeJs(gson.toJson(result))
+                    gson.toJson(result)
             );
         });
     }

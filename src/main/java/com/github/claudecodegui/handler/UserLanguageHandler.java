@@ -57,7 +57,7 @@ public class UserLanguageHandler {
         JsonObject response = new JsonObject();
         response.addProperty("language", userLanguage != null ? userLanguage : "");
         response.addProperty("manuallySet", userLanguage != null);
-        context.dispatchEvent(DownstreamEvent.LANGUAGE_USER_LANGUAGE.value(), context.escapeJs(response.toString()));
+        context.dispatchEvent(DownstreamEvent.LANGUAGE_USER_LANGUAGE.value(), response.toString());
     }
 
     /**
@@ -78,6 +78,6 @@ public class UserLanguageHandler {
 
     private void pushLanguageConfig() {
         JsonObject languageConfig = LanguageConfigService.getLanguageConfig(context.getSettingsService());
-        context.dispatchEvent(DownstreamEvent.LANGUAGE_APPLY.value(), context.escapeJs(languageConfig.toString()));
+        context.dispatchEvent(DownstreamEvent.LANGUAGE_APPLY.value(), languageConfig.toString());
     }
 }

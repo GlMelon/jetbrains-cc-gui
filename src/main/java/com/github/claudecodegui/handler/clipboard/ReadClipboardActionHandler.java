@@ -60,7 +60,7 @@ public final class ReadClipboardActionHandler implements FrontendActionHandler<S
                 Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
                 if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
                     String text = (String) clipboard.getData(DataFlavor.stringFlavor);
-                    ctx.dispatchEvent(DownstreamEvent.CLIPBOARD_READ.value(), ctx.escapeJs(text != null ? text : ""));
+                    ctx.dispatchEvent(DownstreamEvent.CLIPBOARD_READ.value(), text != null ? text : "");
                 } else {
                     ctx.dispatchEvent(DownstreamEvent.CLIPBOARD_READ.value(), "");
                 }

@@ -52,13 +52,12 @@ public class CheckCliEnvironmentActionHandler implements FrontendActionHandler<J
                     response.add(status.getName(), GsonHolder.GSON.toJsonTree(status));
                 }
 
-                // payload 必须经 escapeJs:callJavaScript 把参数原样拼进单引号 JS 字符串字面量(不做转义),
-                // installPath 等含 Windows 反斜杠的字段经 JSON 转义为 \\,若不再 escapeJs,JS 解析会把
-                // \\ 退化为 \,使前端 JSON.parse 遇到 \U 等非法转义抛错 → 卡片空白。与 AGENT_LIST 等
-                // 兄弟 handler 的 escapeJs 约定对齐。
+                // payload 传原始 JSON 即可:dispatchEvent 出口统一 escapeJs。callJavaScript 把参数原样拼进
+                // 单引号 JS 字符串字面量,installPath 等含 Windows 反斜杠的字段必须转义,否则 JS 解析会把
+                // \\ 退化为 \,前端 JSON.parse 遇到 \U 等非法转义抛错 → 卡片空白。
                 context.handlerContext().dispatchEvent(
                     DownstreamEvent.CLI_ENVIRONMENT_STATUS.value(),
-                    context.handlerContext().escapeJs(GsonHolder.GSON.toJson(response))
+                    GsonHolder.GSON.toJson(response)
                 );
 
                 LOG.info("[CliEnvironment] Environment check completed, found " + statuses.size() + " tools");
@@ -71,7 +70,7 @@ public class CheckCliEnvironmentActionHandler implements FrontendActionHandler<J
 
                 context.handlerContext().dispatchEvent(
                     DownstreamEvent.CLI_ENVIRONMENT_STATUS.value(),
-                    context.handlerContext().escapeJs(GsonHolder.GSON.toJson(errorResponse))
+                    GsonHolder.GSON.toJson(errorResponse)
                 );
             }
         }, AppExecutorUtil.getAppExecutorService());

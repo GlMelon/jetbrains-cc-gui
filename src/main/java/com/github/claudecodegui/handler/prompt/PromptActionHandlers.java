@@ -87,15 +87,11 @@ public class PromptActionHandlers {
         context.dispatchEvent(event, data);
     }
 
-    private String escapeJs(String s) {
-        return context.escapeJs(s);
-    }
-
     private void dispatchPromptList(String eventType, String provider, String promptsJson) {
         JsonObject payload = new JsonObject();
         payload.addProperty(CommonConstants.JSON_KEY_PROVIDER, normalizeProvider(provider));
         payload.add("prompts", JsonParser.parseString(promptsJson).getAsJsonArray());
-        dispatchEvent(eventType, escapeJs(gson.toJson(payload)));
+        dispatchEvent(eventType, gson.toJson(payload));
     }
 
     private String parseProviderFromData(String data) {
@@ -181,7 +177,7 @@ public class PromptActionHandlers {
             }
             String projectInfoJson = gson.toJson(projectInfo);
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.PROMPT_PROJECT_INFO.value(), escapeJs(projectInfoJson));
+                dispatchEvent(DownstreamEvent.PROMPT_PROJECT_INFO.value(), projectInfoJson);
             });
         } catch (Exception e) {
             LOG.error("[PromptHandler] Failed to get project info: " + e.getMessage(), e);
@@ -190,7 +186,7 @@ public class PromptActionHandlers {
             projectInfo.addProperty("name", (String) null);
             projectInfo.addProperty("path", (String) null);
             ApplicationManager.getApplication().invokeLater(() -> {
-                dispatchEvent(DownstreamEvent.PROMPT_PROJECT_INFO.value(), escapeJs(gson.toJson(projectInfo)));
+                dispatchEvent(DownstreamEvent.PROMPT_PROJECT_INFO.value(), gson.toJson(projectInfo));
             });
         }
     }
@@ -217,7 +213,7 @@ public class PromptActionHandlers {
                 refresh.addProperty("scope", finalScope.getValue());
                 refresh.addProperty(CommonConstants.JSON_KEY_PROVIDER, provider);
                 handleGetPrompts(gson.toJson(refresh));
-                dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"add\"}"));
+                dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), "{\"success\":true,\"operation\":\"add\"}");
             });
         } catch (Exception e) {
             LOG.error("[PromptHandler] Failed to add prompt: " + e.getMessage(), e);
@@ -251,7 +247,7 @@ public class PromptActionHandlers {
                 refresh.addProperty("scope", finalScope.getValue());
                 refresh.addProperty(CommonConstants.JSON_KEY_PROVIDER, provider);
                 handleGetPrompts(gson.toJson(refresh));
-                dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"update\"}"));
+                dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), "{\"success\":true,\"operation\":\"update\"}");
             });
         } catch (Exception e) {
             LOG.error("[PromptHandler] Failed to update prompt: " + e.getMessage(), e);
@@ -280,7 +276,7 @@ public class PromptActionHandlers {
                     refresh.addProperty("scope", finalScope.getValue());
                     refresh.addProperty(CommonConstants.JSON_KEY_PROVIDER, provider);
                     handleGetPrompts(gson.toJson(refresh));
-                    dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), escapeJs("{\"success\":true,\"operation\":\"delete\"}"));
+                    dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), "{\"success\":true,\"operation\":\"delete\"}");
                 });
             } else {
                 JsonObject errorResult = new JsonObject();
@@ -288,7 +284,7 @@ public class PromptActionHandlers {
                 errorResult.addProperty("operation", "delete");
                 errorResult.addProperty("error", "Prompt not found");
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), escapeJs(gson.toJson(errorResult)));
+                    dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), gson.toJson(errorResult));
                 });
             }
         } catch (Exception e) {
@@ -430,7 +426,7 @@ public class PromptActionHandlers {
                 summary.addProperty("updateCount", conflicts.size());
                 previewData.add("summary", summary);
                 String previewJson = gson.toJson(previewData);
-                dispatchEvent(DownstreamEvent.PROMPT_IMPORT_PREVIEW.value(), escapeJs(previewJson));
+                dispatchEvent(DownstreamEvent.PROMPT_IMPORT_PREVIEW.value(), previewJson);
             } catch (Exception e) {
                 LOG.error("[PromptHandler] Failed to import prompts file: " + e.getMessage(), e);
                 showNotification("Import Failed", "Failed to read file: " + e.getMessage(), NotificationType.ERROR);
@@ -462,7 +458,7 @@ public class PromptActionHandlers {
             final PromptScope finalScope = scope;
             ApplicationManager.getApplication().invokeLater(() -> {
                 String resultJson = gson.toJson(result);
-                dispatchEvent(DownstreamEvent.PROMPT_IMPORT_RESULT.value(), escapeJs(resultJson));
+                dispatchEvent(DownstreamEvent.PROMPT_IMPORT_RESULT.value(), resultJson);
                 String scopeJson = "{\"scope\":\"" + finalScope.getValue() + "\"}";
                 handleGetPrompts(scopeJson);
                 boolean success = Boolean.TRUE.equals(result.get("success"));
@@ -493,7 +489,7 @@ public class PromptActionHandlers {
         errorResult.addProperty("operation", operation);
         errorResult.addProperty("error", error);
         ApplicationManager.getApplication().invokeLater(() -> {
-            dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), escapeJs(gson.toJson(errorResult)));
+            dispatchEvent(DownstreamEvent.PROMPT_OPERATION_RESULT.value(), gson.toJson(errorResult));
         });
     }
 
@@ -502,7 +498,7 @@ public class PromptActionHandlers {
         errorResult.addProperty("success", false);
         errorResult.addProperty("error", error);
         ApplicationManager.getApplication().invokeLater(() -> {
-            dispatchEvent(DownstreamEvent.PROMPT_IMPORT_RESULT.value(), escapeJs(gson.toJson(errorResult)));
+            dispatchEvent(DownstreamEvent.PROMPT_IMPORT_RESULT.value(), gson.toJson(errorResult));
             showNotification("Import Failed", error, NotificationType.ERROR);
         });
     }

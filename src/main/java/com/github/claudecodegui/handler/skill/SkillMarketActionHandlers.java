@@ -74,7 +74,7 @@ public class SkillMarketActionHandlers {
             attachRequestId(result, fRequestId);
             final JsonObject fr = result;
             ApplicationManager.getApplication().invokeLater(() ->
-                    context.dispatchEvent(DownstreamEvent.SKILL_MARKET_LIST.value(), context.escapeJs(GSON.toJson(fr))));
+                    context.dispatchEvent(DownstreamEvent.SKILL_MARKET_LIST.value(), GSON.toJson(fr)));
         }, AppExecutorUtil.getAppExecutorService());
     }
 
@@ -125,7 +125,7 @@ public class SkillMarketActionHandlers {
             attachRequestId(result, fRequestId);
             final JsonObject fr = result;
             ApplicationManager.getApplication().invokeLater(() ->
-                    context.dispatchEvent(DownstreamEvent.SKILL_MARKET_INSTALL_RESULT.value(), context.escapeJs(GSON.toJson(fr))));
+                    context.dispatchEvent(DownstreamEvent.SKILL_MARKET_INSTALL_RESULT.value(), GSON.toJson(fr)));
         }, AppExecutorUtil.getAppExecutorService());
     }
 
@@ -172,7 +172,7 @@ public class SkillMarketActionHandlers {
             attachRequestId(result, fRequestId);
             final JsonObject fr = result;
             ApplicationManager.getApplication().invokeLater(() ->
-                    context.dispatchEvent(DownstreamEvent.SKILL_MARKET_DETAIL.value(), context.escapeJs(GSON.toJson(fr))));
+                    context.dispatchEvent(DownstreamEvent.SKILL_MARKET_DETAIL.value(), GSON.toJson(fr)));
         }, AppExecutorUtil.getAppExecutorService());
     }
 

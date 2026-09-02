@@ -66,17 +66,17 @@ public class ProjectConfigHandler {
     private void pushJson(String type, JsonElement payload) {
         String json = gson.toJson(payload);
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent(type, context.escapeJs(json)));
+            context.dispatchEvent(type, json));
     }
 
     private void showError(String message) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(message)));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), message));
     }
 
     private void showSuccess(String message) {
         ApplicationManager.getApplication().invokeLater(() ->
-            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS.value(), context.escapeJs(message)));
+            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS.value(), message));
     }
 
     private static JsonObject jsonOf(String key, boolean value) {
@@ -266,7 +266,7 @@ public class ProjectConfigHandler {
             LOG.info("[ProjectConfigHandler] Set Codex sandbox mode: " + sandboxMode);
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.dispatchEvent(DownstreamEvent.CONFIG_CODEX_SANDBOX_MODE.value(),
-                    context.escapeJs(gson.toJson(jsonOf("sandboxMode", sandboxMode))));
+                    gson.toJson(jsonOf("sandboxMode", sandboxMode)));
                 context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(), "toast.saveSuccess");
             });
         } catch (Exception e) {
@@ -556,7 +556,7 @@ public class ProjectConfigHandler {
         try {
             String themeConfigJson = ThemeConfigService.getIdeThemeConfig().toString();
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent(DownstreamEvent.THEME_RECEIVED.value(), context.escapeJs(themeConfigJson)));
+                context.dispatchEvent(DownstreamEvent.THEME_RECEIVED.value(), themeConfigJson));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get IDE theme: " + e.getMessage(), e);
         }
@@ -566,7 +566,7 @@ public class ProjectConfigHandler {
         try {
             String fontConfigJson = FontConfigService.getEditorFontConfig().toString();
             ApplicationManager.getApplication().invokeLater(() ->
-                context.dispatchEvent(DownstreamEvent.FONT_EDITOR_CONFIG_RECEIVED.value(), context.escapeJs(fontConfigJson)));
+                context.dispatchEvent(DownstreamEvent.FONT_EDITOR_CONFIG_RECEIVED.value(), fontConfigJson));
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to get editor font config: " + e.getMessage(), e);
         }
@@ -689,16 +689,16 @@ public class ProjectConfigHandler {
         String path = file.getPath();
         FontConfigService.ValidationResult validation = FontConfigService.validateCustomUiFontFile(path);
         if (!validation.valid()) {
-            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Invalid font file: " + validation.errorMessage()));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), "Invalid font file: " + validation.errorMessage());
             return;
         }
         try {
             settingsService.setUiFontConfig(FontConfigService.UI_FONT_MODE_CUSTOM_FILE, path);
             dispatchUiFontConfigUpdate();
-            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(), context.escapeJs("toast.saveSuccess"));
+            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(), "toast.saveSuccess");
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to save selected font file: " + e.getMessage(), e);
-            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Failed to save font config: " + e.getMessage()));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), "Failed to save font config: " + e.getMessage());
         }
     }
 
@@ -707,16 +707,16 @@ public class ProjectConfigHandler {
         String path = file.getPath();
         FontConfigService.ValidationResult validation = FontConfigService.validateCustomUiFontFile(path);
         if (!validation.valid()) {
-            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Invalid font file: " + validation.errorMessage()));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), "Invalid font file: " + validation.errorMessage());
             return;
         }
         try {
             settingsService.setCodeFontConfig(FontConfigService.UI_FONT_MODE_CUSTOM_FILE, path);
             dispatchCodeFontConfigUpdate();
-            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(), context.escapeJs("toast.saveSuccess"));
+            context.dispatchEvent(DownstreamEvent.TOAST_SUCCESS_I18N.value(), "toast.saveSuccess");
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to save selected code font file: " + e.getMessage(), e);
-            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs("Failed to save code font config: " + e.getMessage()));
+            context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), "Failed to save code font config: " + e.getMessage());
         }
     }
 
@@ -911,8 +911,8 @@ public class ProjectConfigHandler {
         try {
             String uiFontConfigJson = FontConfigService.getResolvedUiFontConfigJson(settingsService);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.FONT_UI_CONFIG_RECEIVED.value(), context.escapeJs(uiFontConfigJson));
-                context.dispatchEvent(DownstreamEvent.FONT_APPLY_UI.value(), context.escapeJs(uiFontConfigJson));
+                context.dispatchEvent(DownstreamEvent.FONT_UI_CONFIG_RECEIVED.value(), uiFontConfigJson);
+                context.dispatchEvent(DownstreamEvent.FONT_APPLY_UI.value(), uiFontConfigJson);
             });
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to dispatch UI font config: " + e.getMessage(), e);
@@ -923,8 +923,8 @@ public class ProjectConfigHandler {
         try {
             String codeFontConfigJson = FontConfigService.getResolvedCodeFontConfigJson(settingsService);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.FONT_CODE_CONFIG_RECEIVED.value(), context.escapeJs(codeFontConfigJson));
-                context.dispatchEvent(DownstreamEvent.FONT_APPLY_CODE.value(), context.escapeJs(codeFontConfigJson));
+                context.dispatchEvent(DownstreamEvent.FONT_CODE_CONFIG_RECEIVED.value(), codeFontConfigJson);
+                context.dispatchEvent(DownstreamEvent.FONT_APPLY_CODE.value(), codeFontConfigJson);
             });
         } catch (Exception e) {
             LOG.error("[ProjectConfigHandler] Failed to dispatch code font config: " + e.getMessage(), e);
@@ -971,7 +971,7 @@ public class ProjectConfigHandler {
                 }
                 final String statsJson = json;
                 ApplicationManager.getApplication().invokeLater(() ->
-                    context.dispatchEvent(DownstreamEvent.USAGE_STATISTICS.value(), context.escapeJs(statsJson)));
+                    context.dispatchEvent(DownstreamEvent.USAGE_STATISTICS.value(), statsJson));
             } catch (Exception e) {
                 LOG.error("[ProjectConfigHandler] Failed to get usage statistics: " + e.getMessage(), e);
                 showError("Failed to get statistics: " + e.getMessage());

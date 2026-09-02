@@ -44,7 +44,7 @@ public class OpenCodeProviderOperations {
             String providersJson = GSON.toJson(providers);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.PROVIDER_OPENCODE_LIST.value(), context.escapeJs(providersJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_OPENCODE_LIST.value(), providersJson);
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get OpenCode providers: " + e.getMessage(), e);
@@ -60,7 +60,7 @@ public class OpenCodeProviderOperations {
             String configJson = GSON.toJson(config);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.PROVIDER_OPENCODE_CONFIG.value(), context.escapeJs(configJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_OPENCODE_CONFIG.value(), configJson);
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get current OpenCode config: " + e.getMessage(), e);
@@ -82,7 +82,7 @@ public class OpenCodeProviderOperations {
             LOG.error("[ProviderHandler] Failed to add OpenCode provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(),
-                        context.escapeJs(ClaudeCodeGuiBundle.message("provider.addOpenCodeFailed", e.getMessage())));
+                        ClaudeCodeGuiBundle.message("provider.addOpenCodeFailed", e.getMessage()));
             });
         }
     }
@@ -113,14 +113,14 @@ public class OpenCodeProviderOperations {
                 if (finalSynced) {
                     handleGetActiveOpenCodeProvider();
                     context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
-                            context.escapeJs(context.getSettingsService().getModelRegistryJson()));
+                            context.getSettingsService().getModelRegistryJson());
                 }
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to update OpenCode provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(),
-                        context.escapeJs(ClaudeCodeGuiBundle.message("provider.updateOpenCodeFailed", e.getMessage())));
+                        ClaudeCodeGuiBundle.message("provider.updateOpenCodeFailed", e.getMessage()));
             });
         }
     }
@@ -136,7 +136,7 @@ public class OpenCodeProviderOperations {
                 LOG.error("[ProviderHandler] ERROR: Missing 'id' field in request");
                 ApplicationManager.getApplication().invokeLater(() -> {
                     context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(),
-                            context.escapeJs(ClaudeCodeGuiBundle.message("provider.deleteOpenCodeMissingId")));
+                            ClaudeCodeGuiBundle.message("provider.deleteOpenCodeMissingId"));
                 });
                 return;
             }
@@ -152,20 +152,20 @@ public class OpenCodeProviderOperations {
                     handleGetOpenCodeProviders(); // Refresh list
                     handleGetActiveOpenCodeProvider();
                     context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
-                            context.escapeJs(context.getSettingsService().getModelRegistryJson()));
+                            context.getSettingsService().getModelRegistryJson());
                 });
             } else {
                 String errorMsg = result.getUserFriendlyMessage();
                 LOG.warn("[ProviderHandler] Delete OpenCode provider failed: " + errorMsg);
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(errorMsg));
+                    context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), errorMsg);
                 });
             }
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Exception in handleDeleteOpenCodeProvider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(),
-                        context.escapeJs(ClaudeCodeGuiBundle.message("provider.deleteOpenCodeFailed", e.getMessage())));
+                        ClaudeCodeGuiBundle.message("provider.deleteOpenCodeFailed", e.getMessage()));
             });
         }
     }
@@ -190,18 +190,18 @@ public class OpenCodeProviderOperations {
             ApplicationManager.getApplication().invokeLater(() -> {
                 String successMsg = ClaudeCodeGuiBundle.message("toast.providerSwitchSuccess")
                         + ClaudeCodeGuiBundle.message("provider.switchSyncOpenCode");
-                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), context.escapeJs(successMsg));
+                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), successMsg);
                 handleGetOpenCodeProviders();
                 handleGetCurrentOpenCodeConfig();
                 handleGetActiveOpenCodeProvider();
                 context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
-                        context.escapeJs(context.getSettingsService().getModelRegistryJson()));
+                        context.getSettingsService().getModelRegistryJson());
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch OpenCode provider: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
                 context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(),
-                        context.escapeJs(ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
+                        ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage());
             });
         }
     }
@@ -235,19 +235,19 @@ public class OpenCodeProviderOperations {
             }
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), context.escapeJs(
-                        ClaudeCodeGuiBundle.message("toast.opencodeLocalConfigAuthorizationRevoked")));
+                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), 
+                        ClaudeCodeGuiBundle.message("toast.opencodeLocalConfigAuthorizationRevoked"));
                 handleGetOpenCodeProviders();
                 handleGetCurrentOpenCodeConfig();
                 handleGetActiveOpenCodeProvider();
                 context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
-                        context.escapeJs(context.getSettingsService().getModelRegistryJson()));
+                        context.getSettingsService().getModelRegistryJson());
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to revoke OpenCode local config authorization: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(
-                        ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), 
+                        ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage());
             });
         }
     }
@@ -264,19 +264,19 @@ public class OpenCodeProviderOperations {
             LOG.info("[ProviderHandler] Authorized local OpenCode config provider");
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), context.escapeJs(
-                        ClaudeCodeGuiBundle.message("toast.opencodeLocalConfigSwitchSuccess")));
+                context.dispatchEvent(DownstreamEvent.TOAST_SWITCH_SUCCESS.value(), 
+                        ClaudeCodeGuiBundle.message("toast.opencodeLocalConfigSwitchSuccess"));
                 handleGetOpenCodeProviders();
                 handleGetCurrentOpenCodeConfig();
                 handleGetActiveOpenCodeProvider();
                 context.dispatchEvent(DownstreamEvent.MODEL_REGISTRY.value(),
-                        context.escapeJs(context.getSettingsService().getModelRegistryJson()));
+                        context.getSettingsService().getModelRegistryJson());
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to switch to OpenCode local config: " + e.getMessage(), e);
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), context.escapeJs(
-                        ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage()));
+                context.dispatchEvent(DownstreamEvent.TOAST_ERROR.value(), 
+                        ClaudeCodeGuiBundle.message("toast.providerSwitchFailed") + ": " + e.getMessage());
             });
         }
     }
@@ -290,7 +290,7 @@ public class OpenCodeProviderOperations {
             String providerJson = GSON.toJson(provider);
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.PROVIDER_ACTIVE_OPENCODE.value(), context.escapeJs(providerJson));
+                context.dispatchEvent(DownstreamEvent.PROVIDER_ACTIVE_OPENCODE.value(), providerJson);
             });
         } catch (Exception e) {
             LOG.error("[ProviderHandler] Failed to get active OpenCode provider: " + e.getMessage(), e);

@@ -326,11 +326,11 @@ public class SessionLifecycleManager {
 
         ApplicationManager.getApplication().invokeLater(() -> {
             try {
-                host.getHandlerContext().dispatchEvent(DownstreamEvent.SLASH_COMMANDS.value(), JsUtils.escapeJs(commandsJson));
+                host.getHandlerContext().dispatchEvent(DownstreamEvent.SLASH_COMMANDS.value(), commandsJson);
 
                 // Push Codex skills as separate channel for $ autocomplete
                 if (codexSkillsJson != null) {
-                    host.getHandlerContext().dispatchEvent(DownstreamEvent.SLASH_DOLLAR_COMMANDS.value(), JsUtils.escapeJs(codexSkillsJson));
+                    host.getHandlerContext().dispatchEvent(DownstreamEvent.SLASH_DOLLAR_COMMANDS.value(), codexSkillsJson);
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to send slash commands to frontend: " + e.getMessage(), e);
@@ -357,7 +357,7 @@ public class SessionLifecycleManager {
 
             ApplicationManager.getApplication().invokeLater(() -> {
                 if (!host.isDisposed() && host.getBrowser() != null) {
-                    host.getHandlerContext().dispatchEvent(DownstreamEvent.MODE_RECEIVED.value(), JsUtils.escapeJs(modeToSend));
+                    host.getHandlerContext().dispatchEvent(DownstreamEvent.MODE_RECEIVED.value(), modeToSend);
                 }
             });
         } catch (Exception e) {
@@ -378,7 +378,7 @@ public class SessionLifecycleManager {
 
         if (!host.isDisposed()) {
             // [归一化] 直接走下行总线 dispatchEvent,替代旧 window.onUsageUpdate 字面调用。
-            host.getHandlerContext().dispatchEvent(DownstreamEvent.USAGE_UPDATE.value(), JsUtils.escapeJs(usageJson));
+            host.getHandlerContext().dispatchEvent(DownstreamEvent.USAGE_UPDATE.value(), usageJson);
         }
     }
 
@@ -539,7 +539,7 @@ public class SessionLifecycleManager {
         payload.addProperty("model", session.getModel());
         payload.addProperty("permissionMode", session.getPermissionMode());
         String json = GsonHolder.GSON.toJson(payload);
-        ApplicationManager.getApplication().invokeLater(() -> host.getHandlerContext().dispatchEvent(DownstreamEvent.SESSION_RUNTIME_STATE.value(), JsUtils.escapeJs(json)));
+        ApplicationManager.getApplication().invokeLater(() -> host.getHandlerContext().dispatchEvent(DownstreamEvent.SESSION_RUNTIME_STATE.value(), json));
     }
 
     /**

@@ -52,7 +52,7 @@ public class PermissionModeHandler {
             final String modeToSend = currentMode;
 
             ApplicationManager.getApplication().invokeLater(() -> {
-                context.dispatchEvent(DownstreamEvent.MODE_RECEIVED.value(), context.escapeJs(modeToSend));
+                context.dispatchEvent(DownstreamEvent.MODE_RECEIVED.value(), modeToSend);
             });
         } catch (Exception e) {
             LOG.error("[PermissionModeHandler] Failed to get mode: " + e.getMessage(), e);
