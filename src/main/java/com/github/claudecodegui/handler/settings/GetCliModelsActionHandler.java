@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.settings;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
@@ -76,6 +77,9 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
     }
 
     private void listModels(HandlerContext ctx, String provider) {
+        Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             NodeService nodeService = NodeService.getInstance();
             NodeDetector nodeDetector = nodeService.getNodeDetector();
@@ -111,13 +115,20 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
 
             LOG.info("[CliModels] Listing models for " + provider + ": " + String.join(" ", command));
 
-            Process process = pb.start();
+            process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            if (processToken == null) {
+                pushError(ctx, provider, "Model listing cancelled during shutdown");
+                return;
+            }
             // Drain stdout on a daemon thread (bounded) so a verbose child cannot
             // deadlock on a full pipe buffer while this thread enforces the timeout.
             StringBuilder output = new StringBuilder();
+            Process finalProcess = process;
             Thread readerThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                        new InputStreamReader(finalProcess.getInputStream(), StandardCharsets.UTF_8))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
                         synchronized (output) {
@@ -157,6 +168,13 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
         } catch (Exception e) {
             LOG.warn("[CliModels] Failed for " + provider + ": " + e.getMessage(), e);
             pushError(ctx, provider, e.getMessage() != null ? e.getMessage() : "list models failed");
+        } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
         }
     }
 

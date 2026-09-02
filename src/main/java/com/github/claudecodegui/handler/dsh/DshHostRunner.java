@@ -1,10 +1,12 @@
 package com.github.claudecodegui.handler.dsh;
 
 import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.dsh.DshEnvSupport;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.util.GsonHolder;
+import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.intellij.openapi.diagnostic.Logger;
@@ -121,6 +123,8 @@ final class DshHostRunner {
 
     static JsonObject runDshCommand(String command, JsonObject stdinPayload, long timeoutSeconds) {
         Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             NodeService nodeService = NodeService.getInstance();
             String node = nodeService.getNodeDetector().findNodeExecutable();
@@ -152,6 +156,8 @@ final class DshHostRunner {
             }
 
             process = pb.start();
+            processManager = nodeService.getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
             writeStdin(process, stdinPayload);
 
             StringBuilder output = new StringBuilder();
@@ -161,7 +167,7 @@ final class DshHostRunner {
 
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
                 LOG.warn("[DshHost] dsh " + command + " timed out");
                 return errorPayload("Timed out running dsh " + command);
             }
@@ -174,24 +180,34 @@ final class DshHostRunner {
                 return errorPayload("No JSON output from dsh " + command);
             }
             return payload;
+        } catch (InterruptedException e) {
+            if (process != null) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+            }
+            Thread.currentThread().interrupt();
+            return errorPayload("Interrupted running dsh " + command);
         } catch (Exception e) {
             LOG.warn("[DshHost] " + command + " failed: " + e.getMessage());
             return errorPayload(e.getMessage() != null ? e.getMessage() : "dsh " + command + " failed");
         } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
             if (process != null && process.isAlive()) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
             }
         }
     }
 
     private static void writeStdin(Process process, JsonObject stdinPayload) {
-        if (stdinPayload == null) {
-            return;
-        }
-        byte[] data = GsonHolder.GSON.toJson(stdinPayload).getBytes(StandardCharsets.UTF_8);
+        byte[] data = stdinPayload == null
+                ? new byte[0]
+                : GsonHolder.GSON.toJson(stdinPayload).getBytes(StandardCharsets.UTF_8);
         try (OutputStream os = process.getOutputStream()) {
-            os.write(data);
-            os.flush();
+            if (data.length > 0) {
+                os.write(data);
+                os.flush();
+            }
         } catch (Exception ignored) {
             // 进程可能已退出,忽略
         }

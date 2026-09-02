@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Process manager.
@@ -40,6 +41,9 @@ public class ProcessManager {
     private final Map<RuntimeKey, Process> activeRuntimeProcesses = new ConcurrentHashMap<>();
     private final Map<RuntimeKey, ProcessLifecycleMetadata> runtimeMetadata = new ConcurrentHashMap<>();
     private final Set<RuntimeKey> interruptedRuntimes = ConcurrentHashMap.newKeySet();
+    private final Map<String, Process> auxiliaryProcesses = new ConcurrentHashMap<>();
+    private final Object lifecycleLock = new Object();
+    private final AtomicBoolean disposed = new AtomicBoolean(false);
     /**
      * 账本泄漏 watchdog 的周期任务句柄({@link #startStaleChannelSweeper()})。
      * 共享调度器只 cancel 绝不 shutdown(平台 override 为 notAllowedMethodCall)。
@@ -48,6 +52,10 @@ public class ProcessManager {
     /** channel 进程合法存活上限:CLI 轮 15min 硬超时 + 收尾余量;超过即视为账本泄漏。 */
     private static final long STALE_CHANNEL_MAX_AGE_MS = TimeUnit.MINUTES.toMillis(30);
     private static final long STALE_CHANNEL_SWEEP_PERIOD_MINUTES = 10;
+
+    public boolean isDisposed() {
+        return disposed.get();
+    }
 
     /**
      * Generates a unique channel ID by appending a random UUID to {@code prefix}.
@@ -82,7 +90,14 @@ public class ProcessManager {
     }
 
     private void beginChannel(String channelId, boolean clearInterrupt) {
-        if (channelId != null) {
+        if (channelId == null) {
+            return;
+        }
+        synchronized (lifecycleLock) {
+            if (disposed.get()) {
+                LOG.debug("[ProcessManager] Ignoring channel start after shutdown: " + channelId);
+                return;
+            }
             if (clearInterrupt) {
                 interruptedChannels.remove(channelId);
             }
@@ -128,14 +143,25 @@ public class ProcessManager {
             ProcessLifecycleMetadata metadata
     ) {
         if (channelId != null && process != null) {
-            activeChannelProcesses.put(channelId, process);
-            channelStartTimes.put(channelId, System.currentTimeMillis());
-            if (metadata != null) {
-                channelMetadata.put(channelId, metadata);
-            } else {
-                channelMetadata.remove(channelId);
+            boolean terminateImmediately;
+            synchronized (lifecycleLock) {
+                terminateImmediately = disposed.get();
+                if (!terminateImmediately) {
+                    activeChannelProcesses.put(channelId, process);
+                    channelStartTimes.put(channelId, System.currentTimeMillis());
+                    if (metadata != null) {
+                        channelMetadata.put(channelId, metadata);
+                    } else {
+                        channelMetadata.remove(channelId);
+                    }
+                    startingChannels.remove(channelId);
+                }
             }
-            startingChannels.remove(channelId);
+            if (terminateImmediately) {
+                LOG.info("[ProcessManager] Rejecting channel registration after shutdown: " + channelId);
+                terminateProcess(channelId, process);
+                return;
+            }
             if (interruptedChannels.contains(channelId)) {
                 LOG.info("[Interrupt] Channel was cancelled before process registration: " + channelId);
                 terminateProcess(channelId, process);
@@ -157,13 +183,47 @@ public class ProcessManager {
             ProcessLifecycleMetadata metadata
     ) {
         if (key != null && process != null) {
-            activeRuntimeProcesses.put(key, process);
-            if (metadata != null) {
-                runtimeMetadata.put(key, metadata);
-            } else {
-                runtimeMetadata.remove(key);
+            boolean terminateImmediately;
+            synchronized (lifecycleLock) {
+                terminateImmediately = disposed.get();
+                if (!terminateImmediately) {
+                    activeRuntimeProcesses.put(key, process);
+                    if (metadata != null) {
+                        runtimeMetadata.put(key, metadata);
+                    } else {
+                        runtimeMetadata.remove(key);
+                    }
+                    interruptedRuntimes.remove(key);
+                }
             }
-            interruptedRuntimes.remove(key);
+            if (terminateImmediately) {
+                LOG.info("[ProcessManager] Rejecting runtime registration after shutdown: " + key);
+                terminateProcess(key.toString(), process);
+            }
+        }
+    }
+
+    /** Registers a short-lived helper process and returns its cleanup token. */
+    public String registerAuxiliaryProcess(Process process) {
+        if (process == null) {
+            return null;
+        }
+        String token = newChannelId("auxiliary");
+        synchronized (lifecycleLock) {
+            if (!disposed.get()) {
+                auxiliaryProcesses.put(token, process);
+                return token;
+            }
+        }
+        LOG.info("[ProcessManager] Rejecting auxiliary process registration after shutdown: " + token);
+        terminateProcess(token, process);
+        return null;
+    }
+
+    /** Removes a helper process from the ledger without terminating it. */
+    public void unregisterAuxiliaryProcess(String token, Process process) {
+        if (token != null) {
+            auxiliaryProcesses.remove(token, process);
         }
     }
 
@@ -368,7 +428,7 @@ public class ProcessManager {
      * {@link #cleanupAllProcesses()} at lifecycle end.
      */
     public synchronized void startStaleChannelSweeper() {
-        if (staleChannelSweeperFuture != null) {
+        if (disposed.get() || staleChannelSweeperFuture != null) {
             return;
         }
         staleChannelSweeperFuture = AppExecutorUtil.getAppScheduledExecutorService()
@@ -393,53 +453,67 @@ public class ProcessManager {
      * Should be called when the plugin is unloaded or IDEA is shutting down.
      */
     public void cleanupAllProcesses() {
+        Map<String, Process> channels;
+        Map<RuntimeKey, Process> runtimes;
+        Map<String, Process> auxiliaries;
+        synchronized (lifecycleLock) {
+            if (!disposed.compareAndSet(false, true)) {
+                return;
+            }
+            // Snapshot and clear while holding the same gate used by registration.
+            // Any process created after this point is rejected and terminated by the
+            // registration method, so shutdown cannot leave a late orphan behind.
+            channels = new java.util.HashMap<>(activeChannelProcesses);
+            runtimes = new java.util.HashMap<>(activeRuntimeProcesses);
+            auxiliaries = new java.util.HashMap<>(auxiliaryProcesses);
+            activeChannelProcesses.clear();
+            channelStartTimes.clear();
+            channelMetadata.clear();
+            interruptedChannels.clear();
+            startingChannels.clear();
+            activeRuntimeProcesses.clear();
+            runtimeMetadata.clear();
+            interruptedRuntimes.clear();
+            auxiliaryProcesses.clear();
+        }
+
         LOG.info("[ProcessManager] Cleaning up all active processes...");
         int count = 0;
 
-        // 停掉账本 watchdog(共享调度器只 cancel 不 shutdown)
         ScheduledFuture<?> sweeper = staleChannelSweeperFuture;
         staleChannelSweeperFuture = null;
         if (sweeper != null) {
             sweeper.cancel(false);
         }
 
-        for (Map.Entry<String, Process> entry : activeChannelProcesses.entrySet()) {
-            String channelId = entry.getKey();
+        for (Map.Entry<String, Process> entry : channels.entrySet()) {
             Process process = entry.getValue();
-
             if (process != null && process.isAlive()) {
-                LOG.info("[ProcessManager] Terminating process for channel: " + channelId);
-                PlatformUtils.terminateProcess(process);
+                LOG.info("[ProcessManager] Terminating process for channel: " + entry.getKey());
+                terminateProcess(entry.getKey(), process);
                 count++;
             }
         }
 
-        for (Map.Entry<RuntimeKey, Process> entry : activeRuntimeProcesses.entrySet()) {
-            RuntimeKey key = entry.getKey();
+        for (Map.Entry<RuntimeKey, Process> entry : runtimes.entrySet()) {
             Process process = entry.getValue();
-
             if (process != null && process.isAlive()) {
-                LOG.info("[ProcessManager] Terminating process for runtime: " + key);
-                PlatformUtils.terminateProcess(process);
+                LOG.info("[ProcessManager] Terminating process for runtime: " + entry.getKey());
+                terminateProcess(entry.getKey().toString(), process);
                 count++;
             }
         }
 
-        activeChannelProcesses.clear();
-        channelStartTimes.clear();
-        channelMetadata.clear();
-        interruptedChannels.clear();
-        startingChannels.clear();
-        activeRuntimeProcesses.clear();
-        runtimeMetadata.clear();
-        interruptedRuntimes.clear();
+        for (Map.Entry<String, Process> entry : auxiliaries.entrySet()) {
+            Process process = entry.getValue();
+            if (process != null && process.isAlive()) {
+                LOG.info("[ProcessManager] Terminating auxiliary process: " + entry.getKey());
+                terminateProcess(entry.getKey(), process);
+                count++;
+            }
+        }
 
-        // Clean up stale temp files on shutdown (safe for concurrent sessions)
         cleanupStaleTempFiles();
-
-        // 注:不再做全系统 conhost 扫描(cleanupAllPluginConhosts 已删除)——上面 terminateProcess
-        // 链路内部已按 pid 清理每个被杀进程的 conhost 孤儿;全系统按进程名(node/claude/codex)
-        // 扫描会误杀用户自己运行的无关进程的 conhost。
 
         LOG.info("[ProcessManager] Cleanup complete. Terminated " + count + " processes.");
     }
@@ -455,6 +529,11 @@ public class ProcessManager {
             }
         }
         for (Process process : activeRuntimeProcesses.values()) {
+            if (process != null && process.isAlive()) {
+                count++;
+            }
+        }
+        for (Process process : auxiliaryProcesses.values()) {
             if (process != null && process.isAlive()) {
                 count++;
             }
@@ -475,7 +554,8 @@ public class ProcessManager {
                 + interruptedChannels.size()
                 + startingChannels.size()
                 + activeRuntimeProcesses.size()
-                + interruptedRuntimes.size();
+                + interruptedRuntimes.size()
+                + auxiliaryProcesses.size();
     }
 
     /**
@@ -550,6 +630,16 @@ public class ProcessManager {
             if (process != null) {
                 long pid = process.pid();
                 LOG.info("[ProcessManager] Cleaning conhosts for ledger runtime (key: " + key + ", PID: " + pid + ")");
+                PlatformUtils.cleanupOrphanedConhosts(pid);
+                cleanedCount++;
+            }
+        }
+
+        for (Map.Entry<String, Process> entry : auxiliaryProcesses.entrySet()) {
+            Process process = entry.getValue();
+            if (process != null) {
+                long pid = process.pid();
+                LOG.info("[ProcessManager] Cleaning conhosts for auxiliary process (token: " + entry.getKey() + ", PID: " + pid + ")");
                 PlatformUtils.cleanupOrphanedConhosts(pid);
                 cleanedCount++;
             }

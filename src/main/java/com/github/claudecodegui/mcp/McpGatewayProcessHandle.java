@@ -1,5 +1,7 @@
 package com.github.claudecodegui.mcp;
 
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
 
@@ -27,6 +29,8 @@ public final class McpGatewayProcessHandle {
     private static final Logger LOG = Logger.getInstance(McpGatewayProcessHandle.class);
 
     private final Process process;
+    private final ProcessManager processManager;
+    private final String processToken;
     private final OutputStream stdin;
     private final InputStream stdout;
     private final InputStream stderr;
@@ -35,8 +39,10 @@ public final class McpGatewayProcessHandle {
     private final AtomicBoolean stopped = new AtomicBoolean(false);
     private volatile Runnable exitCallback;
 
-    private McpGatewayProcessHandle(Process process) {
+    private McpGatewayProcessHandle(Process process, ProcessManager processManager, String processToken) {
         this.process = process;
+        this.processManager = processManager;
+        this.processToken = processToken;
         this.stdin = process.getOutputStream();
         this.stdout = process.getInputStream();
         this.stderr = process.getErrorStream();
@@ -50,7 +56,12 @@ public final class McpGatewayProcessHandle {
     public static McpGatewayProcessHandle start(List<String> command) throws java.io.IOException {
         ProcessBuilder pb = new ProcessBuilder(command);
         Process process = pb.start();
-        return new McpGatewayProcessHandle(process);
+        ProcessManager processManager = NodeService.getInstance().getProcessManager();
+        String processToken = processManager.registerAuxiliaryProcess(process);
+        if (processToken == null) {
+            throw new java.io.IOException("Project is closing; MCP Gateway process was rejected");
+        }
+        return new McpGatewayProcessHandle(process, processManager, processToken);
     }
 
     public boolean isAlive() {
@@ -144,6 +155,7 @@ public final class McpGatewayProcessHandle {
             closeQuietly(stderr);
             joinQuietly(stdoutDrainThread);
             joinQuietly(stderrDrainThread);
+            processManager.unregisterAuxiliaryProcess(processToken, process);
         }
     }
 

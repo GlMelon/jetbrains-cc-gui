@@ -1,5 +1,7 @@
 package com.github.claudecodegui.cli.common;
 
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
@@ -290,6 +292,11 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                 + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                 + ", thread=" + Thread.currentThread().getName());
         Process process = pb.start();
+        ProcessManager processManager = NodeService.getInstance().getProcessManager();
+        String processToken = processManager.registerAuxiliaryProcess(process);
+        if (processToken == null) {
+            throw new IllegalStateException("Project is closing; one-shot CLI process was rejected");
+        }
         Long processGeneration = lifecycleService != null
                 ? lifecycleService.nextProcessGeneration() : null;
         recordLifecycle(LifecycleEventType.SPAWN, process, request, processGeneration, "one-shot CLI spawned");
@@ -302,9 +309,9 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                 + ", thread=" + Thread.currentThread().getName());
         CliProcessHandle currentHandle = new CliProcessHandle(process, providerType.cliCommand() + "-tab-" + tabId);
         activeHandle = currentHandle;
-        onStartAuxiliary(process, parser);
 
         try {
+            onStartAuxiliary(process, parser);
             if (userInterrupted.get()) {
                 currentHandle.interrupt();
             }
@@ -413,6 +420,7 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                         "one-shot process terminated");
             }
             CliProcessLifecycle.terminate(process);
+            processManager.unregisterAuxiliaryProcess(processToken, process);
             if (activeHandle == currentHandle) {
                 activeHandle = null;
             }

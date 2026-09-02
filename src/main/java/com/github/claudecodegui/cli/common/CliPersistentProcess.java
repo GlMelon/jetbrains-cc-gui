@@ -1,5 +1,6 @@
 package com.github.claudecodegui.cli.common;
 
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
 import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
@@ -144,6 +145,7 @@ public final class CliPersistentProcess {
     private final String tabId;
     private final LifecycleObservabilityService lifecycleService;
     private final Long processGeneration;
+    private final ProcessManager processManager;
     private final long startedAtMs = System.currentTimeMillis();
     private volatile long lastActiveAtMs = startedAtMs;
     private volatile String sessionId;
@@ -151,6 +153,7 @@ public final class CliPersistentProcess {
     private volatile Long responseTurnEpoch;
 
     private volatile Process process;
+    private volatile String processToken;
     private volatile OutputStreamWriter stdinWriter;
     private volatile Thread readerThread;
     private final AtomicReference<ActiveTurn> currentTurn = new AtomicReference<>();
@@ -168,16 +171,24 @@ public final class CliPersistentProcess {
     private volatile Supplier<String> interruptLineSupplier;
 
     public CliPersistentProcess(String provider, String tabId) {
-        this(provider, tabId, null, null);
+        this(provider, tabId, null, null, null);
     }
 
     public CliPersistentProcess(String provider, String tabId,
                                 LifecycleObservabilityService lifecycleService,
                                 Long processGeneration) {
+        this(provider, tabId, lifecycleService, processGeneration, null);
+    }
+
+    public CliPersistentProcess(String provider, String tabId,
+                                LifecycleObservabilityService lifecycleService,
+                                Long processGeneration,
+                                ProcessManager processManager) {
         this.provider = provider;
         this.tabId = tabId;
         this.lifecycleService = lifecycleService;
         this.processGeneration = processGeneration;
+        this.processManager = processManager;
     }
 
     /** 绑定 provider 中断协议行构造器(spawn 前由 Registry 从 spec 注入)。 */
@@ -211,6 +222,12 @@ public final class CliPersistentProcess {
             }
             started = pb.start();
             process = started;
+            if (processManager != null) {
+                processToken = processManager.registerAuxiliaryProcess(started);
+                if (processToken == null) {
+                    throw new IllegalStateException("Project is closing; persistent CLI process was rejected");
+                }
+            }
             stdinWriter = new OutputStreamWriter(started.getOutputStream(), StandardCharsets.UTF_8);
             recordLifecycle(LifecycleEventType.SPAWN, started, "persistent CLI spawned");
 
@@ -673,6 +690,12 @@ public final class CliPersistentProcess {
 
 
     private void clearProcessReferences(Process target, Thread reader) {
+        if (processManager != null) {
+            processManager.unregisterAuxiliaryProcess(processToken, target);
+            if (target == null || process == target) {
+                processToken = null;
+            }
+        }
         if (target == null || process == target) {
             process = null;
         }

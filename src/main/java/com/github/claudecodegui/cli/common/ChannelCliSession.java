@@ -1,6 +1,7 @@
 package com.github.claudecodegui.cli.common;
 
 import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
@@ -161,6 +162,11 @@ public class ChannelCliSession implements CliSession {
 
         callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.UNDERSTANDING.value());
          Process process = pb.start();
+         ProcessManager processManager = nodeService.getProcessManager();
+         String processToken = processManager.registerAuxiliaryProcess(process);
+         if (processToken == null) {
+             throw new IllegalStateException("Project is closing; channel CLI process was rejected");
+         }
          Long processGeneration = lifecycleService != null
                  ? lifecycleService.nextProcessGeneration() : null;
          recordLifecycle(LifecycleEventType.SPAWN, process, request, processGeneration, "channel CLI spawned");
@@ -262,6 +268,7 @@ public class ChannelCliSession implements CliSession {
                         "channel process terminated");
             }
             CliProcessLifecycle.terminate(process);
+            processManager.unregisterAuxiliaryProcess(processToken, process);
             if (activeHandle == currentHandle) {
                 activeHandle = null;
             }

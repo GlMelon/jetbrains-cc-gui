@@ -2,6 +2,7 @@ package com.github.claudecodegui.cli.claude;
 
 import com.github.claudecodegui.util.CliTempDir;
 import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
@@ -601,6 +602,8 @@ public class ClaudeCliSession implements CliSession {
         Process process = null;
         CliProcessHandle currentHandle = null;
         Long processGeneration = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             LOG.info("[CliConcurrencyDiag][ClaudeCliSession] building command" + ": tabId=" + tabId + ", elapsedMs=" + elapsedMillis(
                     sendStartNanos) + ", thread=" + Thread.currentThread().getName());
@@ -635,6 +638,11 @@ public class ClaudeCliSession implements CliSession {
                     sendStartNanos) + ", thread=" + Thread.currentThread()
                     .getName());
             process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            if (processToken == null) {
+                throw new IllegalStateException("Project is closing; Claude CLI process was rejected");
+            }
             currentHandle = new CliProcessHandle(process, "claude-tab-" + tabId);
             activeHandle = currentHandle;
             processGeneration = lifecycleService == null ? null : lifecycleService.nextProcessGeneration();
@@ -700,6 +708,9 @@ public class ClaudeCliSession implements CliSession {
                         "claude CLI process terminated");
             }
             CliProcessLifecycle.terminate(process);
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
             if (activeHandle == currentHandle) {
                 activeHandle = null;
             }

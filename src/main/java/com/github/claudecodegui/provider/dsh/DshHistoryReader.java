@@ -3,6 +3,8 @@ package com.github.claudecodegui.provider.dsh;
 import com.github.claudecodegui.bridge.BridgeDirectoryResolver;
 import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.startup.BridgePreloader;
@@ -142,6 +144,8 @@ public class DshHistoryReader {
      */
     private JsonObject runDshCommand(String command, JsonObject stdinPayload) {
         Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             String node = nodeDetector().findNodeExecutable();
             BridgeDirectoryResolver resolver = BridgePreloader.getSharedResolver();
@@ -169,6 +173,11 @@ public class DshHistoryReader {
             DshEnvSupport.inject(pb.environment(), settingsService());
 
             process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            if (processToken == null) {
+                return null;
+            }
 
             if (stdinPayload != null) {
                 try (OutputStream stdin = process.getOutputStream()) {
@@ -217,6 +226,9 @@ public class DshHistoryReader {
             LOG.warn("[DSH] " + command + " failed: " + e.getMessage());
             return null;
         } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
             if (process != null && process.isAlive()) {
                 process.destroyForcibly();
             }

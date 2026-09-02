@@ -1,6 +1,8 @@
 package com.github.claudecodegui.settings;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.mcp.McpCommandRiskEvaluator;
 import com.github.claudecodegui.mcp.McpInstallRejectedException;
@@ -715,6 +717,8 @@ public class CodexMcpServerManager {
         }
 
         Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.redirectErrorStream(false);
@@ -735,11 +739,19 @@ public class CodexMcpServerManager {
             }
 
             process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            if (processToken == null) {
+                return CliConstants.CODEX_STATUS_FAILED;
+            }
             return performStdioHandshake(process, serverName);
         } catch (Exception e) {
             LOG.info("[CodexMcpServerManager] Failed to start STDIO server " + serverName + ": " + e.getMessage());
             return CliConstants.CODEX_STATUS_FAILED;
         } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
             if (process != null) {
                 try {
                     process.getInputStream().close();
@@ -847,8 +859,15 @@ public class CodexMcpServerManager {
         }
 
         Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            if (processToken == null) {
+                return false;
+            }
             boolean finished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
             if (!finished) {
                 PlatformUtils.terminateProcessAndWait(process, 1, TimeUnit.SECONDS);
@@ -859,6 +878,9 @@ public class CodexMcpServerManager {
         } catch (Exception e) {
             return false;
         } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
             if (process != null) {
                 try {
                     process.getInputStream().close();

@@ -5,6 +5,8 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliEnvironmentBuilder;
 import com.github.claudecodegui.cli.common.CliProcessLifecycle;
 import com.github.claudecodegui.cli.common.CliSettings;
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -49,6 +51,8 @@ class ClaudeRewindQueryService {
 
     private JsonObject executeRewind(String sessionId, String userMessageId, String cwd) {
         Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             String cliExecutable = cliExecutableSupplier.get();
             if (cliExecutable == null || cliExecutable.isBlank()) {
@@ -65,6 +69,11 @@ class ClaudeRewindQueryService {
             configureEnvironment(processBuilder.environment(), cwd);
 
             process = processBuilder.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            if (processToken == null) {
+                return failure("PROCESS_DISPOSED", "Claude file rewind was cancelled during shutdown");
+            }
             // --rewind-files is a standalone operation. Close stdin immediately so
             // the CLI never waits for a prompt or an EOF that will not arrive.
             process.getOutputStream().close();
@@ -111,6 +120,9 @@ class ClaudeRewindQueryService {
                     message == null || message.isBlank() ? "Claude file rewind failed" : message
             );
         } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
             CliProcessLifecycle.terminate(process);
         }
     }

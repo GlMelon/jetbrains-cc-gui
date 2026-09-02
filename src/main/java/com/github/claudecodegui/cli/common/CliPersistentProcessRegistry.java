@@ -1,5 +1,7 @@
 package com.github.claudecodegui.cli.common;
 
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
 import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
@@ -106,6 +108,7 @@ public final class CliPersistentProcessRegistry implements Disposable {
     private final ScheduledExecutorService sweeper = com.intellij.util.concurrency.AppExecutorUtil.getAppScheduledExecutorService();
     private final ScheduledFuture<?> sweeperFuture;
     private final LifecycleObservabilityService lifecycleService;
+    private final ProcessManager processManager;
 
     public static CliPersistentProcessRegistry getInstance(@NotNull Project project) {
         return project.getService(CliPersistentProcessRegistry.class);
@@ -116,7 +119,13 @@ public final class CliPersistentProcessRegistry implements Disposable {
     }
 
     public CliPersistentProcessRegistry(LifecycleObservabilityService lifecycleService) {
+        this(lifecycleService, NodeService.getInstance().getProcessManager());
+    }
+
+    CliPersistentProcessRegistry(LifecycleObservabilityService lifecycleService,
+                                 ProcessManager processManager) {
         this.lifecycleService = lifecycleService;
+        this.processManager = processManager;
         sweeperFuture = sweeper.scheduleWithFixedDelay(this::sweepIdleProcesses,
                 CliConstants.CLI_PERSISTENT_SWEEP_INTERVAL_MS,
                 CliConstants.CLI_PERSISTENT_SWEEP_INTERVAL_MS,
@@ -532,7 +541,8 @@ public final class CliPersistentProcessRegistry implements Disposable {
     private CliPersistentProcess spawn(String tabId, String provider, CliProcessSpec spec) {
         Long physicalGeneration = lifecycleService != null
                 ? lifecycleService.nextProcessGeneration() : null;
-        CliPersistentProcess process = new CliPersistentProcess(provider, tabId, lifecycleService, physicalGeneration);
+        CliPersistentProcess process = new CliPersistentProcess(
+                provider, tabId, lifecycleService, physicalGeneration, processManager);
         process.bindInterruptSupplier(spec.interruptLineSupplier());
         boolean started = process.start(spec.command(), spec.env(), spec.cwd(),
                 CliConstants.CLI_PERSISTENT_READY_WINDOW_MS);

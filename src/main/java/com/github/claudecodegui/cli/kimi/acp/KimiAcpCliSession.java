@@ -1,5 +1,7 @@
 package com.github.claudecodegui.cli.kimi.acp;
 
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
@@ -92,6 +94,7 @@ public class KimiAcpCliSession implements CliSession {
     private volatile String persistentSessionId;
     private volatile CliProcessHandle persistentHandle;
     private volatile Long persistentProcessGeneration;
+    private volatile String persistentProcessToken;
     /** 当前 session 的思考档位目录(session/new 或 load 的 configOptions 解析),随 clearPersistent 清空。 */
     private volatile ThinkingOptions thinkingOptions;
     private volatile SessionNegotiatedCapabilities negotiatedCapabilities =
@@ -180,6 +183,8 @@ public class KimiAcpCliSession implements CliSession {
         CliProcessHandle currentHandle = null;
         boolean freshSpawn = false;
         Long currentProcessGeneration = null;
+        ProcessManager processManager = null;
+        String processToken = null;
 
         try {
             // ── 复用长驻连接 or 新建 ──
@@ -246,6 +251,11 @@ public class KimiAcpCliSession implements CliSession {
                 Process process;
                 try {
                     process = pb.start();
+                    processManager = NodeService.getInstance().getProcessManager();
+                    processToken = processManager.registerAuxiliaryProcess(process);
+                    if (processToken == null) {
+                        throw new IllegalStateException("Project is closing; Kimi ACP process was rejected");
+                    }
                 } catch (Exception e) {
                     String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "failed to start kimi acp: " + e.getMessage());
                     callback.onError(err);
@@ -329,6 +339,8 @@ public class KimiAcpCliSession implements CliSession {
                 persistentSessionId = resolvedSessionId;
                 persistentHandle = currentHandle;
                 persistentProcessGeneration = currentProcessGeneration;
+                persistentProcessToken = processToken;
+                processToken = null;
                 this.sessionId = resolvedSessionId;
             }
 
@@ -432,6 +444,9 @@ public class KimiAcpCliSession implements CliSession {
             }
             if (activeConnection == conn) {
                 activeConnection = null;
+            }
+            if (processManager != null && processToken != null && currentHandle != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, currentHandle.process());
             }
         }
     }
@@ -920,17 +935,24 @@ public class KimiAcpCliSession implements CliSession {
     /** 清除长驻状态(进程死/握手失败/turn 失效时,下 turn 重建)。 */
     private void clearPersistent() {
         KimiAcpConnection old = persistentConn;
+        CliProcessHandle oldHandle = persistentHandle;
+        String processToken = persistentProcessToken;
         persistentConn = null;
         persistentSessionId = null;
         persistentHandle = null;
         persistentProcessGeneration = null;
+        persistentProcessToken = null;
         thinkingOptions = null;
         if (old != null) {
             try {
                 old.close();
             } catch (Exception ignored) {
-                // 关闭路径必须尽力终止,不覆盖原始 turn 错误。
+                // �ر�·�����뾡����ֹ,������ԭʼ turn ����
             }
+        }
+        if (processToken != null && oldHandle != null) {
+            NodeService.getInstance().getProcessManager().unregisterAuxiliaryProcess(
+                    processToken, oldHandle.process());
         }
     }
 

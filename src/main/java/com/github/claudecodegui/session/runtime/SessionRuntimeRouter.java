@@ -4,6 +4,7 @@ import com.github.claudecodegui.cli.CliSessionManager;
 import com.github.claudecodegui.provider.common.MessageCallback;
 import com.github.claudecodegui.provider.common.CliResult;
 import com.github.claudecodegui.session.SessionNegotiatedCapabilities;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
 
 import java.util.concurrent.CompletableFuture;
@@ -20,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
  * <b>不需改主体</b>(总则五·开闭已满足),仅装配构造函数需加一行 {@code register}。
  * 装配层手工 {@code new} + {@code register} 是无 DI 容器的 IntelliJ 插件装配惯例。
  */
-public class SessionRuntimeRouter {
+public class SessionRuntimeRouter implements Disposable {
 
     private final SessionRuntimeRegistry registry;
     // CLI 子进程聚合器(进程面板可见性 #12):提升为字段,使 router 能对外收集 CLI 子进程。
@@ -71,6 +72,7 @@ public class SessionRuntimeRouter {
     }
 
     /** Release all CLI sessions owned by this router. */
+    @Override
     public void dispose() {
         cliManager.dispose();
     }
