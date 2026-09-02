@@ -5,6 +5,7 @@ import com.github.claudecodegui.cli.opencode.OpenCodeCliResolver;
 import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
 import com.github.claudecodegui.session.runtime.CodexCliResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.intellij.openapi.project.Project;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -100,7 +101,7 @@ public final class ProviderPrewarmRegistry {
             }
 
             @Override
-            public void prewarm(BooleanSupplier cancelled) {
+            public void prewarm(Project project, BooleanSupplier cancelled) {
                 if (isCancelled(cancelled)) {
                     return;
                 }
@@ -129,7 +130,7 @@ public final class ProviderPrewarmRegistry {
             }
 
             @Override
-            public void prewarm(BooleanSupplier cancelled) {
+            public void prewarm(Project project, BooleanSupplier cancelled) {
                 if (!isCancelled(cancelled)) {
                     ProviderChannelPrewarm.probe(provider, command, timeout, cancelled);
                 }

@@ -107,7 +107,8 @@ public class ProviderPrewarmRegistryTest {
             }
 
             @Override
-            public void prewarm(java.util.function.BooleanSupplier cancelled) {
+            public void prewarm(com.intellij.openapi.project.Project project,
+                                java.util.function.BooleanSupplier cancelled) {
                 if (cancelled.getAsBoolean()) {
                     return;
                 }
@@ -115,7 +116,7 @@ public class ProviderPrewarmRegistryTest {
             }
         };
 
-        strategy.prewarm(() -> true);
+        strategy.prewarm(null, () -> true);
         assertFalse(invoked.get());
     }
 
@@ -133,7 +134,8 @@ public class ProviderPrewarmRegistryTest {
             }
 
             @Override
-            public void prewarm(java.util.function.BooleanSupplier cancelled) {
+            public void prewarm(com.intellij.openapi.project.Project project,
+                                java.util.function.BooleanSupplier cancelled) {
             }
         };
     }

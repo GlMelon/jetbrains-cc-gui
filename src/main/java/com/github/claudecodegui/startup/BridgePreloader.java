@@ -91,7 +91,7 @@ public class BridgePreloader implements ProjectActivity {
                 // CLI resolver caches are global, but every task is owned by this
                 // project startup operation and is cancelled with its lifecycle.
                 cliPrewarm = CompletableFuture.runAsync(
-                        () -> prewarmCliResolvers(() -> shouldStopPreload(project, cancelled), cliPrewarmTasks));
+                        () -> prewarmCliResolvers(project, () -> shouldStopPreload(project, cancelled), cliPrewarmTasks));
                 if (shouldStopPreload(project, cancelled)) {
                     return;
                 }
@@ -173,31 +173,31 @@ public class BridgePreloader implements ProjectActivity {
      * Starts one cancellable task per registered Provider strategy. The registry
      * explicitly covers all eight providers; this method contains no provider
      * conditionals and only coordinates task lifecycle.
+     *
+     * <p>Each strategy gets its own full timeout window anchored at submission time
+     * ({@code startNanos + policy.timeout}), not a shared deadline consumed in join
+     * order — otherwise a slow resolver ahead in registration order starves later
+     * providers (kimi/grok/pi were cancelled before their probe threads could finish,
+     * leaving version caches empty on first use).</p>
      */
     private static void prewarmCliResolvers(
+            Project project,
             BooleanSupplier cancelled,
             List<Future<?>> tasks
     ) {
         List<ProviderPrewarmStrategy> strategies = PROVIDER_PREWARM_REGISTRY.strategies();
+        long startNanos = System.nanoTime();
         for (ProviderPrewarmStrategy strategy : strategies) {
             if (isCancelled(cancelled)) {
                 return;
             }
             Future<?> task = ApplicationManager.getApplication().executeOnPooledThread(
-                    () -> prewarmProvider(strategy, cancelled));
+                    () -> prewarmProvider(project, strategy, cancelled));
             tasks.add(task);
             if (isCancelled(cancelled)) {
                 task.cancel(true);
             }
         }
-
-        long maxTimeoutNanos = strategies.stream()
-                .map(ProviderPrewarmStrategy::policy)
-                .map(ProviderPrewarmPolicy::timeout)
-                .mapToLong(timeout -> timeout.toNanos())
-                .max()
-                .orElse(0L);
-        long deadline = System.nanoTime() + maxTimeoutNanos;
 
         for (int i = 0; i < tasks.size(); i++) {
             if (isCancelled(cancelled)) {
@@ -207,7 +207,8 @@ public class BridgePreloader implements ProjectActivity {
             Future<?> task = tasks.get(i);
             ProviderPrewarmStrategy strategy = strategies.get(i);
             try {
-                long remainingNanos = deadline - System.nanoTime();
+                long remainingNanos = startNanos + strategy.policy().timeout().toNanos()
+                        - System.nanoTime();
                 if (remainingNanos <= 0L) {
                     task.cancel(true);
                     LOG.warn("[BridgePreloader] Provider prewarm timed out: " + strategy.provider());
@@ -231,9 +232,9 @@ public class BridgePreloader implements ProjectActivity {
         }
     }
 
-    private static void prewarmProvider(ProviderPrewarmStrategy strategy, BooleanSupplier cancelled) {
+    private static void prewarmProvider(Project project, ProviderPrewarmStrategy strategy, BooleanSupplier cancelled) {
         try {
-            strategy.prewarm(cancelled);
+            strategy.prewarm(project, cancelled);
             if (!isCancelled(cancelled)) {
                 LOG.info("[BridgePreloader] Provider prewarm completed: " + strategy.provider()
                         + " fallback=" + strategy.policy().fallback());
