@@ -47,6 +47,27 @@ public class PiLineReferencesTest {
     }
 
     @Test
+    public void reformatsReferenceAfterNewline() {
+        assertEquals(
+                "这是什么\n@E:/proj/Foo.java (lines 7) 什么意思",
+                PiRunOnceCliSession.reformatFileLineReferences("这是什么\n@E:/proj/Foo.java#L7 什么意思"));
+    }
+
+    @Test
+    public void doesNotRewriteMidWordAtSuchAsEmailAddress() {
+        assertEquals(
+                "email me at user@host.com#L5 please",
+                PiRunOnceCliSession.reformatFileLineReferences("email me at user@host.com#L5 please"));
+    }
+
+    @Test
+    public void doesNotRewriteReferencesQuotedInCodeSpan() {
+        assertEquals(
+                "use `@x/Y.java#L3` in code ticks",
+                PiRunOnceCliSession.reformatFileLineReferences("use `@x/Y.java#L3` in code ticks"));
+    }
+
+    @Test
     public void passesThroughNullAndEmpty() {
         assertNull(PiRunOnceCliSession.reformatFileLineReferences(null));
         assertEquals("", PiRunOnceCliSession.reformatFileLineReferences(""));

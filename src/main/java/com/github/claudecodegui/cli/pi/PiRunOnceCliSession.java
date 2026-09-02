@@ -127,9 +127,11 @@ public class PiRunOnceCliSession extends AbstractRunOnceCliSession {
      * pi 无法解析该形态(pi 不展开 prompt 内 @-mention,token 对模型只是纯文本);
      * 重写后 mention 可解析、行号信息以 prose 保留(对称 ai-bridge utils/file-line-references.js,
      * omp 侧同款修复落在 ai-bridge omp/message-service.js)。
+     * <p>{@code @} 必须位于串首或空白之后({@code (?<!\S)}):否则词中 {@code @} 会被误改写
+     * ({@code user@host.com#L5}),代码 span 内引用({@code `@x/Y.java#L3`})也会被改写。
      */
     private static final Pattern LINE_REFERENCE_PATTERN =
-            Pattern.compile("@([^\\s@]+)#L(\\d+)(?:-L?(\\d+))?");
+            Pattern.compile("(?<!\\S)@([^\\s@]+)#L(\\d+)(?:-L?(\\d+))?");
 
     static String reformatFileLineReferences(String text) {
         if (text == null || text.isEmpty()) {
