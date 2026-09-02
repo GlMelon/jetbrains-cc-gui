@@ -8,6 +8,7 @@ import com.github.claudecodegui.cli.codex.CodexCliSessionFactory;
 import com.github.claudecodegui.cli.opencode.OpenCodeCliSessionFactory;
 import com.github.claudecodegui.cli.grok.GrokCliSessionFactory;
 import com.github.claudecodegui.cli.kimi.KimiCliSessionFactory;
+import com.github.claudecodegui.cli.kimi.acp.KimiAcpWarmPool;
 import com.github.claudecodegui.cli.pi.PiCliSessionFactory;
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.provider.common.MessageCallback;
@@ -101,7 +102,8 @@ public class CliSessionManager {
                 new GrokCliSessionFactory(McpGatewayService.getInstance(project),
                         LifecycleObservabilityService.getInstance(project)),
                 new KimiCliSessionFactory(McpGatewayService.getInstance(project),
-                        LifecycleObservabilityService.getInstance(project)),
+                        LifecycleObservabilityService.getInstance(project),
+                        KimiAcpWarmPool.getInstance(project)),
                 new PiCliSessionFactory(McpGatewayService.getInstance(project),
                         LifecycleObservabilityService.getInstance(project)),
                 new com.github.claudecodegui.cli.omp.OmpCliSessionFactory(NodeService.getInstance(),

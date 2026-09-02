@@ -6,6 +6,7 @@ import com.github.claudecodegui.cli.CliSessionFactory;
 import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.cli.kimi.acp.KimiAcpChannelGate;
 import com.github.claudecodegui.cli.kimi.acp.KimiAcpCliSession;
+import com.github.claudecodegui.cli.kimi.acp.KimiAcpWarmPool;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
@@ -27,19 +28,27 @@ public class KimiCliSessionFactory implements CliSessionFactory {
 
     private final McpGatewayService gatewayService;
     private final LifecycleObservabilityService lifecycleService;
+    private final KimiAcpWarmPool warmPool;
 
     public KimiCliSessionFactory() {
-        this(null, null);
+        this(null, null, null);
     }
 
     public KimiCliSessionFactory(McpGatewayService gatewayService) {
-        this(gatewayService, null);
+        this(gatewayService, null, null);
     }
 
     public KimiCliSessionFactory(McpGatewayService gatewayService,
                                  LifecycleObservabilityService lifecycleService) {
+        this(gatewayService, lifecycleService, null);
+    }
+
+    public KimiCliSessionFactory(McpGatewayService gatewayService,
+                                 LifecycleObservabilityService lifecycleService,
+                                 KimiAcpWarmPool warmPool) {
         this.gatewayService = gatewayService;
         this.lifecycleService = lifecycleService;
+        this.warmPool = warmPool;
     }
 
     @Override
@@ -57,7 +66,7 @@ public class KimiCliSessionFactory implements CliSessionFactory {
         // 命中」的假设不成立。检测成本与 legacy 路径首次 send 的 findExecutable 相同,只是提前。
         ensureVersionCached();
         if (KimiAcpChannelGate.isAcpEligible()) {
-            return new KimiAcpCliSession(tabId, gatewayService, lifecycleService);
+            return new KimiAcpCliSession(tabId, gatewayService, lifecycleService, warmPool);
         }
         return new KimiRunOnceCliSession(tabId, gatewayService,
                 KimiAcpChannelGate.degradationReason(), lifecycleService);
@@ -75,7 +84,10 @@ public class KimiCliSessionFactory implements CliSessionFactory {
             return;
         }
         try {
+            long startMs = System.currentTimeMillis();
             new ProviderCliResolver(ProviderType.KIMI, "kimi").findExecutable();
+            LOG.info("[CliTurnPerf][KimiFactory] version pre-detect elapsedMs="
+                    + (System.currentTimeMillis() - startMs) + " (prewarm cache miss)");
         } catch (Exception | LinkageError e) {
             // LinkageError(NoClassDefFoundError 等)同 gate 立场:降级 legacy,绝不抛穿 send 链
             LOG.warn("[KimiCliSessionFactory] version pre-detect failed; falling back to legacy: " + e.getMessage());

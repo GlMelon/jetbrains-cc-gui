@@ -67,7 +67,8 @@ final class KimiAcpConnection {
     private final Process process;
     /** 通知行转发目标(即当前 turn 的 parser)。长驻复用时每 turn 经 {@link #rebindLineSink} 换新。 */
     private volatile Consumer<String> lineSink;
-    private final ServerRequestResponder responder;
+    /** server→client 请求回应器。暖池接管时经 {@link #rebindResponder} 换绑到会话实例。 */
+    private volatile ServerRequestResponder responder;
     private final Consumer<String> stderrSink;
     private final LifecycleCallbacks lifecycleCallbacks;
 
@@ -122,6 +123,15 @@ final class KimiAcpConnection {
      */
     void rebindLineSink(Consumer<String> sink) {
         this.lineSink = sink;
+    }
+
+    /**
+     * 暖池接管:把 server→client 请求回应器换绑到会话实例(暖连接停泊阶段用
+     * 兜底 responder,不会有 prompt 触发的 permission 请求;adopt 后必须换绑,
+     * 否则 AskUserQuestion 类请求得不到会话侧处理)。
+     */
+    void rebindResponder(ServerRequestResponder newResponder) {
+        this.responder = newResponder;
     }
 
     /**

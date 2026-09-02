@@ -67,13 +67,15 @@ public class KimiAcpCliSession implements CliSession {
 
     private static final String KIMI_PROVIDER_LABEL = "Kimi";
     private static final String ACP_SUBCOMMAND = "acp";
-    private static final long HANDSHAKE_TIMEOUT_MS = 30_000L;
+    static final long HANDSHAKE_TIMEOUT_MS = 30_000L;
     private static final long SET_CONFIG_TIMEOUT_MS = 10_000L;
     private static final long TURN_PROMPT_TIMEOUT_MS = CliConstants.CLI_REQUEST_TIMEOUT_MS;
 
     private final String tabId;
     private final McpGatewayService gatewayService;
     private final LifecycleObservabilityService lifecycleService;
+    /** 暖连接池(可能为 null:无项目上下文/测试装配);非 null 时新建分支优先 take 暖连接。 */
+    private final KimiAcpWarmPool warmPool;
     private final Gson gson = GsonHolder.GSON;
     private final ProviderCliResolver resolver = new ProviderCliResolver(ProviderType.KIMI, "kimi");
 
@@ -101,14 +103,21 @@ public class KimiAcpCliSession implements CliSession {
             SessionNegotiatedCapabilities.unknown();
 
     public KimiAcpCliSession(String tabId, McpGatewayService gatewayService) {
-        this(tabId, gatewayService, null);
+        this(tabId, gatewayService, null, null);
     }
 
     public KimiAcpCliSession(String tabId, McpGatewayService gatewayService,
                              LifecycleObservabilityService lifecycleService) {
+        this(tabId, gatewayService, lifecycleService, null);
+    }
+
+    public KimiAcpCliSession(String tabId, McpGatewayService gatewayService,
+                             LifecycleObservabilityService lifecycleService,
+                             KimiAcpWarmPool warmPool) {
         this.tabId = tabId;
         this.gatewayService = gatewayService;
         this.lifecycleService = lifecycleService;
+        this.warmPool = warmPool;
     }
 
     @Override
@@ -171,6 +180,7 @@ public class KimiAcpCliSession implements CliSession {
      */
     private boolean runTurn(CliSendRequest request, CliSessionCallback callback,
                              String effectiveSessionId, StringBuilder diagnostic) {
+        long turnStartMs = System.currentTimeMillis();
         callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.MCP_SYNCING.value());
         McpGatewayCliConfig gatewayConfig = buildGatewayConfig(request);
         callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.CONNECTING.value());
@@ -217,8 +227,32 @@ public class KimiAcpCliSession implements CliSession {
                         // 忽略关闭异常
                     }
                 }
-                // 新建:spawn + initialize + session/new(或 load 续接)
+                // 新建:优先取预热停泊的暖连接(省 spawn+initialize),否则冷启动
                 freshSpawn = true;
+                long spawnMs = -1L;
+                long initializeMs = -1L;
+                KimiAcpWarmPool.WarmConnection warm = warmPool != null ? warmPool.take() : null;
+                if (warm != null) {
+                    // 暖池接管:进程与 initialize 握手在预热阶段已完成,直接 session/new/load
+                    conn = warm.connection();
+                    currentHandle = warm.handle();
+                    processToken = warm.processToken();
+                    processManager = NodeService.getInstance().getProcessManager();
+                    currentProcessGeneration = lifecycleService != null
+                            ? lifecycleService.nextProcessGeneration() : null;
+                    recordLifecycle(LifecycleEventType.SPAWN, currentHandle.process(), request,
+                            currentProcessGeneration, "adopted prewarmed ACP process");
+                    // 换绑到本轮 parser 与会话侧 server 请求处理(暖池停泊期是兜底 responder)
+                    conn.rebindLineSink(parser::parseLine);
+                    conn.rebindResponder(this::handleServerRequest);
+                    activeHandle = currentHandle;
+                    activeConnection = conn;
+                    if (userInterrupted.get()) {
+                        currentHandle.interrupt();
+                    }
+                    LOG.info("[CliTurnPerf][KimiAcp] warm adopt: tab=" + tabId
+                            + ", sinceTurnStartMs=" + (System.currentTimeMillis() - turnStartMs));
+                } else {
                 String executable = resolver.findExecutable();
                 if (executable == null || executable.isBlank()) {
                     String err = CliErrorFormatter.formatError(KIMI_PROVIDER_LABEL, "kimi CLI not found");
@@ -226,28 +260,9 @@ public class KimiAcpCliSession implements CliSession {
                     callback.onComplete(false, null, err);
                     return false;
                 }
-                List<String> cmd = new ArrayList<>();
-                cmd.add(executable);
-                cmd.add(ACP_SUBCOMMAND);
-                ProcessBuilder pb = new ProcessBuilder(cmd);
-                // 关键:stderr 与 stdout 分离(ACP stdout 是纯 NDJSON 协议流,不能混入 stderr)
-                pb.redirectErrorStream(false);
-                Map<String, String> cliEnv = pb.environment();
-                cliEnv.clear();
-                cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
-                cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
-                CliEnvironmentBuilder.configureProjectPath(cliEnv, request.cwd());
-                CliEnvironmentBuilder.applyExtraEnv(cliEnv, request.extraEnv());
-                if (gatewayConfig != null && gatewayConfig.usable()) {
-                    cliEnv.putAll(gatewayConfig.environment());
-                }
-                if (request.cwd() != null && !request.cwd().isBlank()) {
-                    File cwd = new File(request.cwd());
-                    if (cwd.isDirectory()) {
-                        pb.directory(cwd);
-                    }
-                }
-                // 不 redirectInput(NUL):ACP 需保持 stdin 开着写握手请求
+                long spawnStartMs = System.currentTimeMillis();
+                ProcessBuilder pb = buildAcpProcessBuilder(executable, gatewayConfig,
+                        request.cwd(), request.extraEnv());
                 Process process;
                 try {
                     process = pb.start();
@@ -262,6 +277,7 @@ public class KimiAcpCliSession implements CliSession {
                     callback.onComplete(false, null, err);
                     return false;
                 }
+                spawnMs = System.currentTimeMillis() - spawnStartMs;
                 currentHandle = new CliProcessHandle(process, "kimi-acp-tab-" + tabId);
                 final Long spawnedGeneration = lifecycleService != null
                         ? lifecycleService.nextProcessGeneration() : null;
@@ -303,10 +319,20 @@ public class KimiAcpCliSession implements CliSession {
                         });
                 activeConnection = conn;
                 conn.start();
-                // ── 握手 ──
+                }
+                // ── 握手(暖连接已在预热完成 initialize,跳过) ──
+                long handshakeStartMs = System.currentTimeMillis();
                 try {
-                    initialize(conn);
+                    if (warm == null) {
+                        initialize(conn);
+                        initializeMs = System.currentTimeMillis() - handshakeStartMs;
+                    }
                     resolvedSessionId = establishSession(conn, request, effectiveSessionId, gatewayConfig, parser);
+                    LOG.info("[CliTurnPerf][KimiAcp] handshake done: tab=" + tabId
+                            + ", warmAdopt=" + (warm != null)
+                            + ", spawnMs=" + spawnMs + ", initializeMs=" + initializeMs
+                            + ", sessionMs=" + (System.currentTimeMillis() - handshakeStartMs)
+                            + ", sinceTurnStartMs=" + (System.currentTimeMillis() - turnStartMs));
                 } catch (KimiAcpConnection.AcpRpcException e) {
                     if (looksLikeSessionInvalidation(e.getMessage()) && effectiveSessionId != null) {
                         // B13:续接 session 失效 → 清长驻,重试首轮
@@ -511,6 +537,11 @@ public class KimiAcpCliSession implements CliSession {
     // ── 握手步骤 ──────────────────────────────────────────────────────────────
 
     private void initialize(KimiAcpConnection conn) throws Exception {
+        conn.request(KimiAcpProtocol.METHOD_INITIALIZE, buildInitializeParams(), HANDSHAKE_TIMEOUT_MS);
+    }
+
+    /** initialize 握手参数(暖池与发送链共用同一握手,保证两条路径协商结果一致)。 */
+    static JsonObject buildInitializeParams() {
         JsonObject params = new JsonObject();
         params.addProperty(KimiAcpProtocol.FIELD_PROTOCOL_VERSION, 1);
         JsonObject caps = new JsonObject();
@@ -520,7 +551,38 @@ public class KimiAcpCliSession implements CliSession {
         caps.add("fs", fs);
         caps.addProperty("terminal", false);
         params.add("clientCapabilities", caps);
-        conn.request(KimiAcpProtocol.METHOD_INITIALIZE, params, HANDSHAKE_TIMEOUT_MS);
+        return params;
+    }
+
+    /**
+     * 构建 {@code kimi acp} 进程的 ProcessBuilder(env 清空重建 + gateway 注入 + cwd)。
+     * 暖池({@link KimiAcpWarmPool})与发送链冷启动共用,保证两条路径进程环境完全一致(总则六)。
+     * 注意 stderr 必须分离(ACP stdout 是纯 NDJSON 协议流),且不 redirectInput(NUL):
+     * ACP 需保持 stdin 开着写握手请求。
+     */
+    static ProcessBuilder buildAcpProcessBuilder(String executable, McpGatewayCliConfig gatewayConfig,
+                                                 String cwd, Map<String, String> extraEnv) {
+        List<String> cmd = new ArrayList<>();
+        cmd.add(executable);
+        cmd.add(ACP_SUBCOMMAND);
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.redirectErrorStream(false);
+        Map<String, String> cliEnv = pb.environment();
+        cliEnv.clear();
+        cliEnv.putAll(CliEnvironmentBuilder.buildBaseEnvironment());
+        cliEnv.put(CliConstants.ARG_NO_COLOR, "1");
+        CliEnvironmentBuilder.configureProjectPath(cliEnv, cwd);
+        CliEnvironmentBuilder.applyExtraEnv(cliEnv, extraEnv);
+        if (gatewayConfig != null && gatewayConfig.usable()) {
+            cliEnv.putAll(gatewayConfig.environment());
+        }
+        if (cwd != null && !cwd.isBlank()) {
+            File dir = new File(cwd);
+            if (dir.isDirectory()) {
+                pb.directory(dir);
+            }
+        }
+        return pb;
     }
 
     /**

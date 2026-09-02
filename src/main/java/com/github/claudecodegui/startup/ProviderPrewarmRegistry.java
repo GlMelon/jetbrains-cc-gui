@@ -5,6 +5,9 @@ import com.github.claudecodegui.cli.opencode.OpenCodeCliResolver;
 import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
 import com.github.claudecodegui.session.runtime.CodexCliResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
+import com.github.claudecodegui.cli.kimi.acp.KimiAcpChannelGate;
+import com.github.claudecodegui.cli.kimi.acp.KimiAcpWarmPool;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 
 import java.time.Duration;
@@ -25,7 +28,10 @@ import java.util.function.Supplier;
  */
 public final class ProviderPrewarmRegistry {
 
+    private static final Logger LOG = Logger.getInstance(ProviderPrewarmRegistry.class);
     private static final Duration RESOLVER_TIMEOUT = Duration.ofSeconds(10);
+    /** KIMI 除 resolver 探测外还要 spawn + initialize 暖连接(node 冷启实测 ~1s,留足余量)。 */
+    private static final Duration KIMI_WARM_TIMEOUT = Duration.ofSeconds(20);
     private final Map<ProviderType, ProviderPrewarmStrategy> strategies;
     private final List<ProviderPrewarmStrategy> orderedStrategies;
 
@@ -56,9 +62,7 @@ public final class ProviderPrewarmRegistry {
         return new ProviderPrewarmRegistry(List.of(
                 resolver(ProviderType.CODEX, RESOLVER_TIMEOUT, CodexCliResolver::findExecutable),
                 resolver(ProviderType.OPENCODE, RESOLVER_TIMEOUT, OpenCodeCliResolver::findExecutable),
-                resolver(ProviderType.KIMI, RESOLVER_TIMEOUT,
-                        () -> new ProviderCliResolver(
-                                ProviderType.KIMI, ProviderType.KIMI.cliCommand()).findExecutable()),
+                kimiAcpWarm(),
                 resolver(ProviderType.GROK, RESOLVER_TIMEOUT,
                         () -> new ProviderCliResolver(
                                 ProviderType.GROK, ProviderType.GROK.cliCommand()).findExecutable()),
@@ -106,6 +110,46 @@ public final class ProviderPrewarmRegistry {
                     return;
                 }
                 resolver.get();
+            }
+        };
+    }
+
+    /**
+     * KIMI 策略:先做 resolver 探测(填充版本缓存,供 ACP 门禁判定),再深化预热——
+     * spawn 一个已完成 initialize 握手的 {@code kimi acp} 暖连接入
+     * {@link KimiAcpWarmPool},首发消息直接 adopt,把 node 冷启 + 握手从发送链上消除。
+     * 暖连接失败/门禁不通过不影响 resolver 探测结果(首发回退冷启动/legacy,行为不变)。
+     */
+    private static ProviderPrewarmStrategy kimiAcpWarm() {
+        ProviderPrewarmPolicy policy = new ProviderPrewarmPolicy(
+                true, true, false, false, false, KIMI_WARM_TIMEOUT, PrewarmFallback.RETRY_ON_FIRST_USE);
+        return new ProviderPrewarmStrategy() {
+            @Override
+            public ProviderType provider() {
+                return ProviderType.KIMI;
+            }
+
+            @Override
+            public ProviderPrewarmPolicy policy() {
+                return policy;
+            }
+
+            @Override
+            public void prewarm(Project project, BooleanSupplier cancelled) {
+                if (isCancelled(cancelled)) {
+                    return;
+                }
+                new ProviderCliResolver(ProviderType.KIMI, ProviderType.KIMI.cliCommand()).findExecutable();
+                if (isCancelled(cancelled) || project == null || project.isDisposed()
+                        || !KimiAcpChannelGate.isAcpEligible()) {
+                    return;
+                }
+                try {
+                    KimiAcpWarmPool.getInstance(project).warm(cancelled);
+                } catch (Exception | LinkageError e) {
+                    LOG.warn("[ProviderPrewarmRegistry] kimi ACP warm-up failed (first send falls back to cold start): "
+                            + e.getMessage());
+                }
             }
         };
     }
