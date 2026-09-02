@@ -37,7 +37,6 @@ import {
   useChatInputAttachmentsCoordinator,
   useChatInputCompletionsCoordinator,
   useChatInputSelectionController,
-  useOpenSourceBannerState,
   useResetAttachmentsOnSessionChange,
   useSpaceKeyListener,
   useResizableChatInputBox,
@@ -119,7 +118,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
   ) => {
     const { t } = useTranslation();
 
-    const { showOpenSourceBanner, handleDismissOpenSourceBanner } = useOpenSourceBannerState();
     const {
       attachments,
       setInternalAttachments,
@@ -609,7 +607,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
 
         <ChatInputBoxHeader
           currentProvider={currentProvider}
-          t={t}
           attachments={attachments}
           onRemoveAttachment={handleRemoveAttachment}
           activeFile={activeFile}
@@ -629,8 +626,6 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onToggleStatusPanel={onToggleStatusPanel}
           messageQueue={messageQueue}
           onRemoveFromQueue={onRemoveFromQueue}
-          showOpenSourceBanner={showOpenSourceBanner}
-          onDismissOpenSourceBanner={handleDismissOpenSourceBanner}
           autoOpenFileEnabled={autoOpenFileEnabled}
           onRequestEnableFileContext={handleRequestEnableFileContext}
           selectedModel={selectedModel}

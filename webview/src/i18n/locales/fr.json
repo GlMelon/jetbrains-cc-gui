@@ -91,7 +91,6 @@
     "global": "Global",
     "localProject": "Local",
     "disabled": "Désactivé",
-    "openSourceBanner": "Ce projet est garanti 100% open source et gratuit (méfiez-vous des projets piratés)",
     "commandNotImplemented": "La fonctionnalité `{{command}}` n'est pas encore implémentée.",
     "clearCommandDescription": "Effacer l'historique et démarrer une nouvelle session",
     "helpCommandTitle": "Commandes disponibles",

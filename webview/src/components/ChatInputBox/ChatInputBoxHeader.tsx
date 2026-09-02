@@ -1,5 +1,4 @@
 import { memo } from 'react';
-import type { TFunction } from 'i18next';
 import type { Attachment, SelectedAgent, QueuedMessage } from './types.js';
 import { AttachmentList } from './AttachmentList.js';
 import { ContextBar } from './ContextBar.js';
@@ -7,7 +6,6 @@ import { MessageQueue } from './MessageQueue.js';
 
 export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
   currentProvider,
-  t,
   attachments,
   onRemoveAttachment,
   activeFile,
@@ -27,14 +25,11 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
   onToggleStatusPanel,
   messageQueue,
   onRemoveFromQueue,
-  showOpenSourceBanner,
-  onDismissOpenSourceBanner,
   autoOpenFileEnabled,
   onRequestEnableFileContext,
   selectedModel,
 }: {
   currentProvider: string;
-  t: TFunction;
   attachments: Attachment[];
   onRemoveAttachment: (id: string) => void;
   activeFile?: string;
@@ -54,31 +49,12 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
   onToggleStatusPanel?: () => void;
   messageQueue?: QueuedMessage[];
   onRemoveFromQueue?: (id: string) => void;
-  showOpenSourceBanner?: boolean;
-  onDismissOpenSourceBanner?: () => void;
   autoOpenFileEnabled?: boolean;
   onRequestEnableFileContext?: () => void;
   selectedModel?: string;
 }) {
   return (
     <>
-      {/* Open source banner */}
-      {showOpenSourceBanner && (
-        <div className="open-source-banner">
-          <span className="banner-text">{t('chat.openSourceBanner')}</span>
-          <button
-            className="banner-close"
-            aria-label="Close"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDismissOpenSourceBanner?.();
-            }}
-          >
-            &#x2715;
-          </button>
-        </div>
-      )}
-
       {/* Message queue */}
       {messageQueue && messageQueue.length > 0 && (
         <MessageQueue

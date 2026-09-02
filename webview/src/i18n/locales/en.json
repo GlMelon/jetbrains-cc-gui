@@ -94,7 +94,6 @@
     "localProject": "Local",
     "disabled": "Disabled",
     "planModeEnabled": "Plan mode enabled",
-    "openSourceBanner": "This project is guaranteed to be 100% open source and free (beware of pirated projects)",
     "commandNotImplemented": "`{{command}}` feature is not yet implemented.",
     "clearCommandDescription": "Clear conversation history and start a new session",
     "helpCommandTitle": "Available commands",
