@@ -17,6 +17,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Disposer;
 
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,9 @@ public class SessionSendService {
         this.gson = gson;
         this.contextService = contextService;
         this.runtimeRouter = new SessionRuntimeRouter(project);
+        if (project != null && !Disposer.tryRegister(project, runtimeRouter)) {
+            runtimeRouter.dispose();
+        }
         this.cliTitleService = new CliSessionTitleService();
         this.pendingInteractionDiagnosticsService = project == null
                 ? null
@@ -341,6 +345,7 @@ public class SessionSendService {
                 state.getModel(),
                 codexModelSelection.actualModel(),
                 state.getReasoningEffort(),
+                state.getCodexServiceTier(),
                 state.getPermissionSessionId(),
                 null,
                 null,
@@ -410,6 +415,7 @@ public class SessionSendService {
                 state.getModel(),
                 modelSelection.actualModel(),
                 state.getReasoningEffort(),
+                null,
                 state.getPermissionSessionId(),
                 null,
                 null,
@@ -484,6 +490,7 @@ public class SessionSendService {
                 currentModel,
                 modelSelection.actualModel(),
                 state.getReasoningEffort(),
+                null,
                 state.getPermissionSessionId(),
                 streaming,
                 null, // disableThinking 废弃:思考预算改由 reasoning effort 控制,三 provider 统一 null(思考区开关下沉为显示控制,见 SessionCallbackAdapter/TurnPushGate)

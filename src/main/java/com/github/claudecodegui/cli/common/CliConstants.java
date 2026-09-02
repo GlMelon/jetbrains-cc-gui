@@ -251,6 +251,7 @@ public final class CliConstants {
     public static final String CODEX_ARG_I_CONFIG = "-i";
     public static final String CODEX_CONFIG_MODEL_REASONING_EFFORT = "model_reasoning_effort";
     public static final String CODEX_CONFIG_MODEL_REASONING_SUMMARY = "model_reasoning_summary";
+    public static final String CODEX_CONFIG_SERVICE_TIER = "service_tier";
     public static final String CODEX_REASONING_SUMMARY_AUTO = "auto";
 
     // ── OpenCode CLI 参数（实测 opencode v1.17.11 `opencode run --help`） ──────

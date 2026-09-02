@@ -57,6 +57,7 @@ public class GrokCliSessionRuntime implements SessionRuntime {
                 req.model(),
                 req.actualModel(),
                 req.reasoningEffort(),
+                req.codexServiceTier(),
                 req.permissionSessionId(),
                 req.thinkingOutputEnabled(),
                 req.env(),

@@ -1,6 +1,8 @@
 package com.github.claudecodegui.cli.codex;
 
 import com.github.claudecodegui.util.CliTempDir;
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
@@ -38,7 +40,7 @@ import java.util.regex.Pattern;
 
 /**
  * Codex CLI 会话：每个 Tab 独立实例，使用 codex exec --json（one-shot per turn）。
- * 通过 resume --last 实现多轮连续对话。
+ * 通过 thread ID resume 实现多轮连续对话。
  */
 public class CodexCliSession implements CliSession {
 
@@ -95,9 +97,12 @@ public class CodexCliSession implements CliSession {
     private final CodexCliEventNormalizer eventNormalizer = new CodexCliEventNormalizer();
     private final McpGatewayService gatewayService;
     private final LifecycleObservabilityService lifecycleService;
+    private final CodexServiceTierPolicy serviceTierPolicy;
 
     // 当前 thread_id（从 thread.started 事件获取）
     private volatile String threadId;
+    // 历史会话 resume 失败后，避免后续回合反复尝试同一个失效的持久化 ID。
+    private volatile String rejectedResumeThreadId;
     // 当前活跃进程（用于中断）
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
@@ -142,18 +147,25 @@ public class CodexCliSession implements CliSession {
     }
 
     public CodexCliSession(String tabId) {
-        this(tabId, null, null);
+        this(tabId, null, null, new CodexServiceTierPolicy());
     }
 
     public CodexCliSession(String tabId, McpGatewayService gatewayService) {
-        this(tabId, gatewayService, null);
+        this(tabId, gatewayService, null, new CodexServiceTierPolicy());
     }
 
     public CodexCliSession(String tabId, McpGatewayService gatewayService,
                            LifecycleObservabilityService lifecycleService) {
+        this(tabId, gatewayService, lifecycleService, new CodexServiceTierPolicy());
+    }
+
+    CodexCliSession(String tabId, McpGatewayService gatewayService,
+                    LifecycleObservabilityService lifecycleService,
+                    CodexServiceTierPolicy serviceTierPolicy) {
         this.tabId = tabId;
         this.gatewayService = gatewayService;
         this.lifecycleService = lifecycleService;
+        this.serviceTierPolicy = Objects.requireNonNull(serviceTierPolicy, "serviceTierPolicy");
     }
 
     private static long elapsedMillis(long startNanos) {
@@ -172,9 +184,11 @@ public class CodexCliSession implements CliSession {
             List<File> tempFiles = new ArrayList<>();
             StringBuilder diagnostic = new StringBuilder();
             StringBuilder cliError = new StringBuilder();
-                Process process = null;
-                CliProcessHandle currentHandle = null;
-                Long processGeneration = null;
+            Process process = null;
+            CliProcessHandle currentHandle = null;
+            ProcessManager processManager = null;
+            String processToken = null;
+            Long processGeneration = null;
             try {
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] send task started"
                         + ": tabId=" + tabId
@@ -194,11 +208,16 @@ public class CodexCliSession implements CliSession {
                 callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.CONNECTING.value());
                 List<String> gatewayOverrideArgs = (gatewayConfig != null && gatewayConfig.usable())
                         ? gatewayConfig.overrideArgs() : List.of();
+                String attemptedResumeThreadId = resolveResumeThreadId(request);
+                LOG.info("[CliConcurrencyDiag][CodexCliSession] resume selection"
+                        + ": tabId=" + tabId
+                        + ", source=" + resumeSource(attemptedResumeThreadId, request)
+                        + ", elapsedMs=" + elapsedMillis(sendStartNanos));
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] building command"
                         + ": tabId=" + tabId
                         + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                         + ", thread=" + Thread.currentThread().getName());
-                List<String> cmd = buildCommand(request, images, gatewayOverrideArgs);
+                List<String> cmd = buildCommand(request, images, gatewayOverrideArgs, attemptedResumeThreadId);
                 byte[] promptInput = buildPromptInput(request);
                 LOG.info("[CodexCliSession][" + tabId + "] Command: " + String.join(" ", cmd)
                         + ", stdinBytes=" + promptInput.length);
@@ -239,6 +258,11 @@ public class CodexCliSession implements CliSession {
                         + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                         + ", thread=" + Thread.currentThread().getName());
                 process = pb.start();
+                processManager = NodeService.getInstance().getProcessManager();
+                processToken = processManager.registerAuxiliaryProcess(process);
+                if (processToken == null) {
+                    throw new IllegalStateException("Project is closing; Codex CLI process was rejected");
+                }
                 currentHandle = new CliProcessHandle(process, "codex-tab-" + tabId);
                 activeHandle = currentHandle;
                 processGeneration = lifecycleService == null ? null : lifecycleService.nextProcessGeneration();
@@ -350,7 +374,10 @@ public class CodexCliSession implements CliSession {
                     }
                 } else if (shouldReportExitError(exitCode)) {
                     String err = buildExitError(exitCode, diagnostic, cliError, requestHasImages);
-                    maybeResetThreadAfterResumeFailure(!cliError.isEmpty() ? cliError : diagnostic);
+                    maybeResetThreadAfterResumeFailure(
+                            !cliError.isEmpty() ? cliError : diagnostic,
+                            attemptedResumeThreadId
+                    );
                     callback.onError(err);
                     callback.onComplete(false, assistantContent.toString(), err);
                 }
@@ -369,6 +396,9 @@ public class CodexCliSession implements CliSession {
                             "codex CLI process terminated");
                 }
                 CliProcessLifecycle.terminate(process);
+                if (processManager != null) {
+                    processManager.unregisterAuxiliaryProcess(processToken, process);
+                }
                 if (activeHandle == currentHandle) {
                     activeHandle = null;
                 }
@@ -428,10 +458,10 @@ public class CodexCliSession implements CliSession {
     }
 
     /**
-     * resume --last 失败时(thread 已损坏/被删),重置 threadId 使下一轮回到首轮模式,避免死循环。
+     * resume thread ID 失败时(thread 已损坏/被删),拒绝失效 ID 并在下一轮回退为新会话,避免死循环。
      */
-    private void maybeResetThreadAfterResumeFailure(CharSequence diagnostic) {
-        if (threadId == null || diagnostic == null) {
+    private void maybeResetThreadAfterResumeFailure(CharSequence diagnostic, String attemptedResumeThreadId) {
+        if (attemptedResumeThreadId == null || diagnostic == null) {
             return;
         }
         String text = diagnostic.toString().toLowerCase(Locale.ROOT);
@@ -439,8 +469,12 @@ public class CodexCliSession implements CliSession {
                 || text.contains("session not found") || text.contains("no conversation")
                 || text.contains("resume target") || text.contains("conversation not found");
         if (resumeFailure) {
-            LOG.info("[CodexCliSession] resume --last failed, resetting threadId to fall back to first turn: tab=" + tabId);
-            threadId = null;
+            LOG.info("[CodexCliSession] resume thread ID failed, falling back to a new turn: tab=" + tabId
+                    + ", source=" + (threadId != null && threadId.equals(attemptedResumeThreadId) ? "live" : "request"));
+            if (threadId != null && threadId.equals(attemptedResumeThreadId)) {
+                threadId = null;
+            }
+            rejectedResumeThreadId = attemptedResumeThreadId;
         }
     }
 
@@ -617,6 +651,7 @@ public class CodexCliSession implements CliSession {
                     String id = getString(event, "thread_id");
                     if (id != null) {
                         threadId = id;
+                        rejectedResumeThreadId = null;
                         sectionEmitter(callback).sessionId(id);
                     }
                     lastSegmentKind = SegmentKind.NONE;
@@ -1163,7 +1198,7 @@ public class CodexCliSession implements CliSession {
      * - exec:        --color / -s --sandbox / -C --cd / --add-dir / -m / -i --image<FILE>... / --json
      * `-i, --image <FILE>...` 是 num_args=1.. 贪婪参数,后续位置参数 prompt 会被吞掉,
      * 因此带图片时需要在 prompt 前插入 `--` 分隔符。
-     * - exec resume: 仅 --last / --all / -m / -i --image<FILE> / --json / -c / 各种 --dangerously-* /
+     * - exec resume: 接受 thread ID、--last / --all / -m / -i --image<FILE> / --json / -c / 各种 --dangerously-* /
      * --skip-git-repo-check / --ephemeral 等;
      * resume 子命令 *不接受* --color / --sandbox / -C / --add-dir。
      * resume 的 `-i, --image <FILE>` 是单值非贪婪,不需要 `--` 分隔符。
@@ -1172,6 +1207,11 @@ public class CodexCliSession implements CliSession {
      */
     private List<String> buildCommand(CliSendRequest request, List<File> images,
                                       List<String> gatewayOverrideArgs) {
+        return buildCommand(request, images, gatewayOverrideArgs, resolveResumeThreadId(request));
+    }
+
+    private List<String> buildCommand(CliSendRequest request, List<File> images,
+                                      List<String> gatewayOverrideArgs, String resumeThreadId) {
         CodexCliCommandUtils.PermissionSelection perm = CodexCliCommandUtils.selectPermission(
                 request.permissionMode(), readSandboxMode(request.cwd()));
 
@@ -1179,12 +1219,36 @@ public class CodexCliSession implements CliSession {
         CodexCliCommandUtils.addCodexExecutable(cmd, CodexCliResolver.findExecutable());
         CodexCliCommandUtils.addCodexGlobalOptions(cmd, perm);
 
-        if (threadId != null) {
-            appendResumeArgs(cmd, request, images, gatewayOverrideArgs);
+        if (resumeThreadId != null) {
+            appendResumeArgs(cmd, request, images, gatewayOverrideArgs, resumeThreadId);
         } else {
             appendExecArgs(cmd, request, images, perm, gatewayOverrideArgs);
         }
         return cmd;
+    }
+
+    private String resolveResumeThreadId(CliSendRequest request) {
+        String liveThreadId = threadId;
+        if (liveThreadId != null && !liveThreadId.isBlank()) {
+            return liveThreadId.trim();
+        }
+        if (request == null || request.sessionId() == null || request.sessionId().isBlank()) {
+            return null;
+        }
+        String requestedThreadId = request.sessionId().trim();
+        return requestedThreadId.equals(rejectedResumeThreadId) ? null : requestedThreadId;
+    }
+
+    private String resumeSource(String resumeThreadId, CliSendRequest request) {
+        if (resumeThreadId == null) {
+            return "none";
+        }
+        String liveThreadId = threadId;
+        if (liveThreadId != null && liveThreadId.equals(resumeThreadId)) {
+            return "live";
+        }
+        return request != null && request.sessionId() != null
+                && resumeThreadId.equals(request.sessionId().trim()) ? "request" : "unknown";
     }
 
     private McpGatewayCliConfig buildGatewayConfig(CliSendRequest request) {
@@ -1222,6 +1286,7 @@ public class CodexCliSession implements CliSession {
                     request.reasoningEffort()
             ));
         }
+        appendServiceTierOverride(cmd, request);
         if (request.thinkingOutputEnabled()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
             cmd.add(codexConfigOverride(
@@ -1250,14 +1315,29 @@ public class CodexCliSession implements CliSession {
         return key + "=\"" + value + "\"";
     }
 
+    private void appendServiceTierOverride(List<String> cmd, CliSendRequest request) {
+        String requestedTier = request.codexServiceTier();
+        if (requestedTier == null || requestedTier.isBlank()) {
+            return;
+        }
+        if (!serviceTierPolicy.supports(request.model(), requestedTier)) {
+            LOG.info("[Codex] Service tier override ignored because the selected model does not advertise it"
+                    + ": model=" + (request.model() != null ? request.model() : "(default)")
+                    + ", tier=" + requestedTier);
+            return;
+        }
+        cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
+        cmd.add(codexConfigOverride(CliConstants.CODEX_CONFIG_SERVICE_TIER, requestedTier));
+    }
+
     /**
-     * 续接会话:codex exec resume --last ... PROMPT
+     * 续接会话:codex exec resume THREAD_ID ... PROMPT
      */
     private void appendResumeArgs(List<String> cmd, CliSendRequest request, List<File> images,
-                                 List<String> gatewayOverrideArgs) {
+                                 List<String> gatewayOverrideArgs, String resumeThreadId) {
         cmd.add(CliConstants.CODEX_ARG_EXEC);
         cmd.add(CliConstants.CODEX_ARG_RESUME);
-        cmd.add(CliConstants.CODEX_ARG_LAST);
+        cmd.add(resumeThreadId);
         cmd.add(CliConstants.CODEX_ARG_JSON);
 
         if (request.model() != null && !request.model().isBlank()) {
@@ -1271,6 +1351,7 @@ public class CodexCliSession implements CliSession {
                     request.reasoningEffort()
             ));
         }
+        appendServiceTierOverride(cmd, request);
         if (request.thinkingOutputEnabled()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
             cmd.add(codexConfigOverride(

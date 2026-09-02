@@ -26,6 +26,7 @@ public record SessionRequest(
         String model,
         String actualModel,
         String reasoningEffort,
+        String codexServiceTier,
         String permissionSessionId,
         Boolean streaming,
         Boolean disableThinking,
@@ -66,6 +67,7 @@ public record SessionRequest(
                 model,
                 actualModel,
                 reasoningEffort,
+                null,
                 permissionSessionId,
                 streaming,
                 disableThinking,
@@ -87,6 +89,7 @@ public record SessionRequest(
         fileTagPaths = fileTagPaths != null ? List.copyOf(fileTagPaths) : List.of();
         env = env != null ? Map.copyOf(env) : Map.of();
         actualModel = actualModel != null && !actualModel.isBlank() ? actualModel : null;
+        codexServiceTier = codexServiceTier != null && !codexServiceTier.isBlank() ? codexServiceTier : null;
         thinkingOutputEnabled = thinkingOutputEnabled != null ? thinkingOutputEnabled : Boolean.TRUE;
     }
 }
