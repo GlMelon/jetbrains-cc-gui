@@ -15,11 +15,12 @@ import {
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import { UnifiedLoader } from '../../UnifiedLoader';
 /**
- * Runtime provider switching is only implemented for the Claude and Codex
- * harnesses (see RuntimeProviderSelect's providerKind). Hide the menu entry
- * for the beta CLI providers (grok/kimi/opencode/pi/omp/dsh).
+ * Runtime provider switching is only implemented for providers with a real
+ * providerKind in RuntimeProviderSelect(本地:claude/codex/opencode 有独立
+ * 实现,见 RuntimeProviderSelect.tsx:38-93);grok/kimi/pi/omp/dsh 会回退到
+ * claude 列表,无意义,隐藏菜单项(含分隔线)。
  */
-const RUNTIME_PROVIDER_SUPPORTED: Record<string, true> = { claude: true, codex: true };
+const RUNTIME_PROVIDER_SUPPORTED: Record<string, true> = { claude: true, codex: true, opencode: true };
 
 interface ConfigSelectProps {
   showThinkingEnabled?: boolean;

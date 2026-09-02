@@ -187,7 +187,9 @@ describe('ConfigSelect streaming/thinking switches are provider-agnostic', () =>
     expect(screen.getByText('Streaming')).toBeTruthy();
     expect(screen.getByText('Thinking')).toBeTruthy();
   });
-  it.each(['grok', 'kimi', 'opencode', 'pi', 'omp', 'dsh'])(
+  // 本地 RuntimeProviderSelect 对 opencode 有独立 providerKind 实现,不隐藏;
+  // 仅 grok/kimi/pi/omp/dsh(回退 claude 列表,无意义)隐藏。
+  it.each(['grok', 'kimi', 'pi', 'omp', 'dsh'])(
     'hides the runtime provider entry for the %s CLI',
     (provider) => {
       render(<ConfigSelect currentProvider={provider} />);
@@ -195,7 +197,7 @@ describe('ConfigSelect streaming/thinking switches are provider-agnostic', () =>
       fireEvent.click(screen.getByRole('button', { name: /Configure/i }));
 
       expect(screen.queryByText('Switch provider')).toBeNull();
-      expect(screen.getByText('Node processes')).toBeTruthy();
+      expect(screen.getByTestId('config-option-node-processes')).toBeTruthy();
     },
   );
 });
