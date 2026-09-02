@@ -5,10 +5,7 @@ import org.junit.Test;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class CliSendRequestTest {
 
@@ -103,5 +100,54 @@ public class CliSendRequestTest {
         );
 
         assertFalse(request.thinkingOutputEnabled());
+    }
+
+    @Test
+    public void preservesCodexServiceTierAndNormalizesBlankValues() {
+        CliSendRequest fastRequest = new CliSendRequest(
+                "tab-1",
+                "codex",
+                "hello",
+                null,
+                null,
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "default",
+                "gpt-5.3-codex",
+                null,
+                "high",
+                "fast",
+                null,
+                Boolean.TRUE,
+                Map.of(),
+                "epoch-1",
+                1L
+        );
+        CliSendRequest blankRequest = new CliSendRequest(
+                "tab-1",
+                "codex",
+                "hello",
+                null,
+                null,
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "default",
+                "gpt-5.3-codex",
+                null,
+                "high",
+                "   ",
+                null,
+                Boolean.TRUE,
+                Map.of(),
+                null,
+                0L
+        );
+
+        assertEquals("fast", fastRequest.codexServiceTier());
+        assertNull(blankRequest.codexServiceTier());
     }
 }

@@ -8,12 +8,12 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class CodexCliSessionTest {
 
@@ -1155,6 +1155,157 @@ public class CodexCliSessionTest {
         ));
     }
 
+    private static com.github.claudecodegui.cli.CliSendRequest requestWithSessionId(
+            String tabId,
+            String sessionId
+    ) {
+        return new com.github.claudecodegui.cli.CliSendRequest(
+                tabId,
+                "codex",
+                "hello",
+                sessionId,
+                "D:\\project\\jetbrains-melon-cc-gui",
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "acceptEdits",
+                "gpt-5.3-codex",
+                null,
+                null,
+                null,
+                null,
+                Boolean.TRUE,
+                java.util.Map.of(),
+                "epoch-1",
+                1L
+        );
+    }
+
+    @Test
+    public void unsupportedFastModeIsOmittedFromExecAndExactThreadResume() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-fast-mode");
+        var request = new com.github.claudecodegui.cli.CliSendRequest(
+                "tab-fast-mode",
+                "codex",
+                "hello",
+                null,
+                "D:\\project\\jetbrains-melon-cc-gui",
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "acceptEdits",
+                "gpt-5.3-codex",
+                null,
+                "high",
+                "fast",
+                null,
+                Boolean.TRUE,
+                java.util.Map.of(),
+                "epoch-1",
+                1L
+        );
+
+        List<String> execCommand = buildCommand(session, request);
+        assertFalse(execCommand.contains(
+                CliConstants.CODEX_CONFIG_SERVICE_TIER + "=\"fast\""
+        ));
+
+        setThreadId(session, "thread-1");
+        List<String> resumeCommand = buildCommand(session, request);
+        assertTrue(resumeCommand.contains("thread-1"));
+        assertFalse(resumeCommand.contains(
+                CliConstants.CODEX_CONFIG_SERVICE_TIER + "=\"fast\""
+        ));
+        assertFalse(resumeCommand.contains(CliConstants.CODEX_ARG_LAST));
+    }
+
+    @Test
+    public void supportedFastModeAddsServiceTierToExecAndExactThreadResume() throws Exception {
+        Path catalog = Files.createTempFile("codex-model-catalog", ".json");
+        try {
+            Files.writeString(catalog,
+                    "{\"models\":[{\"slug\":\"gpt-5.3-codex\",\"service_tiers\":[\"fast\"]}]}",
+                    StandardCharsets.UTF_8);
+            CodexCliSession session = new CodexCliSession(
+                    "tab-fast-mode-supported", null, null, new CodexServiceTierPolicy(catalog));
+            var request = new com.github.claudecodegui.cli.CliSendRequest(
+                    "tab-fast-mode-supported",
+                    "codex",
+                    "hello",
+                    null,
+                    "D:\\project\\jetbrains-melon-cc-gui",
+                    List.of(),
+                    null,
+                    List.of(),
+                    null,
+                    "acceptEdits",
+                    "gpt-5.3-codex",
+                    null,
+                    "high",
+                    "fast",
+                    null,
+                    Boolean.TRUE,
+                    java.util.Map.of(),
+                    "epoch-1",
+                    1L
+            );
+
+            List<String> execCommand = buildCommand(session, request);
+            assertTrue(execCommand.contains(
+                    CliConstants.CODEX_CONFIG_SERVICE_TIER + "=\"fast\""
+            ));
+
+            setThreadId(session, "thread-1");
+            List<String> resumeCommand = buildCommand(session, request);
+            assertTrue(resumeCommand.contains("thread-1"));
+            assertTrue(resumeCommand.contains(
+                    CliConstants.CODEX_CONFIG_SERVICE_TIER + "=\"fast\""
+            ));
+            assertFalse(resumeCommand.contains(CliConstants.CODEX_ARG_LAST));
+        } finally {
+            Files.deleteIfExists(catalog);
+        }
+    }
+
+    @Test
+    public void historicalSessionIdResumesExactThreadWhenLiveThreadIsMissing() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-history-resume");
+        var request = requestWithSessionId("tab-history-resume", "history-thread-1");
+
+        List<String> command = buildCommand(session, request);
+
+        assertTrue(command.contains(CliConstants.CODEX_ARG_RESUME));
+        assertTrue(command.contains("history-thread-1"));
+        assertFalse(command.contains(CliConstants.CODEX_ARG_LAST));
+    }
+
+    @Test
+    public void liveThreadIdTakesPriorityOverHistoricalSessionId() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-live-resume");
+        var request = requestWithSessionId("tab-live-resume", "history-thread-1");
+        setThreadId(session, "live-thread-1");
+
+        List<String> command = buildCommand(session, request);
+
+        assertTrue(command.contains("live-thread-1"));
+        assertFalse(command.contains("history-thread-1"));
+        assertFalse(command.contains(CliConstants.CODEX_ARG_LAST));
+    }
+
+    @Test
+    public void missingThreadIdsUseNewExecInsteadOfResume() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-new-exec");
+        var request = requestWithSessionId("tab-new-exec", null);
+
+        List<String> command = buildCommand(session, request);
+
+        assertTrue(command.contains(CliConstants.CODEX_ARG_EXEC));
+        assertFalse(command.contains(CliConstants.CODEX_ARG_RESUME));
+        assertFalse(command.contains(CliConstants.CODEX_ARG_LAST));
+    }
+
     @Test
     public void gbkEncodedWindowsDiagnosticFallsBackToChineseText() throws Exception {
         Method decodeLine = CodexCliSession.class.getDeclaredMethod(
@@ -1170,6 +1321,24 @@ public class CodexCliSessionTest {
         assertEquals("命令行太长。", decoded);
     }
 
+    @Test
+    public void failedHistoricalResumeIdIsRejectedForSubsequentRequests() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-rejected-resume");
+        var request = requestWithSessionId("tab-rejected-resume", "history-thread-1");
+        Method reset = CodexCliSession.class.getDeclaredMethod(
+                "maybeResetThreadAfterResumeFailure",
+                CharSequence.class,
+                String.class
+        );
+        reset.setAccessible(true);
+        reset.invoke(session, "session not found", "history-thread-1");
+
+        List<String> command = buildCommand(session, request);
+
+        assertTrue(command.contains(CliConstants.CODEX_ARG_EXEC));
+        assertFalse(command.contains(CliConstants.CODEX_ARG_RESUME));
+        assertFalse(command.contains("history-thread-1"));
+    }
     @SuppressWarnings("unchecked")
     private static List<String> buildCommand(
             CodexCliSession session,
