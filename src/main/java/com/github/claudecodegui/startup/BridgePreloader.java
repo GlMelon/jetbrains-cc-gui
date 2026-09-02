@@ -81,15 +81,17 @@ public class BridgePreloader implements ProjectActivity {
                 }
                 BridgeDirectoryResolver resolver = getSharedResolver();
 
-                // CLI resolver caches are global, but every task is owned by this
-                // project startup operation and is cancelled with its lifecycle.
-                cliPrewarm = CompletableFuture.runAsync(
-                        () -> prewarmCliResolvers(() -> shouldStopPreload(project, cancelled), cliPrewarmTasks));
+                // Extract the bridge before channel probes start: OMP/DSH prewarm
+                // launches channel-manager.js from the resolved bridge directory.
+                resolver.findBridgeDir();
                 if (shouldStopPreload(project, cancelled)) {
                     return;
                 }
 
-                resolver.findBridgeDir();
+                // CLI resolver caches are global, but every task is owned by this
+                // project startup operation and is cancelled with its lifecycle.
+                cliPrewarm = CompletableFuture.runAsync(
+                        () -> prewarmCliResolvers(() -> shouldStopPreload(project, cancelled), cliPrewarmTasks));
                 if (shouldStopPreload(project, cancelled)) {
                     return;
                 }
@@ -189,6 +191,14 @@ public class BridgePreloader implements ProjectActivity {
             }
         }
 
+        long maxTimeoutNanos = strategies.stream()
+                .map(ProviderPrewarmStrategy::policy)
+                .map(ProviderPrewarmPolicy::timeout)
+                .mapToLong(timeout -> timeout.toNanos())
+                .max()
+                .orElse(0L);
+        long deadline = System.nanoTime() + maxTimeoutNanos;
+
         for (int i = 0; i < tasks.size(); i++) {
             if (isCancelled(cancelled)) {
                 cancelTasks(tasks);
@@ -197,7 +207,13 @@ public class BridgePreloader implements ProjectActivity {
             Future<?> task = tasks.get(i);
             ProviderPrewarmStrategy strategy = strategies.get(i);
             try {
-                task.get(strategy.policy().timeout().toMillis(), TimeUnit.MILLISECONDS);
+                long remainingNanos = deadline - System.nanoTime();
+                if (remainingNanos <= 0L) {
+                    task.cancel(true);
+                    LOG.warn("[BridgePreloader] Provider prewarm timed out: " + strategy.provider());
+                    continue;
+                }
+                task.get(remainingNanos, TimeUnit.NANOSECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 cancelTasks(tasks);

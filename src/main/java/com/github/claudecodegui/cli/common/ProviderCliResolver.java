@@ -1,5 +1,7 @@
 package com.github.claudecodegui.cli.common;
 
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 参数化 CLI 可执行文件解析器(grok/kimi/pi/opencode 共用)。
@@ -211,6 +214,10 @@ public final class ProviderCliResolver {
      */
     private String verify(String path) {
         Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
+        Thread stdoutDrain = null;
+        Thread stderrDrain = null;
         try {
             ProcessBuilder pb;
             String lower = path.toLowerCase();
@@ -220,16 +227,26 @@ public final class ProviderCliResolver {
                 pb = new ProcessBuilder(path, "--version");
             }
             process = pb.start();
-            String version;
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                version = reader.readLine();
-            }
-            boolean finished = process.waitFor(5, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            if (processToken == null) {
                 return null;
             }
+            // Never read stdout synchronously here. Some Windows npm shims can
+            // remain alive without producing a newline; a blocking readLine()
+            // would bypass the waitFor timeout and make provider prewarm
+            // cancellation ineffective.
+            AtomicReference<String> versionRef = new AtomicReference<>();
+            stdoutDrain = startVersionOutputDrain(process.getInputStream(), versionRef);
+            stderrDrain = startErrorDrain(process.getErrorStream());
+            closeStdin(process);
+            boolean finished = process.waitFor(5, TimeUnit.SECONDS);
+            if (!finished) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+                return null;
+            }
+            joinDrain(stdoutDrain);
+            String version = versionRef.get();
             if (process.exitValue() == 0 && version != null) {
                 String trimmed = version.trim();
                 if (!trimmed.isEmpty() && CliCompatibilityService.getInstance()
@@ -242,12 +259,82 @@ public final class ProviderCliResolver {
             return null;
         } catch (InterruptedException e) {
             if (process != null) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
             }
             Thread.currentThread().interrupt();
             return null;
         } catch (Exception ignored) {
             return null;
+        } finally {
+            if (process != null && process.isAlive()) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+            }
+            joinDrain(stdoutDrain);
+            joinDrain(stderrDrain);
+            if (stderrDrain != null) {
+                stderrDrain.interrupt();
+            }
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
         }
+    }
+
+    private static Thread startVersionOutputDrain(
+            java.io.InputStream inputStream,
+            AtomicReference<String> versionRef
+    ) {
+        Thread thread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (versionRef.get() == null) {
+                        versionRef.compareAndSet(null, line);
+                    }
+                }
+            } catch (Exception ignored) {
+                // The process may be terminating while the probe is being cleaned up.
+            }
+        }, "AICG-CLI-Version-Stdout-Drain");
+        thread.setDaemon(true);
+        thread.start();
+        return thread;
+    }
+
+    private static void closeStdin(Process process) {
+        try {
+            process.getOutputStream().close();
+        } catch (Exception ignored) {
+            // Version probes do not require stdin; best-effort EOF only.
+        }
+    }
+
+    private static void joinDrain(Thread thread) {
+        if (thread == null || thread == Thread.currentThread()) {
+            return;
+        }
+        try {
+            thread.join(500L);
+        } catch (InterruptedException e) {
+            thread.interrupt();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static Thread startErrorDrain(java.io.InputStream inputStream) {
+        Thread thread = new Thread(() -> {
+            try (java.io.InputStream input = inputStream) {
+                byte[] buffer = new byte[4096];
+                while (input.read(buffer) != -1) {
+                    // Version probing only needs stdout; stderr must still be drained to avoid pipe backpressure.
+                }
+            } catch (Exception ignored) {
+                // The process may be terminating while the probe is being cleaned up.
+            }
+        }, "AICG-CLI-Version-Stderr-Drain");
+        thread.setDaemon(true);
+        thread.start();
+        return thread;
     }
 }

@@ -1,5 +1,7 @@
 package com.github.claudecodegui.session.runtime;
 
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
 import com.github.claudecodegui.util.PlatformUtils;
 
@@ -222,6 +224,9 @@ public final class CodexCliResolver {
      */
     private static String verify(String path) {
         Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
+        Thread stderrDrain = null;
         try {
             ProcessBuilder pb;
             String lower = path.toLowerCase();
@@ -231,6 +236,12 @@ public final class CodexCliResolver {
                 pb = new ProcessBuilder(path, "--version");
             }
             process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            if (processToken == null) {
+                return null;
+            }
+            stderrDrain = startErrorDrain(process.getErrorStream());
             String version;
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
@@ -238,7 +249,7 @@ public final class CodexCliResolver {
             }
             boolean finished = process.waitFor(5, TimeUnit.SECONDS);
             if (!finished) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
                 return null;
             }
             if (process.exitValue() == 0 && version != null) {
@@ -253,7 +264,7 @@ public final class CodexCliResolver {
             return null;
         } catch (InterruptedException e) {
             if (process != null) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
             }
             // 项7:waitFor 抛 InterruptedException,原被 catch(Exception ignored) 吞掉丢失中断标志——
             // 上层无法感知中断。恢复中断标志后返回 null(版本检测中止)。
@@ -261,6 +272,29 @@ public final class CodexCliResolver {
             return null;
         } catch (Exception ignored) {
             return null;
+        } finally {
+            if (stderrDrain != null) {
+                stderrDrain.interrupt();
+            }
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
         }
+    }
+
+    private static Thread startErrorDrain(java.io.InputStream inputStream) {
+        Thread thread = new Thread(() -> {
+            try (java.io.InputStream input = inputStream) {
+                byte[] buffer = new byte[4096];
+                while (input.read(buffer) != -1) {
+                    // Version probing only needs stdout; stderr must still be drained to avoid pipe backpressure.
+                }
+            } catch (Exception ignored) {
+                // The process may be terminating while the probe is being cleaned up.
+            }
+        }, "AICG-CLI-Version-Stderr-Drain");
+        thread.setDaemon(true);
+        thread.start();
+        return thread;
     }
 }

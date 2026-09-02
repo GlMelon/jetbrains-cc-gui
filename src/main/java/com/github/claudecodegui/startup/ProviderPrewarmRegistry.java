@@ -2,6 +2,7 @@ package com.github.claudecodegui.startup;
 
 import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.cli.opencode.OpenCodeCliResolver;
+import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
 import com.github.claudecodegui.session.runtime.CodexCliResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
 
@@ -63,18 +64,12 @@ public final class ProviderPrewarmRegistry {
                 resolver(ProviderType.PI, RESOLVER_TIMEOUT,
                         () -> new ProviderCliResolver(
                                 ProviderType.PI, ProviderType.PI.cliCommand()).findExecutable()),
-                explicitNoPrewarm(
-                        ProviderType.CLAUDE,
-                        new ProviderPrewarmPolicy(false, false, false, false, false,
-                                Duration.ofSeconds(1), PrewarmFallback.RETRY_ON_FIRST_USE)),
-                explicitNoPrewarm(
-                        ProviderType.OMP,
-                        new ProviderPrewarmPolicy(false, false, true, false, false,
-                                Duration.ofSeconds(5), PrewarmFallback.DIRECT_CHANNEL)),
-                explicitNoPrewarm(
-                        ProviderType.DSH,
-                        new ProviderPrewarmPolicy(false, false, true, true, false,
-                                Duration.ofSeconds(5), PrewarmFallback.HOST_CHANNEL))
+                resolver(ProviderType.CLAUDE, RESOLVER_TIMEOUT,
+                        () -> ClaudeCliDetector.getInstance().findCliExecutable()),
+                channel(ProviderType.OMP, Duration.ofSeconds(5),
+                        ProviderChannelPrewarm.COMMAND_LIST_MODELS, PrewarmFallback.DIRECT_CHANNEL),
+                channel(ProviderType.DSH, Duration.ofSeconds(5),
+                        ProviderChannelPrewarm.COMMAND_STATUS, PrewarmFallback.HOST_CHANNEL)
         ));
     }
 
@@ -114,10 +109,14 @@ public final class ProviderPrewarmRegistry {
         };
     }
 
-    private static ProviderPrewarmStrategy explicitNoPrewarm(
+    private static ProviderPrewarmStrategy channel(
             ProviderType provider,
-            ProviderPrewarmPolicy policy
+            Duration timeout,
+            String command,
+            PrewarmFallback fallback
     ) {
+        ProviderPrewarmPolicy policy = new ProviderPrewarmPolicy(
+                false, false, true, provider == ProviderType.DSH, false, timeout, fallback);
         return new ProviderPrewarmStrategy() {
             @Override
             public ProviderType provider() {
@@ -131,15 +130,12 @@ public final class ProviderPrewarmRegistry {
 
             @Override
             public void prewarm(BooleanSupplier cancelled) {
-                // The policy is the explicit record of this provider's channel
-                // architecture; no resolver probe is performed here.
-                if (isCancelled(cancelled)) {
-                    return;
+                if (!isCancelled(cancelled)) {
+                    ProviderChannelPrewarm.probe(provider, command, timeout, cancelled);
                 }
             }
         };
     }
-
     private static boolean isCancelled(BooleanSupplier cancelled) {
         return Thread.currentThread().isInterrupted() || (cancelled != null && cancelled.getAsBoolean());
     }

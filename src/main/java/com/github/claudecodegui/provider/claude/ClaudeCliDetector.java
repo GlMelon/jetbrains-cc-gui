@@ -1,5 +1,7 @@
 package com.github.claudecodegui.provider.claude;
 
+import com.github.claudecodegui.bridge.NodeService;
+import com.github.claudecodegui.bridge.ProcessManager;
 import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -166,11 +168,17 @@ public class ClaudeCliDetector {
     }
 
     private String detectViaSystemCommand(List<String> triedPaths) {
+        Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             ProcessBuilder pb = PlatformUtils.isWindows()
                     ? new ProcessBuilder("where", "claude")
                     : new ProcessBuilder("which", "claude");
-            Process process = pb.start();
+            process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            drainQuietly(process.getErrorStream());
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 String path = reader.readLine();
@@ -195,10 +203,22 @@ public class ClaudeCliDetector {
             }
             boolean finished = process.waitFor(5, TimeUnit.SECONDS);
             if (!finished) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
             }
+        } catch (InterruptedException e) {
+            if (process != null) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+            }
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
             LOG.debug("[ClaudeCliDetector] where/which lookup failed: " + e.getMessage());
+        } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
+            if (process != null && process.isAlive()) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+            }
         }
         return null;
     }
@@ -299,9 +319,15 @@ public class ClaudeCliDetector {
     }
 
     public String verifyCliPath(String path) {
+        Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(path, "--version");
-            Process process = pb.start();
+            process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            drainQuietly(process.getErrorStream());
             String version;
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
@@ -309,18 +335,31 @@ public class ClaudeCliDetector {
             }
             boolean finished = process.waitFor(5, TimeUnit.SECONDS);
             if (!finished) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
                 return null;
             }
             if (process.exitValue() == 0 && version != null) {
                 String trimmed = version.trim();
                 if (!trimmed.isEmpty() && CliCompatibilityService.getInstance()
                         .isVersionAccepted(ProviderType.CLAUDE, trimmed)) {
+                    cachedCliVersion = trimmed;
                     return trimmed;
                 }
             }
+        } catch (InterruptedException e) {
+            if (process != null) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+            }
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
             LOG.debug("[ClaudeCliDetector] Verification failed [" + path + "]: " + e.getMessage());
+        } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
+            if (process != null && process.isAlive()) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+            }
         }
         return null;
     }
@@ -407,9 +446,15 @@ public class ClaudeCliDetector {
     }
 
     private String detectNpmGlobalPrefix() {
+        Process process = null;
+        ProcessManager processManager = null;
+        String processToken = null;
         try {
             ProcessBuilder pb = new ProcessBuilder("npm", "prefix", "-g");
-            Process process = pb.start();
+            process = pb.start();
+            processManager = NodeService.getInstance().getProcessManager();
+            processToken = processManager.registerAuxiliaryProcess(process);
+            drainQuietly(process.getErrorStream());
             String prefix;
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
@@ -417,14 +462,38 @@ public class ClaudeCliDetector {
             }
             boolean finished = process.waitFor(5, TimeUnit.SECONDS);
             if (!finished) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
                 return null;
             }
             if (process.exitValue() == 0 && prefix != null && !prefix.isEmpty()) {
                 return prefix.trim();
             }
+        } catch (InterruptedException e) {
+            if (process != null) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+            }
+            Thread.currentThread().interrupt();
         } catch (Exception ignored) {
+        } finally {
+            if (processManager != null) {
+                processManager.unregisterAuxiliaryProcess(processToken, process);
+            }
+            if (process != null && process.isAlive()) {
+                PlatformUtils.terminateProcessAndWait(process, 2, TimeUnit.SECONDS);
+            }
         }
         return null;
+    }
+
+    private static void drainQuietly(java.io.InputStream inputStream) {
+        Thread drainer = new Thread(() -> {
+            try (java.io.InputStream input = inputStream) {
+                input.transferTo(java.io.OutputStream.nullOutputStream());
+            } catch (Exception ignored) {
+                // Best-effort drain for short-lived detector processes.
+            }
+        }, "claude-cli-detector-stderr-drain");
+        drainer.setDaemon(true);
+        drainer.start();
     }
 }
