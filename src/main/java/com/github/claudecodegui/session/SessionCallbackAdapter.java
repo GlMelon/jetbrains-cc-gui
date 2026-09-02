@@ -379,10 +379,6 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
             return;
         }
         sendResponsePhaseForCurrentTurn(AssistantResponsePhase.DONE);
-        // Tag this as a backend-triggered stream-end so the frontend can
-        // distinguish it from a stall-watchdog recovery in diagnostic logs.
-        safeRun("callJavaScript(__lastStreamEndSource)", () ->
-                jsTarget.callJavaScript("__lastStreamEndSource", "'backend'"));
         safeRun("callJavaScript(onStreamEnd)", () ->
                 jsTarget.callJavaScript("onStreamEnd", String.valueOf(sequence)));
         safeRun("callJavaScript(showLoading, false)", () ->
