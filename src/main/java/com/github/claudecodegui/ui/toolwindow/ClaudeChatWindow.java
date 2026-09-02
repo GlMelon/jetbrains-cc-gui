@@ -1568,9 +1568,11 @@ public class ClaudeChatWindow {
             @Override
             public void setBrowser(JBCefBrowser b) {
                 browser = b;
-                // Invalidate queued events from the old browser so stale
-                // events never reach the new webview instance.
+                // Invalidate queued events from the old browser and reset the
+                // coalescer's delivery baseline so stale snapshots serialized
+                // against the previous webview are never flushed onto the new one.
                 webviewEventQueue.browserChanged();
+                streamCoalescer.resetDeliveryBaseline();
             }
 
             @Override

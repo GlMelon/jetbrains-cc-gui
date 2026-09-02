@@ -260,3 +260,60 @@ describe('onStreamEnd finalizes dangling tool_use when the turn never streamed',
     expect(getMessages()).toBe(before);
   });
 });
+
+describe('onContentDelta defers rendering while a structural snapshot is pending', () => {
+  beforeEach(() => {
+    window.__sessionTransitioning = false;
+  });
+
+  afterEach(() => {
+    if (window.__stallWatchdogInterval != null) {
+      clearInterval(window.__stallWatchdogInterval);
+      window.__stallWatchdogInterval = null;
+    }
+    window.__pendingUpdateRaf = null;
+    window.__pendingUpdateJson = null;
+    window.__streamingDeltaRenderDeferred = false;
+  });
+
+  it('accumulates the delta but defers the rAF until the snapshot applies', () => {
+    // Stub rAF: return a handle without firing so no React update runs and the
+    // throttler's re-schedule loop stays inert in the test environment.
+    const rafStub = (_cb: FrameRequestCallback): number => 1;
+    const originalRaf = window.requestAnimationFrame;
+    window.requestAnimationFrame = rafStub as typeof requestAnimationFrame;
+
+    try {
+      const { refs } = createHarness([{ type: 'user', content: 'q1' }], 0);
+      window.onStreamStart!();
+
+      // Simulate a structural snapshot pending in messageCallbacks' timer.
+      window.__pendingUpdateJson = '[]';
+
+      window.onContentDelta!('deferred');
+
+      // Buffer accumulated, render deferred.
+      expect(refs.streamingContentRef.current).toBe('deferred');
+      expect(window.__streamingDeltaRenderDeferred).toBe(true);
+
+      // Snapshot applied: messageCallbacks clears the pending fields and
+      // flushes the deferred render.
+      window.__pendingUpdateJson = null;
+      window.__flushDeferredStreamingRenders!();
+
+      expect(window.__streamingDeltaRenderDeferred).toBe(false);
+    } finally {
+      window.requestAnimationFrame = originalRaf;
+    }
+  });
+
+  it('flush is a no-op when no delta render was deferred', () => {
+    const { refs } = createHarness([{ type: 'user', content: 'q1' }], 0);
+    window.onStreamStart!();
+
+    window.__flushDeferredStreamingRenders!();
+
+    expect(window.__streamingDeltaRenderDeferred ?? false).toBe(false);
+    expect(refs.streamingContentRef.current).toBe('');
+  });
+});

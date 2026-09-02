@@ -995,6 +995,10 @@ interface Window {
   __pendingUpdateJson?: string | null;
   __pendingUpdateSequence?: number | null;
   __streamingDeltaRenderingFrame?: number;
+  /** Deltas arrived while a structural snapshot was pending; rendering resumes after it applies. */
+  __streamingDeltaRenderDeferred?: boolean;
+  /** Re-schedule deferred delta rendering once the pending snapshot has been applied. */
+  __flushDeferredStreamingRenders?: () => void;
   __minAcceptedUpdateSequence?: number;
   /** Number of paged history messages prepended ahead of the backend session snapshot. */
   __prependedHistoryMessageCount?: number;

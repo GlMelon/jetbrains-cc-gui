@@ -301,4 +301,44 @@ public class MessageJsonConverter {
             LOG.warn("Failed to push usage update: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * Build the usage-update JSON string from the last usage block in messages.
+     * Unlike {@link #pushUsageUpdateFromMessages}, this does not dispatch to
+     * the browser directly — the caller routes the result through the ordered
+     * {@code WebviewEventQueue} via {@code callJavaScript("onUsageUpdate", ...)}
+     * so usage stays consistent with the snapshot that just entered the queue.
+     *
+     * @return JSON string for {@code onUsageUpdate}, or {@code null} if no usage
+     */
+    public static String buildUsageUpdateJson(
+            List<ClaudeSession.Message> messages,
+            HandlerContext handlerContext
+    ) {
+        if (messages == null || handlerContext == null) {
+            return null;
+        }
+        try {
+            LOG.debug("buildUsageUpdateJson called with " + messages.size() + " messages");
+
+            JsonObject lastUsage = TokenUsageUtils.findLastUsageFromSessionMessages(messages);
+            if (lastUsage == null) {
+                LOG.debug("No usage info found in messages");
+                return null;
+            }
+
+            String currentProvider = handlerContext.getCurrentProvider();
+            int usedTokens = TokenUsageUtils.extractUsedTokens(lastUsage, currentProvider);
+            int fallbackMaxTokens = handlerContext.getSession() != null
+                    ? handlerContext.getSession().getState().getEffectiveMaxTokens()
+                    : ModelProviderHandler.getModelContextLimit(handlerContext.getCurrentModel());
+            int maxTokens = TokenUsageUtils.extractMaxTokens(lastUsage, fallbackMaxTokens);
+
+            JsonObject usageUpdate = TokenUsageUtils.buildUsageUpdatePayload(lastUsage, currentProvider, maxTokens);
+            return GsonHolder.GSON.toJson(usageUpdate);
+        } catch (Exception e) {
+            LOG.warn("Failed to build usage update JSON: " + e.getMessage(), e);
+            return null;
+        }
+    }
 }

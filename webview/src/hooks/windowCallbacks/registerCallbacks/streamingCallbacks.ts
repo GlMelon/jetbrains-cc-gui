@@ -341,6 +341,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     window.__streamingDeltaRenderingFrame = undefined;
     // Record turn start time for duration calculation in onStreamEnd
     window.__turnStartedAt = Date.now();
+    window.__streamingDeltaRenderDeferred = false;
     streamingContentRef.current = '';
     streamingThinkingRef.current = '';
     isStreamingRef.current = true;
@@ -564,6 +565,17 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     false,
   );
 
+  // Resume deferred delta rendering after a pending structural snapshot has
+  // been applied. Deltas that arrived while the snapshot was pending are
+  // already accumulated in streamingContentRef/streamingThinkingRef; this
+  // just re-schedules the rAF to flush them.
+  window.__flushDeferredStreamingRenders = () => {
+    if (!window.__streamingDeltaRenderDeferred || !isStreamingRef.current) return;
+    window.__streamingDeltaRenderDeferred = false;
+    scheduleContentRaf();
+    scheduleThinkingRaf();
+  };
+
   const getActiveScopeState = () => {
     const scopeKey = getActiveStreamScopeKey();
     return scopeKey ? getOrCreateStreamScopeState(scopeKey) : null;
@@ -585,6 +597,13 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       scopeState.lastActivityAt = Date.now();
       markScopeActivity(getActiveStreamScopeKey());
     }
+    if (window.__pendingUpdateRaf != null || window.__pendingUpdateJson != null) {
+      // Let the pending structural snapshot establish the message identity first.
+      // The snapshot merge already consumes this buffer, so a second React update
+      // here would only race the authoritative structural update.
+      window.__streamingDeltaRenderDeferred = true;
+      return;
+    }
     scheduleContentRaf();
   });
 
@@ -601,6 +620,12 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     if (scopeState) {
       scopeState.lastActivityAt = Date.now();
       markScopeActivity(getActiveStreamScopeKey());
+    }
+    if (window.__pendingUpdateRaf != null || window.__pendingUpdateJson != null) {
+      // Same deferral as content deltas: wait for the pending structural
+      // snapshot to establish message identity before re-rendering.
+      window.__streamingDeltaRenderDeferred = true;
+      return;
     }
     scheduleThinkingRaf();
   });

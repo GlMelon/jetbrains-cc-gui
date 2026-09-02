@@ -4,6 +4,8 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.util.JsUtils;
 import com.github.claudecodegui.util.MessageJsonConverter;
 import com.github.claudecodegui.util.TokenUsageUtils;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
@@ -11,7 +13,12 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.util.Alarm;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongConsumer;
 
@@ -78,6 +85,26 @@ public class StreamMessageCoalescer implements Disposable {
     private volatile List<ClaudeSession.Message> lastDeliveredSnapshot = null;
     // usage 增量去重:流式期间重复推送相同 usage 的引用缓存(详见 sendToWebView 去重逻辑)。
     private volatile JsonObject lastPushedUsageRef = null;
+    // Structural signature of the last enqueued message list. When deltas carry
+    // the text (delta-capable providers), an unchanged structure means the
+    // snapshot push can be skipped entirely — no JSON serialization, no JCEF
+    // IPC, no React re-render of the full list.
+    private volatile String latestStructuralSignature = null;
+    // Monotonic epoch incremented on webview replacement. Snapshots serialized
+    // against a previous epoch are dropped before delivery so a stale batch
+    // never lands on a new browser instance.
+    private volatile long deliveryEpoch = 0L;
+    // The highest sequence actually pushed to the webview. Used to reject
+    // out-of-order snapshots that a cancelled alarm or a slow pooled thread
+    // might try to deliver after a newer snapshot has already gone out.
+    private volatile long lastPushedSequence = 0L;
+    // A message's structural signature depends only on its raw tree, and the
+    // streaming handler reassigns `raw` instead of mutating content blocks in
+    // place. An unchanged raw reference therefore yields the same signature, so
+    // cache by raw identity and recompute only for messages whose raw changed.
+    // Weak keys let entries for replaced raws be garbage-collected.
+    private final Map<JsonObject, String> structuralSignatureCache =
+            Collections.synchronizedMap(new WeakHashMap<>());
 
     /**
      * ApplicationManager's pooled executor is not a bounded executor. Keep at
@@ -172,6 +199,7 @@ public class StreamMessageCoalescer implements Disposable {
             List<ClaudeSession.Message> originalMessages,
             List<ClaudeSession.Message> messages,
             long sequence,
+            long deliveryEpoch,
             LongConsumer afterSendOnEdt,
             int tailBaseIndex,
             boolean tailUpdate,
@@ -203,6 +231,12 @@ public class StreamMessageCoalescer implements Disposable {
 
     /**
      * Enqueue a message update for coalesced delivery.
+     *
+     * <p>Delta-capable providers (claude/codex/grok) keep text flowing through
+     * the lightweight delta channel; snapshots remain for structure and final
+     * reconciliation. When the structural signature is unchanged and a delta
+     * channel is available, the snapshot push is skipped entirely — no JSON
+     * serialization, no JCEF IPC, no React re-render of the full list.</p>
      */
     public void enqueue(List<ClaudeSession.Message> messages) {
         if (messages == null || disposed || callbackTarget.isDisposed()) {
@@ -211,17 +245,33 @@ public class StreamMessageCoalescer implements Disposable {
         // Defensive copy: the caller's list may be mutated on another thread,
         // so we snapshot it here to guarantee a consistent read in sendToWebView.
         final List<ClaudeSession.Message> snapshot = List.copyOf(messages);
+        // Compute the structural signature outside the lock: it calls into
+        // the WeakHashMap cache and does JSON traversal. A stale read only
+        // schedules (or skips) one push that the stream-end flush reconciles.
+        String structuralSignature = getStructuralSignature(snapshot);
+        boolean deltaChannelAvailable = hasDeltaChannel();
+        boolean shouldSchedule;
+        boolean active;
         synchronized (lock) {
             if (disposed) {
                 return;
             }
             pendingMessages = snapshot;
+            boolean structuralChanged =
+                    !Objects.equals(latestStructuralSignature, structuralSignature);
+            latestStructuralSignature = structuralSignature;
+            active = streamActive;
+            // During active streaming with a delta channel, skip the snapshot
+            // push unless the structure changed. Text deltas are carried by
+            // onContentDelta; the snapshot would only re-serialize the same
+            // structure. When not streaming or no delta channel, always push.
+            shouldSchedule = !active || !deltaChannelAvailable || structuralChanged;
         }
-        schedulePush();
-        // Restart heartbeat timer: real data just arrived, so the next heartbeat
-        // should fire HEARTBEAT_INTERVAL_MS from now, not from the last heartbeat.
-        if (streamActive) {
+        if (active) {
             startHeartbeat();
+        }
+        if (shouldSchedule) {
+            schedulePush();
         }
     }
 
@@ -234,6 +284,7 @@ public class StreamMessageCoalescer implements Disposable {
                 return;
             }
             streamActive = true;
+            latestStructuralSignature = null;
         }
         startHeartbeat();
     }
@@ -266,28 +317,220 @@ public class StreamMessageCoalescer implements Disposable {
 
     /**
      * Reset stream state (e.g., on new session creation).
+     *
+     * @return the sequence barrier the frontend should reject snapshots below
      */
-    public void resetStreamState() {
+    public long resetStreamState() {
         updateAlarm.cancelAllRequests();
         heartbeatAlarm.cancelAllRequests();
         synchronized (lock) {
             if (disposed) {
-                return;
+                return lastPushedSequence;
             }
             streamActive = false;
             updateScheduled = false;
             pendingMessages = null;
             lastSnapshot = null;
             lastDeliveredSnapshot = null;
+            latestStructuralSignature = null;
             lastUpdateAtMs = 0L;
             lastPayloadChars = 0;
-            ++updateSequence;
+            lastPushedSequence = ++updateSequence;
+            deliveryEpoch++;
             lastPushedUsageRef = null;  // 新会话:旧 usage 引用缓存失效
+            return lastPushedSequence;
         }
     }
 
     public boolean isStreamActive() {
         return streamActive;
+    }
+
+    /**
+     * Forget the previous webview delivery baseline without discarding session state.
+     * Called on browser replacement so snapshots serialized against the previous
+     * webview (identified by epoch) are dropped before delivery.
+     */
+    public void resetDeliveryBaseline() {
+        synchronized (lock) {
+            deliveryEpoch++;
+            lastSnapshot = null;
+            lastDeliveredSnapshot = null;
+            lastPayloadChars = 0;
+        }
+    }
+
+    /**
+     * Return whether a snapshot is queued or currently being serialized.
+     *
+     * @return true when serialization work remains
+     */
+    public boolean isSnapshotBuildPending() {
+        synchronized (lock) {
+            return serializationInFlight || pendingSerialization != null;
+        }
+    }
+
+    /**
+     * Whether the current provider streams text via a delta channel
+     * (onContentDelta/onThinkingDelta). When true, full-snapshot pushes can be
+     * skipped while only text is changing — deltas carry the text and the
+     * snapshot would only re-serialize the same structure.
+     */
+    private boolean hasDeltaChannel() {
+        if (!streamActive) {
+            return false;
+        }
+        HandlerContext context = callbackTarget.getHandlerContext();
+        if (context == null) {
+            return false;
+        }
+        String provider = context.getCurrentProvider();
+        return "claude".equals(provider) || "codex".equals(provider) || "grok".equals(provider);
+    }
+
+    // ===== Structural signature (skip snapshot pushes when only text changed) =====
+
+    /**
+     * Compute a composite structural signature for the whole message list.
+     * Only non-text/non-thinking block types and their structural fields
+     * (tool_use id/name/input, tool_result tool_use_id/is_error/content,
+     * etc.) contribute; text/thinking content is excluded because deltas
+     * carry it.
+     */
+    private String getStructuralSignature(List<ClaudeSession.Message> messages) {
+        StringBuilder signature = new StringBuilder();
+        for (int i = 0; i < messages.size(); i++) {
+            ClaudeSession.Message message = messages.get(i);
+            signature.append(i)
+                    .append(':')
+                    .append(message.type)
+                    .append(':')
+                    .append(message.timestamp)
+                    .append(':')
+                    .append(getCachedMessageStructuralSignature(message))
+                    .append(';');
+        }
+        return signature.toString();
+    }
+
+    private String getCachedMessageStructuralSignature(ClaudeSession.Message message) {
+        JsonObject raw = message.raw;
+        if (raw == null) {
+            return "";
+        }
+        return structuralSignatureCache.computeIfAbsent(
+                raw, StreamMessageCoalescer::computeMessageStructuralSignature);
+    }
+
+    private static String computeMessageStructuralSignature(JsonObject raw) {
+        JsonArray blocks = findContentArray(raw);
+        if (blocks == null) {
+            return "";
+        }
+        StringBuilder signature = new StringBuilder();
+        for (JsonElement element : blocks) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject block = element.getAsJsonObject();
+            String type = block.has("type") && !block.get("type").isJsonNull()
+                    ? block.get("type").getAsString() : "";
+            if ("text".equals(type) || "thinking".equals(type)) {
+                signature.append(type).append('|');
+                continue;
+            }
+            signature.append(type).append(':');
+            if ("tool_use".equals(type)) {
+                appendFieldSignature(signature, block, "id");
+                appendFieldSignature(signature, block, "name");
+                appendElementSignature(signature, block, "input");
+            } else if ("tool_result".equals(type)) {
+                appendFieldSignature(signature, block, "tool_use_id");
+                appendFieldSignature(signature, block, "is_error");
+                appendElementSignature(signature, block, "content");
+            } else if ("attachment".equals(type)) {
+                appendFieldSignature(signature, block, "fileName");
+                appendFieldSignature(signature, block, "mediaType");
+            } else if ("image".equals(type)) {
+                appendElementSignature(signature, block, "src");
+                appendFieldSignature(signature, block, "mediaType");
+            } else {
+                appendValueSignature(signature, element.toString());
+            }
+            signature.append('|');
+        }
+        return signature.toString();
+    }
+
+    private static JsonArray findContentArray(JsonObject raw) {
+        if (raw == null) {
+            return null;
+        }
+        if (raw.has("content") && raw.get("content").isJsonArray()) {
+            return raw.getAsJsonArray("content");
+        }
+        if (raw.has("message") && raw.get("message").isJsonObject()) {
+            JsonObject message = raw.getAsJsonObject("message");
+            if (message.has("content") && message.get("content").isJsonArray()) {
+                return message.getAsJsonArray("content");
+            }
+        }
+        return null;
+    }
+
+    private static void appendFieldSignature(StringBuilder signature, JsonObject block, String fieldName) {
+        if (!block.has(fieldName) || block.get(fieldName).isJsonNull()) {
+            signature.append(fieldName).append("=;");
+            return;
+        }
+        signature.append(fieldName).append('=').append(block.get(fieldName)).append(';');
+    }
+
+    private static void appendElementSignature(StringBuilder signature, JsonObject block, String fieldName) {
+        if (!block.has(fieldName) || block.get(fieldName).isJsonNull()) {
+            signature.append(fieldName).append("=;");
+            return;
+        }
+        signature.append(fieldName).append('=');
+        appendValueSignature(signature, block.get(fieldName).toString());
+        signature.append(';');
+    }
+
+    /**
+     * Append a bounded signature for a serialized JSON value. Two independent
+     * hashes (Java string hash + FNV-1a) make a collision-driven missed
+     * structural change practically impossible; the stream-end full flush
+     * remains the final safety net.
+     */
+    private static void appendValueSignature(StringBuilder signature, String value) {
+        signature.append(value.length())
+                .append(':').append(value.hashCode())
+                .append(':').append(fnv1a(value));
+    }
+
+    private static int fnv1a(String value) {
+        int hash = 0x811c9dc5;
+        for (int i = 0; i < value.length(); i++) {
+            hash ^= value.charAt(i);
+            hash *= 0x01000193;
+        }
+        return hash;
+    }
+
+    /**
+     * Deep-copy messages for transport so the pooled serialization thread reads
+     * a stable snapshot immune to concurrent EDT mutations of the Gson raw tree.
+     */
+    static List<ClaudeSession.Message> copyMessagesForTransport(List<ClaudeSession.Message> messages) {
+        List<ClaudeSession.Message> copies = new ArrayList<>(messages.size());
+        for (ClaudeSession.Message message : messages) {
+            ClaudeSession.Message copy = new ClaudeSession.Message(message.type, message.content);
+            copy.timestamp = message.timestamp;
+            copy.raw = message.raw == null ? null : message.raw.deepCopy();
+            copies.add(copy);
+        }
+        return List.copyOf(copies);
     }
 
     /**
@@ -443,6 +686,9 @@ public class StreamMessageCoalescer implements Disposable {
             long sequence,
             LongConsumer afterSendOnEdt
     ) {
+        // Deep-copy raw trees so the pooled serialization thread reads a stable
+        // snapshot immune to concurrent EDT mutations of the Gson raw tree.
+        messages = copyMessagesForTransport(messages);
         // Keep the snapshot for potential re-flush after webview reload/recreate.
         // Only a snapshot actually delivered to the webview can prove that an
         // omitted prefix is stable enough for an indexed tail update.
@@ -458,6 +704,7 @@ public class StreamMessageCoalescer implements Disposable {
                     messages,
                     transport.messages(),
                     sequence,
+                    deliveryEpoch,
                     afterSendOnEdt,
                     transport.baseIndex(),
                     transport.tailUpdate(),
@@ -471,6 +718,7 @@ public class StreamMessageCoalescer implements Disposable {
                             request.originalMessages(),
                             request.messages(),
                             request.sequence(),
+                            request.deliveryEpoch(),
                             mergedCallback,
                             request.tailBaseIndex(),
                             request.tailUpdate(),
@@ -635,10 +883,19 @@ public class StreamMessageCoalescer implements Disposable {
                 return;
             }
 
+            final boolean staleSnapshot;
             synchronized (lock) {
-                if (disposed || request.sequence() != updateSequence) {
-                    return;
+                // Reject snapshots serialized against a previous webview epoch
+                // (browser replaced mid-flight) or superseded by a newer push.
+                staleSnapshot = disposed
+                        || request.deliveryEpoch() != deliveryEpoch
+                        || request.sequence() < lastPushedSequence;
+                if (!staleSnapshot) {
+                    lastPushedSequence = request.sequence();
                 }
+            }
+            if (staleSnapshot) {
+                return;
             }
 
             try {
@@ -656,19 +913,24 @@ public class StreamMessageCoalescer implements Disposable {
                     );
                 }
                 synchronized (lock) {
-                    if (!disposed && request.sequence() == updateSequence) {
+                    if (!disposed && request.deliveryEpoch() == deliveryEpoch) {
                         lastDeliveredSnapshot = request.originalMessages();
                     }
                 }
+                // Route usage through the ordered webview queue (not a direct
+                // executeJavaScript) so it stays consistent with the snapshot
+                // that just entered the queue. The queue's latest-only
+                // replacement for onUsageUpdate keeps only the most recent value.
                 JsonObject currentUsage = TokenUsageUtils.findLastUsageFromSessionMessages(request.originalMessages());
                 if (currentUsage != lastPushedUsageRef) {
                     lastPushedUsageRef = currentUsage;
-                    MessageJsonConverter.pushUsageUpdateFromMessages(
+                    String usageJson = MessageJsonConverter.buildUsageUpdateJson(
                             request.originalMessages(),
-                            callbackTarget.getHandlerContext(),
-                            callbackTarget.getBrowser(),
-                            callbackTarget.isDisposed()
-                    );
+                            callbackTarget.getHandlerContext());
+                    if (usageJson != null) {
+                        callbackTarget.callJavaScript(
+                                "onUsageUpdate", JsUtils.escapeJs(usageJson));
+                    }
                 }
             } catch (Exception e) {
                 LOG.warn("Failed to push updateMessages to webview (payload chars="
@@ -750,11 +1012,29 @@ public class StreamMessageCoalescer implements Disposable {
             return false;
         }
         for (int i = 0; i < prefixLength; i++) {
-            if (previousMessages.get(i) != messages.get(i)) {
+            if (!sameStableMessage(previousMessages.get(i), messages.get(i))) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Value-based message stability check for tail-update prefix validation.
+     * Deep-copied transport snapshots share no reference identity, so reference
+     * equality alone is insufficient. Compare type/timestamp/content and the
+     * structural signature of the raw tree — the fields that determine whether
+     * a previously-delivered prefix is still valid for an indexed tail update.
+     */
+    private static boolean sameStableMessage(ClaudeSession.Message previous,
+                                             ClaudeSession.Message current) {
+        return previous == current
+                || previous.type == current.type
+                && previous.timestamp == current.timestamp
+                && Objects.equals(previous.content, current.content)
+                && Objects.equals(
+                        computeMessageStructuralSignature(previous.raw),
+                        computeMessageStructuralSignature(current.raw));
     }
 
     // ===== Streaming heartbeat =====
