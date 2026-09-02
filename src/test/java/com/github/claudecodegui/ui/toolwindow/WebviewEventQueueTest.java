@@ -114,6 +114,55 @@ public class WebviewEventQueueTest {
         queue.dispose();
     }
 
+    @Test
+    public void dropsCallsWithUnescapedArgsInsteadOfPoisoningTheBatch() {
+        // Regression for the stuck-streaming bug: a pre-quoted arg like "'backend'"
+        // used to build window.__lastStreamEndSource(''backend'') — a parse-time
+        // SyntaxError that silently discarded the WHOLE batch script, including
+        // the onStreamEnd / showLoading(false) calls batched after it. The queue
+        // must drop the single offending call so the rest of the batch survives.
+        AtomicReference<Object> browser = new AtomicReference<>(new Object());
+        AtomicBoolean disposed = new AtomicBoolean();
+        List<Runnable> scheduled = new ArrayList<>();
+        List<String> scripts = new ArrayList<>();
+        WebviewEventQueue<Object> queue = newQueue(browser, disposed, scheduled, scripts);
+
+        queue.enqueue("__lastStreamEndSource", "'backend'");
+        queue.enqueue("onStreamEnd", "42");
+        queue.enqueue("showLoading", "false");
+
+        assertEquals(1, scheduled.size());
+        scheduled.remove(0).run();
+
+        assertEquals(1, scripts.size());
+        assertTrue(!scripts.get(0).contains("__lastStreamEndSource"));
+        assertTrue(scripts.get(0).contains("window.onStreamEnd('42')"));
+        assertTrue(scripts.get(0).contains("window.showLoading('false')"));
+        queue.dispose();
+    }
+
+    @Test
+    public void detectsUnescapedJsLiteralArgs() {
+        // Raw single quote / line terminators / trailing backslash cannot be
+        // embedded between single quotes and indicate an unescaped payload.
+        assertTrue(WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"it's raw"}));
+        assertTrue(WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"line\nbreak"}));
+        assertTrue(WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"cr\rbreak"}));
+        assertTrue(WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"endswith\\"}));
+        assertTrue(WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"sep\u2028erator"}));
+        assertTrue(WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"ok", "'bad'"}));
+
+        // escapeJs output never trips the guard: quotes/newlines are backslash
+        // escape pairs, and a backslash is always followed by more text. A raw
+        // tab is legal inside a JS string literal, so it is not fatal either.
+        assertTrue(!WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"escaped\\'quote"}));
+        assertTrue(!WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"escaped\\nnewline"}));
+        assertTrue(!WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"tab\there"}));
+        assertTrue(!WebviewEventQueue.containsUnescapedJsLiteral(new String[]{"42"}));
+        assertTrue(!WebviewEventQueue.containsUnescapedJsLiteral(new String[]{}));
+        assertTrue(!WebviewEventQueue.containsUnescapedJsLiteral(null));
+    }
+
     private static WebviewEventQueue<Object> newQueue(
             AtomicReference<Object> browser,
             AtomicBoolean disposed,

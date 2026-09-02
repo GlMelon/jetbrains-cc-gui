@@ -69,7 +69,18 @@ final class WebviewEventQueue<T> {
         if (browser == null) {
             return;
         }
-        enqueue(new JsCall<T>(browser, functionName, copyArgs(args), null));
+        String[] copiedArgs = copyArgs(args);
+        if (containsUnescapedJsLiteral(copiedArgs)) {
+            // Args are contractually pre-escaped (JsUtils.escapeJs). A fatal
+            // raw character (unescaped quote, line terminator) means the
+            // caller passed unescaped text, whose embedding would be a
+            // parse-time SyntaxError killing the WHOLE batch — including
+            // unrelated lifecycle calls like onStreamEnd batched after it.
+            // Drop the single offending call instead.
+            LOG.warn("Dropping webview call with unescaped argument(s): " + functionName);
+            return;
+        }
+        enqueue(new JsCall<T>(browser, functionName, copiedArgs, null));
     }
 
     void enqueueRaw(String script) {
@@ -359,6 +370,48 @@ final class WebviewEventQueue<T> {
 
     private static String[] copyArgs(String[] args) {
         return args == null ? new String[0] : args.clone();
+    }
+
+    /**
+     * Detect args that cannot be embedded between single quotes in
+     * {@link #buildBatchScript}: a raw {@code '} not consumed by a preceding
+     * backslash escape, a raw line terminator (LF / CR / U+2028 / U+2029), or a
+     * trailing lone backslash that would escape the closing quote. Correctly
+     * escapeJs-escaped args never contain any of these — escapeJs rewrites
+     * them all into backslash sequences — so a match always indicates an
+     * unescaped caller payload.
+     */
+    static boolean containsUnescapedJsLiteral(String[] args) {
+        if (args == null) {
+            return false;
+        }
+        for (String arg : args) {
+            if (arg == null || arg.isEmpty()) {
+                continue;
+            }
+            boolean escaped = false;
+            for (int i = 0; i < arg.length(); i++) {
+                char c = arg.charAt(i);
+                if (escaped) {
+                    // Consumed by the preceding backslash (e.g. \' or \\ from
+                    // escapeJs output) — any escaped char is embeddable.
+                    escaped = false;
+                    continue;
+                }
+                if (c == '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (c == '\'' || c == '\n' || c == '\r' || c == '\u2028' || c == '\u2029') {
+                    return true;
+                }
+            }
+            if (escaped) {
+                // Trailing lone backslash escapes the closing quote literal.
+                return true;
+            }
+        }
+        return false;
     }
 
     static final class JsCall<T> {
