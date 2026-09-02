@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelConfigSelect, SUBMENU_HOVER_DELAY_MS } from './ModelConfigSelect';
+import { __setModelRegistryForTests, resetModelRegistryForTests } from '../../../utils/modelRegistry';
 
 vi.mock('antd/es/switch', () => ({
   default: ({
@@ -30,7 +31,7 @@ vi.mock('react-i18next', () => ({
 }));
 
 const claudeModels = [
-  { id: 'claude-sonnet-5', label: 'Sonnet 5', description: 'Default' },
+  { id: 'claude-sonnet-5', label: 'Sonnet 5', description: 'Default', supports1MContext: true },
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5', description: 'Fast' },
 ];
 
@@ -40,6 +41,18 @@ const codexModels = [
 ];
 
 describe('ModelConfigSelect', () => {
+  // A2:claude 的 reasoning 可见性与档位以后端 registry 下发为准
+  // (getModelSupportedReasoningLevels);测试预置 registry 模拟下发。
+  // haiku 不下发 supportedReasoningLevels → 视为无 adaptive thinking,effort 行隐藏。
+  beforeEach(() => {
+    resetModelRegistryForTests();
+    __setModelRegistryForTests({
+      items: [
+        { id: 'claude-sonnet-5', provider: 'claude', role: 'sonnet', label: 'Sonnet 5', contextWindow: 1_000_000, supports1MContext: true, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high', 'xhigh', 'max'] },
+        { id: 'claude-haiku-4-5', provider: 'claude', role: 'haiku', label: 'Haiku 4.5', contextWindow: 200_000, supports1MContext: false, readOnly: false, enabled: true },
+      ],
+    });
+  });
   it('collapses model and effort into one summary trigger', () => {
     render(
       <ModelConfigSelect
@@ -55,7 +68,8 @@ describe('ModelConfigSelect', () => {
     );
 
     const trigger = screen.getByTestId('model-config-trigger');
-    expect(trigger.textContent).toContain('models.claude.sonnet5.label');
+    // A2/A3:label 来自模型条目自身(registry 下发),不再走 i18n role 键。
+    expect(trigger.textContent).toContain('Sonnet 5');
     expect(trigger.textContent).toContain('1M');
     expect(trigger.textContent).toContain('High');
     expect(screen.queryByTestId('model-config-dropdown')).toBeNull();
@@ -111,7 +125,9 @@ describe('ModelConfigSelect', () => {
     fireEvent.click(screen.getByTestId('model-config-trigger'));
     fireEvent.click(screen.getByTestId('model-option-claude-haiku-4-5'));
 
-    expect(onModelSelect).toHaveBeenCalledWith('claude-haiku-4-5');
+    // onModelSelect 传出完整 ModelInfo(identifier 保真,4324bc09 语义);
+    // inline 模式下(c2f4d83a)popover 保持打开。
+    expect(onModelSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'claude-haiku-4-5' }));
     expect(screen.getByTestId('model-config-dropdown')).toBeTruthy();
   });
 

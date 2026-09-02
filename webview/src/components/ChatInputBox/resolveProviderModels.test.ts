@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveProviderModels } from './resolveProviderModels';
-import { CODEX_MODELS, GROK_MODELS, CLAUDE_MODELS, OMP_MODELS } from './types';
+import { CODEX_MODELS, GROK_MODELS, OMP_MODELS } from './types';
 
 describe('resolveProviderModels', () => {
   it('uses dynamic Grok catalog when catalogHasEntries is true', () => {
@@ -41,7 +41,7 @@ describe('resolveProviderModels', () => {
     ]);
   });
 
-  it('merges real Codex catalog entries with customs and built-ins', () => {
+  it('merges real Codex catalog entries with customs', () => {
     const catalog = [{ id: 'kimi-k3', label: 'Kimi K3' }];
     const customs = [{ id: 'my-gpt', label: 'My GPT' }];
     const result = resolveProviderModels({
@@ -50,9 +50,8 @@ describe('resolveProviderModels', () => {
       cliCatalogHasEntries: true,
       codexCustomModels: customs,
     });
-    expect(result.map((m) => m.id)[0]).toBe('my-gpt');
-    expect(result.map((m) => m.id)).toContain('kimi-k3');
-    expect(result.map((m) => m.id)).toContain(CODEX_MODELS[0].id);
+    // A1:本地静态内建表已置空(registry 为权威来源),结果仅 customs + catalog。
+    expect(result.map((m) => m.id)).toEqual(['my-gpt', 'kimi-k3', ...CODEX_MODELS.map((m) => m.id)]);
   });
 
   it('returns cliModels for Kimi / OpenCode / PI', () => {
@@ -80,16 +79,17 @@ describe('resolveProviderModels', () => {
     ).toEqual(models);
   });
 
-  it('prepends OMP Auto and appends the catalog for OMP', () => {
+  it('appends the catalog for OMP (no static Auto locally)', () => {
     const catalog = [{ id: 'github-copilot/claude-fable-5', label: 'Claude Fable 5' }];
     const result = resolveProviderModels({
       provider: 'omp',
       cliModels: catalog,
       cliCatalogHasEntries: true,
     });
+    // A1:OMP_MODELS 静态表本地置空(registry 下发 auto 条目),结果仅 catalog。
     expect(result.map((m) => m.id)).toEqual([
-      'auto',
       'github-copilot/claude-fable-5',
+      ...OMP_MODELS.map((m) => m.id),
     ]);
   });
 
@@ -99,7 +99,8 @@ describe('resolveProviderModels', () => {
       cliModels: OMP_MODELS,
       cliCatalogHasEntries: false,
     });
-    expect(result.map((m) => m.id)).toEqual(['auto']);
+    // A1:OMP_MODELS 为空,合并去重(identifier ?? id)后仍为空。
+    expect(result.map((m) => m.id)).toEqual([]);
   });
 
   it('keeps model roles (smol/slow/plan) out of the OMP model list', () => {
@@ -115,14 +116,14 @@ describe('resolveProviderModels', () => {
     expect(result.some((m) => m.id === 'plan')).toBe(false);
   });
 
-  it('puts Claude customs first and keeps built-ins', () => {
+  it('puts Claude customs first (no static built-ins locally)', () => {
     const customs = [{ id: 'my-claude', label: 'My Claude' }];
     const result = resolveProviderModels({
       provider: 'claude',
       cliModels: [],
       claudeCustomModels: customs,
     });
-    expect(result[0]).toEqual(customs[0]);
-    expect(result.map((m) => m.id)).toContain(CLAUDE_MODELS[0].id);
+    // A1:CLAUDE_MODELS 静态表本地已删除(registry 为权威来源),结果仅 customs。
+    expect(result).toEqual(customs);
   });
 });
