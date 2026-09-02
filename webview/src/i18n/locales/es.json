@@ -92,8 +92,6 @@
     "localProject": "Local",
     "disabled": "Deshabilitado",
     "openSourceBanner": "Este proyecto garantiza ser 100% de código abierto y gratuito (cuidado con los proyectos pirateados)",
-    "openSourceBannerStar": "Star",
-    "openSourceBannerStarAria": "Abrir el repositorio en GitHub y dar una estrella",
     "commandNotImplemented": "La función `{{command}}` aún no está implementada.",
     "clearCommandDescription": "Borrar historial de conversación e iniciar nueva sesión",
     "helpCommandTitle": "Comandos disponibles",

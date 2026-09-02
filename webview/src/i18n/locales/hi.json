@@ -92,8 +92,6 @@
     "localProject": "स्थानीय",
     "disabled": "अक्षम",
     "openSourceBanner": "यह प्रोजेक्ट 100% ओपन सोर्स और मुफ़्त है (नकली प्रोजेक्ट से सावधान रहें)",
-    "openSourceBannerStar": "Star",
-    "openSourceBannerStarAria": "GitHub पर रिपॉजिटरी खोलें और स्टार करें",
     "commandNotImplemented": "`{{command}}` सुविधा अभी तक लागू नहीं की गई है।",
     "clearCommandDescription": "बातचीत इतिहास साफ़ करें और नया सत्र शुरू करें",
     "helpCommandTitle": "उपलब्ध कमांड",

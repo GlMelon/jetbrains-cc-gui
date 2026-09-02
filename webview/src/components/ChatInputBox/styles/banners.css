@@ -16,39 +16,6 @@
   flex: 1;
 }
 
-/* Star 按钮(changelog 对话框开源横幅,upstream f20958e3) */
-.open-source-banner .banner-star {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  flex-shrink: 0;
-  margin-left: var(--spacing-lg);
-  padding: 2px var(--spacing-sm);
-  background: var(--banner-info-bg);
-  border: 1px solid var(--banner-info-border);
-  border-radius: var(--radius-sm);
-  color: var(--banner-info-icon);
-  font-size: var(--font-size-sm);
-  line-height: 1.4;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all var(--dur-hover) var(--ease-smooth);
-}
-
-.open-source-banner .banner-star:hover {
-  border-color: var(--banner-info-icon);
-}
-
-.open-source-banner .banner-star .star-icon {
-  width: 12px;
-  height: 12px;
-  fill: currentColor;
-}
-
-.open-source-banner .banner-star-text {
-  font-weight: 500;
-}
-
 .open-source-banner .banner-close {
   background: none;
   border: none;
