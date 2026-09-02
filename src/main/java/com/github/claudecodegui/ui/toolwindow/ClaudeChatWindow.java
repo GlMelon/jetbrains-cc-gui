@@ -128,6 +128,15 @@ public class ClaudeChatWindow {
     private final StreamMessageCoalescer streamCoalescer;
 
     /**
+     * Ordered, bounded FIFO queue for Java→webview calls. Batches multiple JS
+     * calls into one {@code executeJavaScript}, coalesces consecutive deltas,
+     * replaces latest-only state, and invalidates pending work on browser
+     * replacement so stale events never reach a new webview instance.
+     * Migrated from upstream feature/v0.5.5 (285778ba + 95a36fa8).
+     */
+    private final WebviewEventQueue<JBCefBrowser> webviewEventQueue;
+
+    /**
      * disposed.
      */
     private volatile boolean disposed = false;
@@ -237,6 +246,11 @@ public class ClaudeChatWindow {
 
         this.mainPanel.setBackground(com.github.claudecodegui.util.ThemeConfigService.getBackgroundColor());
 
+        this.webviewEventQueue = new WebviewEventQueue<>(
+                () -> this.browser,
+                () -> this.disposed,
+                this::executeQueuedWebviewScript
+        );
         this.streamCoalescer = new StreamMessageCoalescer(new StreamMessageCoalescer.JsCallbackTarget() {
             @Override
             public void callJavaScript(String functionName, String... args) {
@@ -785,14 +799,25 @@ public class ClaudeChatWindow {
     }
 
     public void executeJavaScriptCode(String jsCode) {
-        if (this.disposed || this.browser == null) {
+        webviewEventQueue.enqueueRaw(jsCode);
+    }
+
+    /**
+     * Execute a batch script built by {@link WebviewEventQueue} on the target
+     * browser. Called from the queue's drain on the EDT. The browser identity
+     * check ensures a stale batch (enqueued before a webview replacement) is
+     * never executed on a new browser instance.
+     */
+    private void executeQueuedWebviewScript(JBCefBrowser targetBrowser, String jsCode) {
+        if (this.disposed || this.browser != targetBrowser) {
             return;
         }
-        ApplicationManager.getApplication().invokeLater(() -> {
-            if (!this.disposed && this.browser != null) {
-                this.browser.getCefBrowser().executeJavaScript(jsCode, this.browser.getCefBrowser().getURL(), 0);
-            }
-        });
+        try {
+            org.cef.browser.CefBrowser cefBrowser = targetBrowser.getCefBrowser();
+            cefBrowser.executeJavaScript(jsCode, cefBrowser.getURL(), 0);
+        } catch (Exception | LinkageError e) {
+            LOG.warn("Failed to execute queued webview JavaScript: " + e.getMessage(), e);
+        }
     }
 
     // ==================== JavaScript Bridge ====================
@@ -822,51 +847,11 @@ public class ClaudeChatWindow {
     }
 
     void callJavaScript(String functionName, String... args) {
-        if (disposed || browser == null) {
-            LOG.warn("Cannot call JS function " + functionName + ": disposed=" + disposed + ", browser=" + (browser == null ? "null" : "exists"));
-            return;
-        }
-
         if (functionName == null || !SAFE_JS_FUNCTION_NAME.matcher(functionName).matches()) {
             LOG.error("Invalid JavaScript function name rejected: " + functionName);
             return;
         }
-
-        ApplicationManager.getApplication().invokeLater(() -> {
-            if (disposed || browser == null) {
-                return;
-            }
-            try {
-                String callee = functionName;
-                if (!functionName.contains(".")) {
-                    callee = "window." + functionName;
-                }
-
-                StringBuilder argsJs = new StringBuilder();
-                if (args != null) {
-                    for (int i = 0; i < args.length; i++) {
-                        if (i > 0) { argsJs.append(", "); }
-                        String arg = args[i] == null ? "" : args[i];
-                        argsJs.append("'").append(arg).append("'");
-                    }
-                }
-
-                String checkAndCall =
-                        "(function() {" +
-                                "  try {" +
-                                "    if (typeof " + callee + " === 'function') {" +
-                                "      " + callee + "(" + argsJs + ");" +
-                                "    }" +
-                                "  } catch (e) {" +
-                                "    console.error('[Backend->Frontend] Failed to call " + functionName + ":', e);" +
-                                "  }" +
-                                "})();";
-
-                browser.getCefBrowser().executeJavaScript(checkAndCall, browser.getCefBrowser().getURL(), 0);
-            } catch (Exception e) {
-                LOG.warn("Failed to call JS function: " + functionName + ", error: " + e.getMessage(), e);
-            }
-        });
+        webviewEventQueue.enqueue(functionName, args);
     }
 
     void handleJavaScriptMessage(String message) {
@@ -1482,6 +1467,7 @@ public class ClaudeChatWindow {
         chatWindowDelegate.dispose();
         editorContextTracker.dispose();
         streamCoalescer.dispose();
+        webviewEventQueue.dispose();
         deferredReloadSafetyAlarm.cancelAllRequests();
         Disposer.dispose(safetyAlarmDisposable);
         if (sessionCallbackAdapter != null) {
@@ -1582,6 +1568,9 @@ public class ClaudeChatWindow {
             @Override
             public void setBrowser(JBCefBrowser b) {
                 browser = b;
+                // Invalidate queued events from the old browser so stale
+                // events never reach the new webview instance.
+                webviewEventQueue.browserChanged();
             }
 
             @Override
