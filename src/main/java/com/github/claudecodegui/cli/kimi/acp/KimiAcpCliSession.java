@@ -15,6 +15,7 @@ import com.github.claudecodegui.cli.common.CliPromptContexts;
 import com.github.claudecodegui.cli.common.CliProcessLifecycle;
 import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.mcp.McpGatewayConstants;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.session.SessionCapabilityChannel;
@@ -725,12 +726,32 @@ public class KimiAcpCliSession implements CliSession {
     }
 
     /**
-     * 构造 session/new 的 mcpServers 参数。阶段 3 接入(走 gateway stdio client);
-     * 本阶段返回空数组(占位)。
+     * 构造 session/new 的 mcpServers 参数:gateway 可用时注入一条 ACP http 条目
+     * {@code {name:"melon_gateway", type:"http", url, headers:[{name:"Authorization", value:"Bearer <token>"}]}}。
+     *
+     * <p>2026-09-03 实测 kimi 0.38.0:ACP initialize 声明 {@code mcpCapabilities.http=true},
+     * session/new 传 http 条目可发现并成功调用工具(此前"session/new mcpServers 不生效"的定论
+     * 只覆盖 stdio 形态)。token 取自 cfg.environment()(writer 经 tokenEnvironment 放入),
+     * 字面值随 stdin JSON-RPC 传递,不落盘、不进 argv。cfg 不可用 → 空数组(直连降级)。
      */
-    private JsonArray buildMcpServers(McpGatewayCliConfig cfg) {
-        // TODO 阶段3 MCP 注入:cfg.command() → [{name:melon_gateway, command, args, env:{}}]
-        return new JsonArray();
+    static JsonArray buildMcpServers(McpGatewayCliConfig cfg) {
+        JsonArray servers = new JsonArray();
+        if (cfg == null || !cfg.usable() || cfg.endpoint() == null || cfg.endpoint().isBlank()) {
+            return servers;
+        }
+        String token = cfg.environment().get(McpGatewayConstants.ENV_GATEWAY_TOKEN);
+        JsonObject server = new JsonObject();
+        server.addProperty(McpGatewayConstants.KEY_NAME, McpGatewayConstants.GATEWAY_SERVER_ID);
+        server.addProperty(McpGatewayConstants.KEY_TYPE, McpGatewayConstants.TRANSPORT_HTTP);
+        server.addProperty(McpGatewayConstants.KEY_URL, cfg.endpoint());
+        JsonArray headers = new JsonArray();
+        JsonObject auth = new JsonObject();
+        auth.addProperty(McpGatewayConstants.KEY_NAME, McpGatewayConstants.HEADER_AUTHORIZATION);
+        auth.addProperty(McpGatewayConstants.KEY_VALUE, "Bearer " + (token == null ? "" : token));
+        headers.add(auth);
+        server.add(McpGatewayConstants.KEY_HEADERS, headers);
+        servers.add(server);
+        return servers;
     }
 
     // ── 静态工具(单测直打) ─────────────────────────────────────────────────────
