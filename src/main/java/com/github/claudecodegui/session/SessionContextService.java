@@ -1,6 +1,7 @@
 package com.github.claudecodegui.session;
 
 import com.github.claudecodegui.common.CommonConstants;
+import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.service.RunConfigMonitorService;
 import com.github.claudecodegui.terminal.TerminalMonitorService;
 import com.github.claudecodegui.util.AttachmentResourceService;
@@ -93,7 +94,7 @@ public class SessionContextService {
         // 0. Workspace/Multi-project context (highest priority for project structure understanding)
         if (openedFilesJson != null && openedFilesJson.has("isWorkspace")
                 && openedFilesJson.get("isWorkspace").getAsBoolean()) {
-            sb.append("\n\n## Workspace Context\n\n");
+            sb.append(CliConstants.PROMPT_WORKSPACE_CONTEXT);
             sb.append("You are working in a multi-project workspace environment.\n\n");
 
             if (openedFilesJson.has("workspaceRoot")) {
@@ -139,7 +140,7 @@ public class SessionContextService {
             JsonArray modules = openedFilesJson.getAsJsonArray("modules");
             if (modules.size() > 1 && (!openedFilesJson.has("isWorkspace")
                     || !openedFilesJson.get("isWorkspace").getAsBoolean())) {
-                sb.append("\n\n## Project Modules\n\n");
+                sb.append(CliConstants.PROMPT_PROJECT_MODULES);
                 sb.append("This project contains multiple modules:\n");
                 for (int i = 0; i < modules.size(); i++) {
                     JsonObject mod = modules.get(i).getAsJsonObject();
@@ -165,7 +166,7 @@ public class SessionContextService {
         }
 
         if (!terminalPaths.isEmpty()) {
-            sb.append("\n\n## Active Terminal Session\n\n");
+            sb.append(CliConstants.PROMPT_ACTIVE_TERMINAL);
             sb.append("The user is working in the following terminal context:\n\n");
             for (String terminalPath : terminalPaths) {
                 String sessionName = terminalPath.substring(CommonConstants.TERMINAL_PROTOCOL.length());
@@ -176,7 +177,7 @@ public class SessionContextService {
         }
 
         if (!regularFilePaths.isEmpty()) {
-            sb.append("\n\n## Referenced Files\n\n");
+            sb.append(CliConstants.PROMPT_REFERENCED);
             sb.append("The following files were referenced by the user:\n\n");
 
             // 并行读取引用文件:readFileContent 是纯磁盘 IO(Files.readString / FileInputStream,
@@ -236,7 +237,7 @@ public class SessionContextService {
             }
 
             if (selectedText != null && !selectedText.trim().isEmpty()) {
-                sb.append("\n\n## IDE Context\n\n");
+                sb.append(CliConstants.PROMPT_IDE_CONTEXT);
                 if (activeFile != null && !activeFile.trim().isEmpty()) {
                     sb.append("Active file: `").append(activeFile);
                     if (startLine != null && endLine != null) {
@@ -257,7 +258,7 @@ public class SessionContextService {
                 String fileContent = readFileContent(activeFile);
                 if (fileContent != null) {
                     String extension = getFileExtension(activeFile);
-                    sb.append("\n\n## User's Current IDE Context\n\n");
+                    sb.append(CliConstants.PROMPT_USER_IDE_CONTEXT);
                     sb.append("The user is viewing this file in their IDE. This is the PRIMARY SUBJECT of the user's question.\n\n");
                     sb.append("### `").append(activeFile).append("`\n\n");
                     sb.append("```").append(extension).append("\n");
