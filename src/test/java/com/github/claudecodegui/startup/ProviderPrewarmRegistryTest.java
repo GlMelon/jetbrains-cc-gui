@@ -60,8 +60,12 @@ public class ProviderPrewarmRegistryTest {
     public void explicitArchitectureDifferencesAreEncodedInPolicies() {
         ProviderPrewarmRegistry registry = ProviderPrewarmRegistry.defaultRegistry();
 
+        // CLAUDE was upgraded from an explicit no-prewarm placeholder to a real
+        // resolver probe (7bc6a08d "prewarm all provider channels"); it owns an
+        // executable+version probe, never a channel probe.
         ProviderPrewarmPolicy claude = registry.strategy(ProviderType.CLAUDE).policy();
-        assertFalse(claude.executableProbe());
+        assertTrue(claude.executableProbe());
+        assertFalse(claude.channelProbe());
         assertEquals(PrewarmFallback.RETRY_ON_FIRST_USE, claude.fallback());
 
         ProviderPrewarmPolicy omp = registry.strategy(ProviderType.OMP).policy();
@@ -78,17 +82,23 @@ public class ProviderPrewarmRegistryTest {
 
     @Test
     public void resolverFailuresRemainRetryableInsteadOfBeingCached() throws Exception {
-        String commonResolver = Files.readString(Path.of(
-                "src/main/java/com/github/claudecodegui/cli/common/ProviderCliResolver.java"),
-                StandardCharsets.UTF_8);
-        String codexResolver = Files.readString(Path.of(
-                "src/main/java/com/github/claudecodegui/session/runtime/CodexCliResolver.java"),
-                StandardCharsets.UTF_8);
+        // Normalize line endings: the repo mixes LF (index) and CRLF (worktree
+        // on Windows with autocrlf) files, and Files.readString does not
+        // normalize — raw multi-line contains() would fail on CRLF machines.
+        String commonResolver = readSourceNormalized(
+                "src/main/java/com/github/claudecodegui/cli/common/ProviderCliResolver.java");
+        String codexResolver = readSourceNormalized(
+                "src/main/java/com/github/claudecodegui/session/runtime/CodexCliResolver.java");
 
         assertTrue(commonResolver.contains("if (result != null) {\n                CACHED_EXECUTABLES.put(type, result);\n                return result;"));
         assertTrue(commonResolver.contains("return type.cliCommandForPlatform();"));
         assertTrue(codexResolver.contains("if (result != null) {\n                cachedExecutable = result;\n                return result;"));
         assertTrue(codexResolver.contains("return ProviderType.CODEX.cliCommandForPlatform();"));
+    }
+
+    private static String readSourceNormalized(String path) throws Exception {
+        return Files.readString(Path.of(path), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n");
     }
 
     @Test
