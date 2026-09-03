@@ -41,19 +41,21 @@ export class HttpMcpClient {
   /**
    * @param {string} name
    * @param {Record<string, unknown> | null | undefined} args
+   * @param {AbortSignal} [signal] 取消信号(gateway 侧客户端断开透传)
    */
-  async callTool(name, args) {
+  async callTool(name, args, signal) {
     return this.request('tools/call', { name, arguments: args ?? {} },
-      this.requestTimeoutMs ?? HttpMcpClient.CALL_TOOL_TIMEOUT_MS);
+      this.requestTimeoutMs ?? HttpMcpClient.CALL_TOOL_TIMEOUT_MS, signal);
   }
 
   /**
    * @param {string} method JSON-RPC method
    * @param {Record<string, unknown>} params JSON-RPC params
    * @param {number} [timeoutMs] 可选单次超时覆盖
+   * @param {AbortSignal} [signal] 取消信号(abort 时中止 fetch,报 cancelled 而非 timeout)
    * @returns {Promise<unknown>} JSON-RPC result 字段
    */
-  async request(method, params, timeoutMs) {
+  async request(method, params, timeoutMs, signal) {
     const url = this.config.url;
     if (!url) throw new Error(`Missing HTTP MCP url for ${this.spec.serverId}`);
     const timeout = timeoutMs ?? this.requestTimeoutMs ?? HttpMcpClient.DEFAULT_REQUEST_TIMEOUT_MS;
@@ -65,6 +67,13 @@ export class HttpMcpClient {
     }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
+    // 取消传播:外部 signal(CLI 会话中断经 gateway HTTP 断开透传)abort 时联动本请求 controller
+    const onExternalAbort = () => controller.abort();
+    if (signal?.aborted) {
+      clearTimeout(timer);
+      throw new Error(`HTTP MCP request cancelled: ${method} (${this.spec.serverId})`);
+    }
+    signal?.addEventListener('abort', onExternalAbort, { once: true });
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -81,6 +90,10 @@ export class HttpMcpClient {
       }
       return message.result;
     } catch (e) {
+      // 外部取消(gateway 侧客户端断开)优先于超时判定:报 cancelled 而非 timeout
+      if (signal?.aborted) {
+        throw new Error(`HTTP MCP request cancelled: ${method} (${this.spec.serverId})`);
+      }
       // AbortController 超时:不同运行时抛 AbortError/DOMException,统一转超时错误
       const errName = e instanceof Error ? e.name : '';
       if (controller.signal.aborted || errName === 'AbortError') {
@@ -89,6 +102,7 @@ export class HttpMcpClient {
       throw e;
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onExternalAbort);
     }
   }
 

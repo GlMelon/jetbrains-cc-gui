@@ -172,16 +172,17 @@ export class ServerSupervisor {
    *
    * @param {string} toolName gateway 工具名
    * @param {unknown} args     工具入参
+   * @param {AbortSignal} [signal] 取消信号(CLI 会话中断经 gateway HTTP 断开透传而来)
    * @returns {Promise<unknown>}
    */
-  async callTool(toolName, args) {
+  async callTool(toolName, args, signal) {
     if (!this.client) {
       await this.refresh();
     }
     if (!this.client) {
       throw new Error(`MCP server not ready: ${this.key}`);
     }
-    return this.client.callTool(this.routeNames.get(toolName) ?? toolName, /** @type {Record<string, unknown>} */ (args));
+    return this.client.callTool(this.routeNames.get(toolName) ?? toolName, /** @type {Record<string, unknown>} */ (args), signal);
   }
 
   /**

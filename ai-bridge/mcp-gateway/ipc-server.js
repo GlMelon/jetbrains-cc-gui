@@ -133,7 +133,22 @@ export class IpcServer {
         // ToolRouter 构造期望 Map<string, SupervisorLike>(仅 callTool);supervisors 含 stop/refresh/configHash,
         // 受 Map 不变性限制无法直接赋值,结构上含 callTool,强转安全。
         const router = new ToolRouter(/** @type {any} */ (this.supervisors));
-        const result = await router.call(body.name, body.arguments ?? {}, body.revision);
+        // 取消传播(总则六确定性取消):CLI 会话被 interrupt → stdio 桥进程死/stdin 关 → 本 socket
+        // 断开。res 'close' 且 writableEnded=false 即客户端中途断开;abort 经 ToolRouter→supervisor
+        // 透传到真实 server(stdio 侧发 notifications/cancelled),慢工具不再在 gateway 里空跑满
+        // 内腿 CALL_TOOL_TIMEOUT_MS(55s)。
+        const controller = new AbortController();
+        const onPrematureClose = () => {
+          if (!res.writableEnded) controller.abort();
+        };
+        res.on('close', onPrematureClose);
+        /** @type {unknown} */
+        let result;
+        try {
+          result = await router.call(body.name, body.arguments ?? {}, body.revision, controller.signal);
+        } finally {
+          res.removeListener('close', onPrematureClose);
+        }
         this.write(res, 200, result);
         return;
       }
@@ -146,7 +161,11 @@ export class IpcServer {
       }
       this.write(res, 404, { error: 'not found' });
     } catch (error) {
-      this.write(res, 500, { error: error instanceof Error ? error.message : String(error) });
+      // 客户端中途断开(取消传播路径)时 socket 已销毁,回写 500 会抛 write-after-end;
+      // 仅在连接仍存活时回写错误响应。
+      if (!res.destroyed && !res.writableEnded) {
+        this.write(res, 500, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
   }
 

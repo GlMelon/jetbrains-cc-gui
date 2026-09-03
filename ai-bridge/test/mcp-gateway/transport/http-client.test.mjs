@@ -41,3 +41,44 @@ test('request resolves when fetch responds before timeout', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+// 取消传播(总则六):gateway 侧客户端断开 → 外部 AbortSignal abort → fetch 中止,
+// 报 cancelled 而非 timeout(与超时路径区分,便于上层识别取消语义)。
+
+test('request rejects with cancelled (not timeout) when external signal aborts mid-flight', async () => {
+  const client = new HttpMcpClient({ serverId: 'slow', config: { url: 'http://localhost/x' } });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (_url, options) => new Promise((_resolve, reject) => {
+    const signal = options?.signal;
+    if (!signal) return;
+    if (signal.aborted) {
+      reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+      return;
+    }
+    signal.addEventListener('abort',
+      () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+  });
+  try {
+    const controller = new AbortController();
+    const pending = client.request('tools/call', { name: 'slow_tool' }, 60_000, controller.signal);
+    setImmediate(() => controller.abort());
+    await assert.rejects(pending, /cancelled/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('request with pre-aborted signal rejects immediately without calling fetch', async () => {
+  const client = new HttpMcpClient({ serverId: 'pre', config: { url: 'http://localhost/x' } });
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = 0;
+  globalThis.fetch = async () => { fetchCalled += 1; return { ok: true, json: async () => ({}) }; };
+  try {
+    const controller = new AbortController();
+    controller.abort();
+    await assert.rejects(client.request('tools/call', { name: 'x' }, 1000, controller.signal), /cancelled/i);
+    assert.equal(fetchCalled, 0, '已中止的请求不应发 fetch');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

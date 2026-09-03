@@ -48,7 +48,7 @@ export function parseGatewayToolName(name) {
 
 /**
  * ToolRouter 依赖的 supervisor 最小接口(只用到 callTool 转发)。
- * @typedef {{ callTool: (name: string, args: unknown, revision: unknown) => Promise<unknown> }} SupervisorLike
+ * @typedef {{ callTool: (name: string, args: unknown, signal?: AbortSignal) => Promise<unknown> }} SupervisorLike
  */
 
 /**
@@ -66,10 +66,11 @@ export class ToolRouter {
   /**
    * @param {string} name gateway 工具名
    * @param {unknown} args 工具入参
-   * @param {unknown} revision 版本号(透传给 supervisor)
+   * @param {unknown} revision 版本号(当前仅作簿记透传,不再下发给 supervisor)
+   * @param {AbortSignal} [signal] 取消信号(客户端中途断开时由 ipc-server abort)
    * @returns {Promise<unknown>}
    */
-  async call(name, args, revision) {
+  async call(name, args, revision, signal) {
     const route = parseGatewayToolName(name);
     if (!route) {
       throw new Error(`Unknown gateway tool: ${name}`);
@@ -79,7 +80,7 @@ export class ToolRouter {
     if (!supervisor) {
       throw new Error(`MCP server unavailable: ${key}`);
     }
-    return supervisor.callTool(name, args ?? {}, revision);
+    return supervisor.callTool(name, args ?? {}, signal);
   }
 }
 

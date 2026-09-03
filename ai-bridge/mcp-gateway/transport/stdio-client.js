@@ -112,20 +112,25 @@ export class StdioMcpClient {
   /**
    * @param {string} name
    * @param {Record<string, unknown> | null | undefined} args
+   * @param {AbortSignal} [signal] 取消信号(abort 时向 server 发 notifications/cancelled)
    */
-  async callTool(name, args) {
+  async callTool(name, args, signal) {
     return this.request('tools/call', { name, arguments: args ?? {} },
-      this.requestTimeoutMs ?? StdioMcpClient.CALL_TOOL_TIMEOUT_MS);
+      this.requestTimeoutMs ?? StdioMcpClient.CALL_TOOL_TIMEOUT_MS, signal);
   }
 
   /**
    * @param {string} method JSON-RPC method
    * @param {Record<string, unknown>} params JSON-RPC params
    * @param {number} [timeoutMs] 可选单次超时覆盖
+   * @param {AbortSignal} [signal] 取消信号(gateway 侧客户端断开透传)
    * @returns {Promise<unknown>} JSON-RPC result 字段
    */
-  async request(method, params, timeoutMs) {
+  async request(method, params, timeoutMs, signal) {
     // spawn 已失败(ENOENT 等)则立即拒绝,不再往一个没启动的进程 stdin 写请求、干等到超时。
+    if (signal?.aborted) {
+      throw new Error(`MCP request cancelled before send: ${method} (${this.spec.serverId})`);
+    }
     if (this.errored) {
       throw this.errored;
     }
@@ -141,8 +146,29 @@ export class StdioMcpClient {
       this.pending.set(id, { resolve, reject, timer });
     });
     const stdin = /** @type {import('node:stream').Writable} */ (this.process.stdin);
-    writeMessage(stdin, { jsonrpc: '2.0', id, method, params });
-    return promise;
+    // 取消传播(总则六):abort 时 reject pending 并向 server 发 notifications/cancelled(MCP spec),
+    // 让真实 server 侧的慢工具确定性停止,而非在 gateway 里空跑满 CALL_TOOL_TIMEOUT_MS。
+    const onAbort = () => {
+      const entry = this.pending.get(id);
+      if (!entry) return;
+      clearTimeout(entry.timer);
+      this.pending.delete(id);
+      try {
+        writeMessage(stdin, {
+          jsonrpc: '2.0',
+          method: 'notifications/cancelled',
+          params: { requestId: id, reason: 'gateway client disconnected' },
+        });
+      } catch {}
+      entry.reject(new Error(`MCP request cancelled: ${method} (${this.spec.serverId})`));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+    try {
+      writeMessage(stdin, { jsonrpc: '2.0', id, method, params });
+      return await promise;
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
+    }
   }
 
   /** @param {any} message 收到的 JSON-RPC 消息(FramedReader 解析产物) */

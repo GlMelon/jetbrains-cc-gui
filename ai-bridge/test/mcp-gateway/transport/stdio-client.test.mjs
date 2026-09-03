@@ -173,3 +173,45 @@ test('close is idempotent, rejects pending requests, and waits for child exit', 
   assert.equal(kills, 1, '子进程树只终止一次');
   assert.equal(client.pending.size, 0);
 });
+
+// 取消传播(总则六):gateway 侧客户端断开 → AbortSignal abort → pending 立即 reject 并向
+// server 发 notifications/cancelled(MCP spec),慢工具确定性停止而非跑满 CALL_TOOL_TIMEOUT_MS。
+
+test('aborting the signal rejects the pending request and sends notifications/cancelled', async () => {
+  const written = [];
+  const fakeProcess = createFakeProcess();
+  fakeProcess.stdin.write = (chunk) => { written.push(chunk.toString('utf8')); return true; };
+  const client = new StdioMcpClient(
+    { serverId: 'slow', sourceProvider: 'claude', config: { command: 'fake', args: [] } },
+    { spawnFn: () => fakeProcess },
+  );
+  const controller = new AbortController();
+  const pending = client.request('tools/call', { name: 'slow_tool' }, 60_000, controller.signal);
+  setImmediate(() => controller.abort());
+  await assert.rejects(pending, /cancelled/i);
+  const frames = written.join('').trim().split('\n').map((line) => JSON.parse(line));
+  const request = frames.find((frame) => frame.method === 'tools/call');
+  const cancelled = frames.find((frame) => frame.method === 'notifications/cancelled');
+  assert.ok(cancelled, 'abort 必须向 server 发 notifications/cancelled');
+  assert.equal(cancelled.params.requestId, request.id, 'cancelled 的 requestId 必须指向被中止的请求');
+  assert.equal(client.pending.size, 0, 'pending 必须被清理');
+  client.close();
+});
+
+test('pre-aborted signal rejects immediately without writing any frame', async () => {
+  const written = [];
+  const fakeProcess = createFakeProcess();
+  fakeProcess.stdin.write = (chunk) => { written.push(chunk.toString('utf8')); return true; };
+  const client = new StdioMcpClient(
+    { serverId: 'pre', sourceProvider: 'claude', config: { command: 'fake', args: [] } },
+    { spawnFn: () => fakeProcess },
+  );
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    client.request('tools/call', { name: 'x' }, 1000, controller.signal),
+    /cancelled/i,
+  );
+  assert.equal(written.length, 0, '已中止的请求不应再写任何帧');
+  client.close();
+});
