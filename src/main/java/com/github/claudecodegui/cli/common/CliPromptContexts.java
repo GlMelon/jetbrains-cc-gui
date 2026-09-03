@@ -19,6 +19,10 @@ public final class CliPromptContexts {
     /**
      * 剥离注入上下文:取最早出现的注入标记之前的部分。无标记时原样返回;
      * 标记前为空白(极端:整条都是注入)时返回原文,避免清空。
+     *
+     * <p>标记取 {@code strip()} 后的段落头(不含换行),因此同时命中原文多行形态与
+     * 上游 CLI 把换行折叠成空格的标题形态(如 kimi 原生 title=lastPrompt 首行,
+     * 实测 "你好 ## Project Modules This project contains multiple modules…")。
      */
     public static String stripInjectedContext(String text) {
         if (text == null || text.isEmpty()) {
@@ -28,7 +32,12 @@ public final class CliPromptContexts {
         for (String marker : new String[]{
                 CliConstants.PROMPT_OPENED_FILES.strip(),
                 CliConstants.PROMPT_REFERENCED.strip(),
-                CliConstants.PROMPT_AGENT_ROLE.strip()}) {
+                CliConstants.PROMPT_AGENT_ROLE.strip(),
+                CliConstants.PROMPT_WORKSPACE_CONTEXT.strip(),
+                CliConstants.PROMPT_PROJECT_MODULES.strip(),
+                CliConstants.PROMPT_ACTIVE_TERMINAL.strip(),
+                CliConstants.PROMPT_IDE_CONTEXT.strip(),
+                CliConstants.PROMPT_USER_IDE_CONTEXT.strip()}) {
             int i = text.indexOf(marker);
             if (i >= 0 && (cut < 0 || i < cut)) {
                 cut = i;

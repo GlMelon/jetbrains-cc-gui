@@ -447,6 +447,14 @@ public final class CliConstants {
     public static final String PROMPT_OPENED_FILES = "\n\n## Opened Files Context\n\n";
     public static final String PROMPT_REFERENCED = "\n\n## Referenced Files\n\n";
     public static final String PROMPT_AGENT_ROLE = "\n\n## Agent Role and Instructions\n\n";
+    // SessionContextService.buildCodexContextAppend 注入的段落头(provider 中性上下文,
+    // 全 provider 共用)。上游 CLI 把 prompt 落为标题/历史时随之污染,展示侧经
+    // CliPromptContexts.stripInjectedContext 统一剥除。
+    public static final String PROMPT_WORKSPACE_CONTEXT = "\n\n## Workspace Context\n\n";
+    public static final String PROMPT_PROJECT_MODULES = "\n\n## Project Modules\n\n";
+    public static final String PROMPT_ACTIVE_TERMINAL = "\n\n## Active Terminal Session\n\n";
+    public static final String PROMPT_IDE_CONTEXT = "\n\n## IDE Context\n\n";
+    public static final String PROMPT_USER_IDE_CONTEXT = "\n\n## User's Current IDE Context\n\n";
     public static final String PROMPT_READ_IMAGE = "Use the Read tool to inspect this image file";
 
     // ── 正常流式 JSON 事件前缀（用于 CliErrorFormatter 过滤） ───────────────────
