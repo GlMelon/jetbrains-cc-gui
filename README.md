@@ -85,14 +85,14 @@ The project adopts a **three-layer runtime architecture**:
 |---|---|---|
 | Frontend → Backend (upstream) | `window.sendToJava({type, content})` | `UpstreamAction` enum, dispatched via `FrontendActionHandler<T>` |
 | Backend → Frontend (downstream) | `window.__bridge.dispatch(type, payload)` | `DownstreamEvent` enum constants |
-| Java ↔ ai-bridge | stdin/stdout NDJSON lines | `BaseSDKBridge.executeStreamingCommand` → `channel-manager.js` |
+| Java ↔ ai-bridge | stdin/stdout NDJSON lines | `CliSessionFactory` → `channel-manager.js` |
 
 ### Design Principles
 
 - **Separation of concerns**: Frontend renders; backend owns all business logic (highest priority).
 - **Single Source of Truth (SSOT)**: Protocol message names, payload structures, and enum values are generated from Java enums to frontend TypeScript types via a `prebuild` hook — no hand-written string literals on either side.
 - **Open-Closed Principle**: New capabilities are added via strategy registry + adapter interfaces (`FrontendActionHandler<T>`, `ProviderAdapter`, `SessionRuntime`), not by modifying dispatcher core logic.
-- **Provider symmetry**: All 3 AI providers (Claude, Codex, OpenCode) × 2 invocation modes (SDK daemon, CLI subprocess) = 6 call paths share equivalent cross-cutting logic (env injection, interrupt/abort, cwd fallback, etc.).
+- **Provider symmetry**: All 8 AI providers (Claude, Codex, OpenCode, Grok, Kimi, Pi, OMP, DeepSeek Harness) run through a single CLI subprocess path (partly with long-lived process reuse) and share equivalent cross-cutting logic (env injection, interrupt/abort, cwd fallback, etc.).
 
 For detailed architecture guidelines, see [AGENTS.md](AGENTS.md).
 
@@ -140,7 +140,7 @@ npm install
 ```bash
 ./gradlew clean runIde
 ```
-3
+
 ### 5. Build Plugin
 
 ```sh

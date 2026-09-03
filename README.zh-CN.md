@@ -90,14 +90,14 @@
 |---|---|---|
 | 前端 → 后端（上行） | `window.sendToJava({type, content})` | `UpstreamAction` 枚举，经 `FrontendActionHandler<T>` 派发 |
 | 后端 → 前端（下行） | `window.__bridge.dispatch(type, payload)` | `DownstreamEvent` 枚举常量 |
-| Java ↔ ai-bridge | stdin/stdout NDJSON 行协议 | `BaseSDKBridge.executeStreamingCommand` → `channel-manager.js` |
+| Java ↔ ai-bridge | stdin/stdout NDJSON 行协议 | `CliSessionFactory` → `channel-manager.js` |
 
 ### 设计原则
 
 - **前后端职责分离**：前端只做渲染，后端统一处理所有业务逻辑（最高优先级）。
 - **单一真相源 (SSOT)**：协议消息名、payload 结构、枚举值由 Java 枚举通过 `prebuild` 钩子自动生成前端 TypeScript 类型，两端不手写字符串字面量。
 - **开闭原则**：通过策略注册表 + Adapter 接口（`FrontendActionHandler<T>`、`ProviderAdapter`、`SessionRuntime`）扩展能力，不改核心分派逻辑。
-- **Provider 对称性**：3 个 AI provider（Claude、Codex、OpenCode）× 2 种调用模式（SDK daemon、CLI 子进程）= 6 条调用路径共享等价的横切处理逻辑。
+- **Provider 对称性**：8 个 AI provider（Claude、Codex、OpenCode、Grok、Kimi、Pi、OMP、DeepSeek Harness）统一走 CLI 子进程单一路径（部分长驻复用），共享等价的横切处理逻辑（env 注入、interrupt/取消、cwd 回退等）。
 
 详细架构规范请参见 [AGENTS.md](AGENTS.md)。
 
