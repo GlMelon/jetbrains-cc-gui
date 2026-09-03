@@ -39,6 +39,8 @@ export class StdioMcpClient {
   /** @type {import('node:child_process').ChildProcess} */ process;
   /** @type {FramedReader} */ reader;
   /** @type {Promise<void> | null} */ closePromise;
+  /** server 推送 notifications/tools/list_changed 时的回调(由 ServerSupervisor 注入,标脏工具缓存)。 @type {(() => void) | null} */
+  onToolsListChanged;
 
   /**
    * @param {StdioMcpSpec} spec server 规格
@@ -52,6 +54,7 @@ export class StdioMcpClient {
     // 不再发请求。配合下面的 process.on('error') 避免 EventEmitter 无监听器 throw 成 uncaught
     // 杀掉整个 gateway 进程(单个坏 MCP 不应波及 gateway,见 plan §10 故障隔离)。
     this.errored = null;
+    this.onToolsListChanged = null;
     const config = spec.config ?? {};
     this.requestTimeoutMs = typeof config.request_timeout_ms === 'number'
       ? config.request_timeout_ms
@@ -173,7 +176,16 @@ export class StdioMcpClient {
 
   /** @param {any} message 收到的 JSON-RPC 消息(FramedReader 解析产物) */
   onMessage(message) {
-    if (!message || message.id === undefined) return;
+    if (!message) return;
+    if (message.id === undefined) {
+      // 无 id = notification;tools/list_changed 表示 server 工具集已变,通知 supervisor 标脏缓存
+      if (message.method === 'notifications/tools/list_changed') {
+        try {
+          this.onToolsListChanged?.();
+        } catch {}
+      }
+      return;
+    }
     const pending = this.pending.get(message.id);
     if (!pending) return;
     clearTimeout(pending.timer);

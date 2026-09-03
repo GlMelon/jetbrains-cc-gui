@@ -179,6 +179,8 @@ export class IpcServer {
     this.latestRevision = Math.max(this.latestRevision, revision);
     /** @type {Map<string, ServerSpecLike>} */
     const desired = new Map();
+    /** @type {Set<string>} 本次新建/替换的 supervisor key:必须 refresh 建立初始工具列表 */
+    const created = new Set();
     for (const spec of snapshot.servers ?? []) {
       if (!spec.enabled) continue;
       const key = `${spec.sourceProvider}:${spec.serverId}`;
@@ -191,6 +193,7 @@ export class IpcServer {
         const supervisor = new ServerSupervisor(spec, this.healthStore);
         supervisor.configHash = nextHash;
         this.supervisors.set(key, supervisor);
+        created.add(key);
       }
     }
     for (const key of [...this.supervisors.keys()]) {
@@ -200,7 +203,23 @@ export class IpcServer {
         this.healthStore.remove(key);
       }
     }
-    const refreshes = [...this.supervisors.values()].map((supervisor) => supervisor.refresh());
+    // 选择性刷新(性能修复):此前每次 snapshot 对全部 supervisor 无差别 refresh()——即使配置
+    // 未变且健康,也会对每个 server 重跑 listTools(http 型 server 是真实网络往返),全部阻塞
+    // POST /snapshot 响应,拉长 Java 侧 postMs、挤压 buildCliConfig 的 2s 发送预算。现在只刷:
+    //   ① 本次新建/替换(configHash 变化)的 supervisor——必须建立初始工具列表;
+    //   ② 不健康的(上次 refresh 失败/BACKOFF 退避到期重试,refresh 内部仍有冷却短路);
+    //   ③ client 已死的(stdio 进程退出,须重建重连);
+    //   ④ server 推送过 notifications/tools/list_changed 的(toolsStale,工具集已变)。
+    // 健康且未变的直接用缓存 tools,零 IPC/网络开销。
+    /** @type {Promise<unknown>[]} */
+    const refreshes = [];
+    for (const [key, supervisor] of this.supervisors) {
+      if (!created.has(key) && supervisor.healthy && !supervisor.toolsStale
+          && !(typeof supervisor.isClientDead === 'function' && supervisor.isClientDead())) {
+        continue;
+      }
+      refreshes.push(supervisor.refresh());
+    }
     await Promise.allSettled(refreshes);
     if (this.closing) throw new Error('gateway shutting down');
     this.revisionStore.put(revision, buildCatalog(revision, this.supervisors));

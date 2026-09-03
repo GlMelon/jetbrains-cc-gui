@@ -69,6 +69,18 @@ export class ServerSupervisor {
     this.stopping = false;
     /** @type {Promise<void> | null} */
     this.stopPromise = null;
+    /**
+     * 上一次 refresh 是否成功(工具列表可信)。供 IpcServer.applySnapshot 做选择性刷新:
+     * 健康且配置未变的 supervisor 跳过重刷,不再每次配置推送都对全部 server 重跑 listTools。
+     * @type {boolean}
+     */
+    this.healthy = false;
+    /**
+     * server 主动推送 notifications/tools/list_changed 时置位(仅 stdio 传输可收通知),
+     * 下次 applySnapshot 据此重刷该 supervisor;refresh 成功后清零。
+     * @type {boolean}
+     */
+    this.toolsStale = false;
     this.setHealth('STARTING');
   }
 
@@ -130,6 +142,14 @@ export class ServerSupervisor {
           throw err;
         }
         this.client = newClient;
+        // stdio server 支持 notifications/tools/list_changed 推送:收到即标记工具缓存过期,
+        // 下次 applySnapshot 选择性重刷该 supervisor(代替每次配置推送全量重 listTools)。
+        // http client 无持久连接收不到通知,'in' 守卫不触碰其不存在的字段(范式同 isClientDead)。
+        if ('onToolsListChanged' in newClient) {
+          newClient.onToolsListChanged = () => {
+            this.toolsStale = true;
+          };
+        }
       }
       // await 后 this.client 字段缩窄会丢失,提取局部 const 并补一次等价守卫
       const client = this.client;
@@ -153,6 +173,8 @@ export class ServerSupervisor {
       if (this.stopping) return this.tools;
       this.failureCount = 0;
       this.nextAttemptAt = 0; // 成功:清退避冷却,立即恢复
+      this.healthy = true;
+      this.toolsStale = false;
       this.setHealth('READY', null, Date.now());
       return this.tools;
     } catch (error) {
@@ -160,6 +182,7 @@ export class ServerSupervisor {
       this.failureCount += 1;
       // 真指数退避:失败次数越多冷却越长,冷却期内不再 spawn(此前 BACKOFF 仅是标签,立即重 spawn)
       this.nextAttemptAt = Date.now() + backoffDelayMs(this.failureCount);
+      this.healthy = false;
       this.setHealth(this.tools.length > 0 ? 'DEGRADED' : 'BACKOFF', toErrorMessage(error));
       return this.tools;
     } finally {
@@ -197,6 +220,8 @@ export class ServerSupervisor {
     this.client = null;
     this.failureCount = 0;
     this.nextAttemptAt = 0;
+    this.healthy = false;
+    this.toolsStale = false;
     this.stopPromise = Promise.resolve()
       .then(() => client?.close())
       .catch(() => {})

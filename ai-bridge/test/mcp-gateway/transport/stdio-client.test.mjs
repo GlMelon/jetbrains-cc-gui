@@ -215,3 +215,21 @@ test('pre-aborted signal rejects immediately without writing any frame', async (
   assert.equal(written.length, 0, '已中止的请求不应再写任何帧');
   client.close();
 });
+
+// tools/list_changed 保鲜:server 主动推送工具集变更通知 → onToolsListChanged 回调触发
+// (ServerSupervisor 借此标脏缓存,下次 applySnapshot 选择性重刷该 supervisor)。
+
+test('notifications/tools/list_changed fires onToolsListChanged; other notifications do not', async () => {
+  const client = new StdioMcpClient(
+    { serverId: 'notify', sourceProvider: 'claude', config: { command: 'fake', args: [] } },
+    { spawnFn: () => createFakeProcess() },
+  );
+  let fired = 0;
+  client.onToolsListChanged = () => { fired += 1; };
+  client.onMessage({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' });
+  assert.equal(fired, 1, 'list_changed 通知必须触发回调');
+  client.onMessage({ jsonrpc: '2.0', method: 'notifications/other' });
+  client.onMessage({ jsonrpc: '2.0' });
+  assert.equal(fired, 1, '其他通知不得触发回调');
+  client.close();
+});
