@@ -19,7 +19,7 @@
 
 一个功能强大的 IntelliJ IDEA 插件，为开发者提供 **Claude Code**、**OpenAI Codex** 以及更多 AI 编程 CLI的可视化操作界面，让 AI 辅助编程变得更加高效和直观。
 
-<img width="850" alt="Image" src="/docs/img/banner.png" />
+<img width="850" alt="AI Code GUI banner" src="./docs/img/banner.png" />
 
 ---
 

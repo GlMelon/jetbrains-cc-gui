@@ -18,7 +18,7 @@
 
 A powerful IntelliJ IDEA plugin that provides a visual interface for **Claude Code**, **OpenAI Codex** and more AI coding CLIs, making AI-assisted programming more efficient and intuitive.
 
-<img width="850" alt="Image" src="/docs/img/banner.png" />
+<img width="850" alt="AI Code GUI banner" src="./docs/img/banner.png" />
 
 ---
 
