@@ -78,7 +78,7 @@ export class StdioMcpClient {
     this.reader = new FramedReader(stdout);
     // 真实 MCP server 探测到的帧格式同步到其 stdin,后续写给它的请求帧自适应跟随
     // (多数 server=ndjson/MCP spec 标准;首个 initialize 在探测前发出,默认 ndjson)。
-    // 与 gateway-stdio-client.js 对称,见 framing.js 文档。
+    // 机制详见 framing.js 文档。
     this.reader.on('message', (message) => {
       stdin.__mcpFrameFormat = this.reader.lastFormat || 'ndjson';
       this.onMessage(message);

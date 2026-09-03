@@ -4,7 +4,6 @@ import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.cli.common.CliSectionEmitter;
 import com.github.claudecodegui.cli.common.CliStreamParser;
-import com.github.claudecodegui.cli.common.GatewayDownMatcher;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.GsonHolder;
@@ -306,19 +305,12 @@ public class GrokCliStreamParser implements CliStreamParser {
 
     /**
      * MCP 连接失败降级提示(镜像 OpenCodeCliStreamParser.emitMcpNoticeIfMatched):
-     * GatewayDownMatcher 先判,再走 McpErrorMatcher;每轮至多一次 toast。
+     * 命中 McpErrorMatcher 发非阻塞 status,每轮至多一次 toast。
      *
      * @return true 表示命中(调用方跳过 hasError/错误缓冲)
      */
     @Override
     public boolean emitMcpNoticeIfMatched(String text) {
-        if (GatewayDownMatcher.isGatewayDown(text)) {
-            if (!mcpNoticeEmitted) {
-                mcpNoticeEmitted = true;
-                emitter.status(GatewayDownMatcher.GATEWAY_DOWN_NOTICE);
-            }
-            return true;
-        }
         if (!McpErrorMatcher.isMcpConnectionFailure(text)) {
             return false;
         }

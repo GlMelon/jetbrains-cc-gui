@@ -5,7 +5,6 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliOutputLimits;
 import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.cli.common.CliSectionEmitter;
-import com.github.claudecodegui.cli.common.GatewayDownMatcher;
 import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.GsonHolder;
@@ -121,15 +120,6 @@ public class OpenCodeCliStreamParser implements CliStreamParser {
      * @return true 表示命中 MCP 连接失败(调用方应跳过 hasError/错误缓冲)
      */
     public boolean emitMcpNoticeIfMatched(String text) {
-        // GatewayDownMatcher 先判:[melon-gateway-down] 是 stdio-client 降级标记(更明确),
-        // 命中发 GATEWAY_DOWN_NOTICE。OpenCode(Go)最可能透传 MCP server stderr 到此分支。
-        if (GatewayDownMatcher.isGatewayDown(text)) {
-            if (!mcpNoticeEmitted) {
-                mcpNoticeEmitted = true;
-                emitter.status(GatewayDownMatcher.GATEWAY_DOWN_NOTICE);
-            }
-            return true;
-        }
         if (!McpErrorMatcher.isMcpConnectionFailure(text)) {
             return false;
         }

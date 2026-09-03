@@ -234,8 +234,12 @@ public class CodexCliSession implements CliSession {
                 // process was launched with sandbox-network restrictions.
                 cliEnv.remove(ENV_CODEX_SANDBOX_NETWORK_DISABLED);
                 CliEnvironmentBuilder.applyExtraEnv(cliEnv, CodexCliCommandUtils.sanitizeEnv(request.extraEnv()));
-                // gateway 经 -c 命令行覆盖注入(overrideArgs,见 buildCommand),不再改 CODEX_HOME env:
-                // CODEX_HOME 保持真实 ~/.codex,零临时 home(2026-07-02 重构)。
+                // gateway 经 -c 命令行覆盖注入 url/bearer_token_env_var(见 buildCommand),CODEX_HOME
+                // 保持真实 ~/.codex,零临时 home;token 不落 argv,经 environment() 以 env 变量并入
+                // (bearer_token_env_var 引用的 MELON_MCP_GATEWAY_TOKEN 在此赋值)。
+                if (gatewayConfig != null && gatewayConfig.usable()) {
+                    cliEnv.putAll(gatewayConfig.environment());
+                }
 
                 // CWD 设置放在 pb.start() 紧前面，避免 TOCTOU 竞态：
                 // 如果目录在 check 和 start 之间被删除，Windows CreateProcess 会报
@@ -554,16 +558,8 @@ public class CodexCliSession implements CliSession {
      * @return true 表示命中 MCP 连接失败(应抑制,不计入回合错误)
      */
     private boolean handleMcpFailure(String text, CliSessionCallback callback) {
-        // GatewayDownMatcher 先判:[melon-gateway-down] 是 stdio-client 降级标记(更明确),
-        // 命中发 GATEWAY_DOWN_NOTICE(区别 MCP_SKIPPED_NOTICE:整轮 gateway 工具降级 vs 单 server 跳过)。
-        // best-effort:仅当 codex 透传 melon_gateway stderr 时命中,不命中不影响功能(5s 超时兜底)。
-        if (GatewayDownMatcher.isGatewayDown(text)) {
-            if (!mcpNoticeEmitted) {
-                mcpNoticeEmitted = true;
-                sectionEmitter(callback).status(GatewayDownMatcher.GATEWAY_DOWN_NOTICE);
-            }
-            return true;
-        }
+        // gateway 不可达时 CLI 侧 MCP client 报连接失败,由 McpErrorMatcher 归为单 server 跳过提示;
+        // best-effort:仅当 codex 透传 melon_gateway stderr 时命中,不命中不影响功能。
         if (!McpErrorMatcher.isMcpConnectionFailure(text)) {
             return false;
         }

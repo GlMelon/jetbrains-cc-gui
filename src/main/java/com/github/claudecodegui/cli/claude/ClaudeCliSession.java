@@ -851,16 +851,8 @@ public class ClaudeCliSession implements CliSession {
      * @return true 表示命中 MCP 连接失败(应抑制,不计入回合错误)
      */
     boolean handleMcpFailure(String text, CliSessionCallback callback) {
-        // GatewayDownMatcher 先判:[melon-gateway-down] 是 stdio-client 降级标记(更明确),
-        // 命中发 GATEWAY_DOWN_NOTICE(区别 MCP_SKIPPED_NOTICE:整轮 gateway 工具降级 vs 单 server 跳过)。
-        // best-effort:仅当 claude 透传 melon_gateway stderr 时命中,不命中不影响功能(5s 超时兜底)。
-        if (GatewayDownMatcher.isGatewayDown(text)) {
-            if (!mcpNoticeEmitted) {
-                mcpNoticeEmitted = true;
-                sectionEmitter(callback).status(GatewayDownMatcher.GATEWAY_DOWN_NOTICE);
-            }
-            return true;
-        }
+        // gateway 不可达时 CLI 侧 MCP client 报连接失败,由 McpErrorMatcher 归为单 server 跳过提示;
+        // best-effort:仅当 claude 透传 melon_gateway stderr 时命中,不命中不影响功能。
         if (!McpErrorMatcher.isMcpConnectionFailure(text)) {
             return false;
         }

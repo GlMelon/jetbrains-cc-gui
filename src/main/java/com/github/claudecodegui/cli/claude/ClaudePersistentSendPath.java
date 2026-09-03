@@ -61,7 +61,9 @@ final class ClaudePersistentSendPath {
 
     /**
      * 组装长驻进程启动规格。指纹 = provider + model + permission-mode + cwd + add-dirs +
-     * mcp-config 路径,另含 reasoning-effort(同为命令行参数,影响进程行为,不纳入会语义漂移)。
+     * mcp-config 路径 + gateway endpoint + reasoning-effort(同为命令行参数,影响进程行为,不纳入会语义漂移)。
+     * endpoint 必须纳入:gateway 重启换端口后 per-tab mcp-gateway.json 内容变但路径不变,
+     * 不含 endpoint 长驻进程会拿旧端口直连失败(URL 直连模式,2026-09)。
      */
     CliProcessSpec buildSpec(
             String cliPath,
@@ -76,8 +78,9 @@ final class ClaudePersistentSendPath {
         String mcpConfigFilePath = useGateway
                 ? gatewayConfig.configPath().toAbsolutePath().toString()
                 : session.mcpConfig().getConfigFilePath();
+        String gatewayEndpoint = useGateway ? gatewayConfig.endpoint() : null;
 
-        String fingerprint = buildFingerprint(request, addDirs, mcpConfigFilePath);
+        String fingerprint = buildFingerprint(request, addDirs, mcpConfigFilePath, gatewayEndpoint);
         List<String> command = ClaudeCliSession.buildCommand(
                 cliPath, request, addDirs, profile, hasMcpServers, mcpConfigFilePath,
                 session.getSessionId(), true);
@@ -87,7 +90,8 @@ final class ClaudePersistentSendPath {
                 ClaudePersistentSendPath::buildInterruptRequest);
     }
 
-    private static String buildFingerprint(CliSendRequest request, List<String> addDirs, String mcpConfigFilePath) {
+    private static String buildFingerprint(CliSendRequest request, List<String> addDirs,
+                                           String mcpConfigFilePath, String gatewayEndpoint) {
         return String.join("|",
                 CommonConstants.PROVIDER_CLAUDE,
                 orDash(request.model()),
@@ -95,6 +99,7 @@ final class ClaudePersistentSendPath {
                 orDash(request.cwd()),
                 addDirs == null ? "" : String.join(",", addDirs),
                 orDash(mcpConfigFilePath),
+                orDash(gatewayEndpoint),
                 orDash(request.reasoningEffort())
         );
     }

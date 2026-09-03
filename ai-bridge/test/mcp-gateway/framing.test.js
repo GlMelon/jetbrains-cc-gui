@@ -233,7 +233,7 @@ test('端到端 opencode(NDJSON):initialize → lastFormat=ndjson → 响应 NDJ
   assert.equal(reader.lastFormat, 'ndjson');
   const written = [];
   const stdout = { write: (chunk) => written.push(chunk) };
-  stdout.__mcpFrameFormat = reader.lastFormat; // gateway-stdio-client.js 同步此属性
+  stdout.__mcpFrameFormat = reader.lastFormat; // transport/stdio-client.js 同步此属性
   writeMessage(stdout, { jsonrpc: '2.0', id: 0, result: { protocolVersion: '2024-11-05' } });
   const text = written[0].toString('utf8');
   assert.ok(text.endsWith('\n'), 'opencode 应收到 NDJSON');

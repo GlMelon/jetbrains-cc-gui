@@ -4,7 +4,7 @@
 // {tools: []}——长会话(钉在启动时的 revision)经历 20+ 次配置推送后 tools/list 静默变空,
 // MCP 工具全部消失且无任何信号。
 // 修复后:精确版本未命中且 store 非空时,回退到现存最旧快照(与请求版本最接近),
-// revision 字段保持实际版本,供 ipc-server / runToolsList 比对并打 [melon-gateway-stale] 标记。
+// revision 字段保持实际版本,供调用方比对版本一致性。
 
 import test from 'node:test';
 import assert from 'node:assert/strict';

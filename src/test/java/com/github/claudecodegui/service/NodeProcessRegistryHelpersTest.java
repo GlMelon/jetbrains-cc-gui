@@ -132,7 +132,8 @@ public class NodeProcessRegistryHelpersTest {
     public void detectKindClassifiesGatewayAndLegacyDaemon() {
         assertEquals(NodeProcessInfo.Kind.MCP_GATEWAY,
                 NodeProcessRegistry.detectKindFromCmd("node /path/mcp-gateway-server.js"));
-        assertEquals(NodeProcessInfo.Kind.MCP_GATEWAY,
+        // stdio 代理已随 Streamable HTTP 直连退役,旧版本残留进程只按普通 orphan 处理。
+        assertEquals(NodeProcessInfo.Kind.ORPHAN,
                 NodeProcessRegistry.detectKindFromCmd("node /path/gateway-stdio-client.js"));
         assertEquals(NodeProcessInfo.Kind.DAEMON,
                 NodeProcessRegistry.detectKindFromCmd("node /path/daemon.js"));

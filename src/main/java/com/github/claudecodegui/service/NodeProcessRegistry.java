@@ -58,8 +58,7 @@ public final class NodeProcessRegistry implements Disposable {
     private static final String[] OWNED_PROCESS_HINTS = {
             "daemon.js",
             "channel-manager.js",
-            "mcp-gateway-server.js",
-            "gateway-stdio-client.js"
+            "mcp-gateway-server.js"
     };
 
     /**
@@ -399,7 +398,7 @@ public final class NodeProcessRegistry implements Disposable {
             return NodeProcessInfo.Kind.ORPHAN;
         }
         String lower = cmd.toLowerCase();
-        if (lower.contains("mcp-gateway-server.js") || lower.contains("gateway-stdio-client.js")) {
+        if (lower.contains("mcp-gateway-server.js")) {
             return NodeProcessInfo.Kind.MCP_GATEWAY;
         }
         if (lower.contains("daemon.js")) {

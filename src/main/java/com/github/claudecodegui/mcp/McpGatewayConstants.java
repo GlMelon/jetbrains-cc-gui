@@ -18,7 +18,11 @@ public final class McpGatewayConstants {
     public static final String CONFIG_DIRECTORY_NAME = "cli-gateway";
     public static final String STATE_FILE_NAME = "gateway-state.json";
     public static final String SERVER_SCRIPT_NAME = "mcp-gateway-server.js";
-    public static final String STDIO_CLIENT_SCRIPT_PATH = "mcp-gateway/gateway-stdio-client.js";
+    /** CLI 直连 gateway 的 Streamable HTTP 端点路径(与 ai-bridge ipc-server.js 路由逐字对齐)。 */
+    public static final String MCP_ENDPOINT_PATH = "/mcp";
+    /** CLI 进程 env 中承载 gateway token 的变量名:三 provider 的 MCP 配置只写变量引用
+     *  (Claude `${VAR}` / Codex bearer_token_env_var / OpenCode `{env:VAR}`),token 明文不进 argv/配置文件。 */
+    public static final String ENV_GATEWAY_TOKEN = "MELON_MCP_GATEWAY_TOKEN";
 
     public static final String GATEWAY_SERVER_ID = "melon_gateway";
 
@@ -48,11 +52,18 @@ public final class McpGatewayConstants {
     public static final String KEY_TYPE = "type";
     public static final String KEY_ENV = "env";
     public static final String KEY_URL = "url";
+    public static final String KEY_HEADERS = "headers";
+    public static final String KEY_TIMEOUT = "timeout";
+    /** ACP session/new mcpServers http 条目的 header 对象字段(ACP spec:{name,value} 数组)。 */
+    public static final String KEY_NAME = "name";
+    public static final String KEY_VALUE = "value";
+    public static final String HEADER_AUTHORIZATION = "Authorization";
+    /** OpenCode remote MCP 条目的 type 值(opencode.json 官方契约,区别于 claude 的 {@link #TRANSPORT_HTTP})。 */
+    public static final String OPENCODE_MCP_TYPE_REMOTE = "remote";
     /** OpenCode 原生配置的环境变量键(opencode.json mcp 字段用 {@code environment},区别于 Gateway 协议的 {@code env})。 */
     public static final String KEY_ENVIRONMENT_OPENCODE = "environment";
 
     public static final String ARG_STATE_FILE = "--state-file";
-    public static final String ARG_REVISION = "--revision";
     public static final String ARG_TOKEN = "--token";
     public static final String ARG_PROJECT_PATH = "--project-path";
 

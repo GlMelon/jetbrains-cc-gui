@@ -1,9 +1,10 @@
 // @ts-check
 import http from 'node:http';
 import { requireToken } from './security.js';
+import { readJson } from './http-body.js';
+import { McpStreamableHttpEndpoint } from './streamable-http.js';
 import { ServerSupervisor } from './server-supervisor.js';
 import { buildCatalog } from './tool-catalog.js';
-import { ToolRouter } from './tool-router.js';
 import { RevisionStore } from './revision-store.js';
 import { HealthStore } from './health-store.js';
 
@@ -37,6 +38,15 @@ export class IpcServer {
     this.shutdownPromise = null;
     /** @type {Set<import('node:net').Socket>} */
     this.connections = new Set();
+    // MCP 数据面端点(Streamable HTTP):CLI 直连 /mcp,latestRevision 由本类簿记,getter 透传。
+    /** @type {McpStreamableHttpEndpoint} */
+    this.mcpEndpoint = new McpStreamableHttpEndpoint({
+      revisionStore,
+      // ToolRouter 构造期望 Map<string, SupervisorLike>(仅 callTool);supervisors 含 stop/refresh 等
+      // 额外成员,结构上满足 SupervisorLike,强转安全。
+      supervisors: /** @type {any} */ (supervisors),
+      getLatestRevision: () => this.latestRevision,
+    });
     /** @type {http.Server} */
     this.server = http.createServer((req, res) => this.handle(req, res));
     this.server.on('connection', (socket) => {
@@ -66,6 +76,9 @@ export class IpcServer {
   close() {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.closing = true;
+    // 先结束 MCP 端点的全部 SSE 长连接(干净 EOF),否则长连接会卡住 server.close
+    // 直到 shutdownDeadlineMs 到期被强毁,CLI 侧表现为无征兆断连。
+    this.mcpEndpoint.close();
     const stopPromise = Promise.allSettled(
       [...this.supervisors.values()].map((supervisor) => Promise.resolve().then(() => supervisor.stop())),
     );
@@ -121,44 +134,16 @@ export class IpcServer {
         this.write(res, 200, this.status());
         return;
       }
-      if (req.method === 'GET' && req.url?.startsWith('/runtime/tools/list')) {
-        const url = new URL(req.url, 'http://127.0.0.1');
-        const revision = Number(url.searchParams.get('revision') || this.latestRevision);
-        const catalog = this.revisionStore.get(revision);
-        // 响应带实际 catalog 版本:精确版本被 RevisionStore 淘汰时 get 回退到最旧留存快照,
-        // 版本不一致供 stdio 桥(runToolsList)比对并打 [melon-gateway-stale] 标记。
-        this.write(res, 200, { revision: Number(catalog.revision ?? revision), tools: catalog.tools ?? [] });
-        return;
-      }
-      if (req.method === 'POST' && req.url === '/runtime/tools/call') {
-        const body = await readJson(req);
-        // ToolRouter 构造期望 Map<string, SupervisorLike>(仅 callTool);supervisors 含 stop/refresh/configHash,
-        // 受 Map 不变性限制无法直接赋值,结构上含 callTool,强转安全。
-        const router = new ToolRouter(/** @type {any} */ (this.supervisors));
-        // 取消传播(总则六确定性取消):CLI 会话被 interrupt → stdio 桥进程死/stdin 关 → 本 socket
-        // 断开。res 'close' 且 writableEnded=false 即客户端中途断开;abort 经 ToolRouter→supervisor
-        // 透传到真实 server(stdio 侧发 notifications/cancelled),慢工具不再在 gateway 里空跑满
-        // 内腿 CALL_TOOL_TIMEOUT_MS(55s)。
-        const controller = new AbortController();
-        const onPrematureClose = () => {
-          if (!res.writableEnded) controller.abort();
-        };
-        res.on('close', onPrematureClose);
-        /** @type {unknown} */
-        let result;
-        try {
-          result = await router.call(body.name, body.arguments ?? {}, body.revision, controller.signal);
-        } finally {
-          res.removeListener('close', onPrematureClose);
-        }
-        this.write(res, 200, result);
-        return;
-      }
       if (req.method === 'POST' && req.url === '/stop') {
         this.write(res, 200, { ok: true });
         setTimeout(() => {
           void this.close().then(() => process.exit(0), () => process.exit(1));
         }, 20);
+        return;
+      }
+      // MCP 数据面(Streamable HTTP):CLI 直连;GET=SSE 下行流 / POST=JSON-RPC / DELETE=终止 session。
+      if (req.url === '/mcp' || req.url?.startsWith('/mcp?')) {
+        await this.mcpEndpoint.handle(req, res);
         return;
       }
       this.write(res, 404, { error: 'not found' });
@@ -225,6 +210,9 @@ export class IpcServer {
     await Promise.allSettled(refreshes);
     if (this.closing) throw new Error('gateway shutting down');
     this.revisionStore.put(revision, buildCatalog(revision, this.supervisors));
+    // catalog 已变更:向全部 /mcp GET SSE 流广播 list_changed,CLI 侧即时重列工具
+    // (不开流的 client 下次 tools/list 自然拿到最新 catalog,无状态残留)。
+    this.mcpEndpoint.notifyToolsListChanged();
   }
 
   /**
@@ -251,37 +239,3 @@ export class IpcServer {
  * @typedef {{ enabled?: unknown; sourceProvider: string; serverId: string } & Record<string, unknown>} ServerSpecLike
  */
 
-/**
- * @param {http.IncomingMessage} req
- * @returns {Promise<any>}
- */
-// 项12:HTTP 请求体字节上限,防超大请求体撑爆内存(与 FramedReader MAX_MESSAGE_BYTES 对称)。
-const MAX_REQUEST_BYTES = 16 * 1024 * 1024;
-function readJson(/** @type {http.IncomingMessage} */ req) {
-  return new Promise((resolve, reject) => {
-    /** @type {Buffer[]} */
-    const chunks = [];
-    let total = 0;
-    let aborted = false;
-    req.on('data', (/** @type {Buffer} */ chunk) => {
-      if (aborted) return;
-      total += chunk.length;
-      if (total > MAX_REQUEST_BYTES) {
-        aborted = true;
-        reject(new Error(`Request body exceeds ${MAX_REQUEST_BYTES} bytes`));
-        try { req.destroy(); } catch { /* best effort */ }
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => {
-      if (aborted) return;
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
-      } catch (error) {
-        reject(error);
-      }
-    });
-    req.on('error', reject);
-  });
-}

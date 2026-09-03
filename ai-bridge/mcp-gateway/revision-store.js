@@ -53,9 +53,8 @@ export class RevisionStore {
     const key = Number(revision || this.latestRevision);
     let snapshot = this.revisions.get(key);
     if (!snapshot && this.revisions.size > 0) {
-      // 精确版本已被 MAX_REVISIONS 淘汰(长会话钉在旧 revision,经历 20+ 次配置推送):
-      // 回退到现存最旧快照(与请求版本最接近),不再静默返空工具导致该会话 MCP 工具全部消失。
-      // 返回快照的 revision 字段保持实际版本,供调用方比对并打 [melon-gateway-stale] 标记。
+      // 精确版本已被 MAX_REVISIONS 淘汰时回退到现存最旧快照(与请求版本最接近),
+      // 不再静默返空工具;返回快照的 revision 字段保持实际版本,供调用方比对。
       const oldestKey = this.revisions.keys().next().value;
       if (oldestKey !== undefined) {
         snapshot = this.revisions.get(oldestKey);

@@ -188,15 +188,13 @@ public final class McpGatewayService implements Disposable {
 
         try {
             throwIfLifecycleDisposed();
-            File bridgeDir = BridgePreloader.getSharedResolver().findBridgeDir();
+            // Streamable HTTP 直连(2026-09 改造):CLI 以 url 直连 gateway /mcp 端点,
+            // 不再经 bridgeDir 下的 stdio 代理脚本;端口现读 state file,不可得即 direct 降级。
+            String endpoint = bridgeClient != null ? bridgeClient.mcpEndpointUrl() : null;
             throwIfLifecycleDisposed();
-            if (bridgeDir == null) {
-                return directFallback("ai-bridge directory unavailable");
+            if (endpoint == null) {
+                return directFallback("MCP Gateway endpoint unavailable");
             }
-            String node = NodeDetector.getInstance().findNodeExecutable();
-            throwIfLifecycleDisposed();
-            Path stdioClient = bridgeDir.toPath().resolve(McpGatewayConstants.STDIO_CLIENT_SCRIPT_PATH);
-            List<String> command = NodeDetector.buildNodeScriptCommand(node, stdioClient.toString());
             McpGatewayConfigSnapshot snapshot;
             long revision;
             synchronized (lock) {
@@ -207,7 +205,7 @@ public final class McpGatewayService implements Disposable {
             LOG.info("[McpGatewayPerf] buildCliConfig: provider=" + provider.value() + ", tabId=" + tabId
                     + ", totalMs=" + elapsedMillis(startNanos, System.nanoTime())
                     + ", servers=" + serverIds.size() + ", revision=" + revision);
-            McpGatewayCliConfig config = configWriter.write(provider, tabId, revision, stateFile, command, serverIds);
+            McpGatewayCliConfig config = configWriter.write(provider, tabId, revision, endpoint, token, serverIds);
             if (config.usable()) {
                 setLifecycleState(McpGatewayLifecycleState.READY, null);
             }

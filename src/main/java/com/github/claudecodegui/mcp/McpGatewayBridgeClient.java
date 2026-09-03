@@ -90,6 +90,29 @@ public class McpGatewayBridgeClient {
         return post("/stop", new JsonObject(), STOP_TIMEOUT);
     }
 
+    /**
+     * CLI 直连用的 Streamable HTTP 端点 url({@code http://127.0.0.1:<port>/mcp})。
+     * 端口只在 Node 写入的 state file 中,现读现解析;state file 缺失/损坏/无端口时返回 null
+     * (调用方按 direct 降级处理,与控制面请求的失败语义一致)。
+     *
+     * @return 端点 url,不可得时为 null
+     */
+    public String mcpEndpointUrl() {
+        try {
+            if (!Files.exists(stateFile)) {
+                return null;
+            }
+            JsonObject state = readState();
+            if (!state.has(McpGatewayConstants.KEY_PORT)) {
+                return null;
+            }
+            return "http://127.0.0.1:" + state.get(McpGatewayConstants.KEY_PORT).getAsInt()
+                    + McpGatewayConstants.MCP_ENDPOINT_PATH;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private JsonObject get(String path) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder(uri(path))
                 .timeout(Duration.ofSeconds(5))

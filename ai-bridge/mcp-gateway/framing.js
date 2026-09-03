@@ -14,9 +14,9 @@
 //       并以 lastFormat 记录最近一条消息的帧格式。
 //     · 编码:encodeMessage(message, format) 按指定格式产出;format 默认 'ndjson'(spec 标准)。
 //     · 自适应:writeMessage(stream, msg, format) 的 format 取值优先级 =
-//       显式参数 > stream.__mcpFrameFormat > 'ndjson'。两个 stdio 转发器
-//       (gateway-stdio-client.js / transport/stdio-client.js)在 reader 探测到客户端帧格式后,
-//       把 lastFormat 同步到对端 output stream 的 __mcpFrameFormat,使响应帧自动跟随客户端。
+//       显式参数 > stream.__mcpFrameFormat > 'ndjson'。transport/stdio-client.js
+//       在 reader 探测到对端帧格式后,把 lastFormat 同步到对端 stream 的 __mcpFrameFormat,
+//       使后续请求帧自动跟随对端。
 //       —— opencode 收发 NDJSON,codex 收发 LSP,各得其所,互不回归。
 //
 // 参考:
