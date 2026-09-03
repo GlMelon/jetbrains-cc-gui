@@ -43,17 +43,28 @@ export class RevisionStore {
   }
 
   /**
-   * 读取指定 revision 的快照;revision 缺省时取最新;未命中返回占位空快照。
+   * 读取指定 revision 的快照;revision 缺省时取最新;精确版本已被淘汰时回退到现存最旧快照
+   * (revision 字段保持实际版本,供调用方比对);store 为空时返回占位空快照。
    *
    * @param {number | undefined} [revision] 版本号
    * @returns {CatalogSnapshot}
    */
   get(revision) {
     const key = Number(revision || this.latestRevision);
-    const snapshot = this.revisions.get(key) ?? { revision: key, tools: [] };
+    let snapshot = this.revisions.get(key);
+    if (!snapshot && this.revisions.size > 0) {
+      // 精确版本已被 MAX_REVISIONS 淘汰(长会话钉在旧 revision,经历 20+ 次配置推送):
+      // 回退到现存最旧快照(与请求版本最接近),不再静默返空工具导致该会话 MCP 工具全部消失。
+      // 返回快照的 revision 字段保持实际版本,供调用方比对并打 [melon-gateway-stale] 标记。
+      const oldestKey = this.revisions.keys().next().value;
+      if (oldestKey !== undefined) {
+        snapshot = this.revisions.get(oldestKey);
+      }
+    }
+    const resolved = snapshot ?? { revision: key, tools: [] };
     // 项10:put 已深拷贝隔离存储,但 get 返回内部引用会让调用方修改污染 store(下次 get 拿到被改的)。
     // 返回深拷贝保持快照不变性。
-    return JSON.parse(JSON.stringify(snapshot));
+    return JSON.parse(JSON.stringify(resolved));
   }
 
   /**

@@ -111,7 +111,16 @@ export async function runToolsList({ httpClient, revision, message, output, stde
   const errSink = stderr ?? process.stderr;
   try {
     const result = await httpClient.get(`/runtime/tools/list?revision=${encodeURIComponent(revision)}`);
-    writeMessage(output, { jsonrpc: '2.0', id: message.id, result });
+    const tools = result?.tools ?? [];
+    const actualRevision = Number(result?.revision ?? revision);
+    if (actualRevision !== revision) {
+      // 本桥钉住的 catalog 版本已被 RevisionStore 淘汰(长会话经历 20+ 次配置推送),gateway
+      // 回退给了最接近的留存快照:工具仍可用,但可能与会话启动时不同。用独立标记
+      // [melon-gateway-stale],不触发 Java 侧 GatewayDownMatcher 的 [melon-gateway-down] toast。
+      errSink.write(`[melon-gateway-stale] catalog revision ${revision} evicted; serving revision ${actualRevision}\n`);
+    }
+    // 只透传 tools 字段:revision 是 gateway 内部簿记,不进 MCP tools/list result。
+    writeMessage(output, { jsonrpc: '2.0', id: message.id, result: { tools } });
   } catch (error) {
     errSink.write(`[melon-gateway-down] tools/list degraded to empty (gateway unreachable): ${error instanceof Error ? error.message : String(error)}\n`);
     writeMessage(output, { jsonrpc: '2.0', id: message.id, result: { tools: [] } });

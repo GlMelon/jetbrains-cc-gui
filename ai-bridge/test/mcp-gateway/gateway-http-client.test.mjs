@@ -155,3 +155,45 @@ test('runToolsList: 非 tools/list 方法返回 false(调用方走基类)', asyn
   });
   assert.equal(handled, false, '非 tools/list 不应被处理');
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// revision 淘汰回退(长会话静默丢工具修复)
+// ════════════════════════════════════════════════════════════════════════════
+
+test('runToolsList: 钉住的 revision 被淘汰 → 返回回退快照 tools + [melon-gateway-stale] 标记', async () => {
+  const written = [];
+  const stderrWritten = [];
+  const output = { write: (c) => written.push(c) };
+  const stderr = { write: (c) => stderrWritten.push(c) };
+  // gateway 的精确 revision(1)已被淘汰,回退到 revision 3 的快照
+  const httpClient = { get: async () => ({ revision: 3, tools: [{ name: 'fallback-tool' }] }) };
+  const handled = await runToolsList({
+    httpClient,
+    revision: 1,
+    message: { jsonrpc: '2.0', id: 11, method: 'tools/list' },
+    output,
+    stderr,
+  });
+  assert.equal(handled, true);
+  const msg = JSON.parse(written[0].toString('utf8').trimEnd());
+  assert.deepEqual(msg.result, { tools: [{ name: 'fallback-tool' }] },
+    'result 只含 tools(revision 是 gateway 内部簿记,不进 MCP result)');
+  const stderrText = stderrWritten.join('');
+  assert.ok(stderrText.includes('[melon-gateway-stale]'), '版本不一致须打 stale 标记');
+  assert.ok(!stderrText.includes('[melon-gateway-down]'), 'stale 不是 down,不得误触发 down toast');
+});
+
+test('runToolsList: revision 精确命中 → 不打 stale 标记', async () => {
+  const stderrWritten = [];
+  const output = { write: () => {} };
+  const httpClient = { get: async () => ({ revision: 2, tools: [] }) };
+  const handled = await runToolsList({
+    httpClient,
+    revision: 2,
+    message: { jsonrpc: '2.0', id: 12, method: 'tools/list' },
+    output,
+    stderr: { write: (c) => stderrWritten.push(c) },
+  });
+  assert.equal(handled, true);
+  assert.equal(stderrWritten.length, 0, '精确命中不应打任何标记');
+});

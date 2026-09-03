@@ -125,7 +125,9 @@ export class IpcServer {
         const url = new URL(req.url, 'http://127.0.0.1');
         const revision = Number(url.searchParams.get('revision') || this.latestRevision);
         const catalog = this.revisionStore.get(revision);
-        this.write(res, 200, { tools: catalog.tools ?? [] });
+        // 响应带实际 catalog 版本:精确版本被 RevisionStore 淘汰时 get 回退到最旧留存快照,
+        // 版本不一致供 stdio 桥(runToolsList)比对并打 [melon-gateway-stale] 标记。
+        this.write(res, 200, { revision: Number(catalog.revision ?? revision), tools: catalog.tools ?? [] });
         return;
       }
       if (req.method === 'POST' && req.url === '/runtime/tools/call') {
