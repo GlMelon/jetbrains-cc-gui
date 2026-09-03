@@ -298,14 +298,6 @@ MIT
 
 ---
 
-## 赞助支持
-
-如果这个项目对你有帮助，想请作者吃顿肯德基（KFC）或者喝杯咖啡，都是可以的~
-
-[查看赞助者列表 →](./SPONSORS.md)
-
----
-
 ## AtomGit
 
 https://atomgit.com/zhukunpenglinyutong/idea-claude-code-gui
