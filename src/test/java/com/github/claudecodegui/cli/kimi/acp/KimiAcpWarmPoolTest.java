@@ -91,4 +91,19 @@ public class KimiAcpWarmPoolTest {
         assertTrue(source.contains("IDLE_CLOSE_MS"));
         assertTrue(source.contains("implements Disposable"));
     }
+
+    @Test
+    public void takeSuccessTriggersRefillWithCooldownAndCircuitBreaker() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/github/claudecodegui/cli/kimi/acp/KimiAcpWarmPool.java"),
+                StandardCharsets.UTF_8);
+
+        // take 成功后补暖,且补暖有最小间隔与连续失败熔断(防失控重建)
+        assertTrue(source.contains("scheduleRefill()"));
+        assertTrue(source.contains("REFILL_MIN_INTERVAL_MS"));
+        assertTrue(source.contains("MAX_CONSECUTIVE_WARM_FAILURES"));
+        assertTrue(source.contains("consecutiveWarmFailures.get() >= MAX_CONSECUTIVE_WARM_FAILURES"));
+        // 门禁关闭(legacy 通道)或项目 dispose 时不补暖
+        assertTrue(source.contains("KimiAcpChannelGate.isAcpEligible()"));
+    }
 }
