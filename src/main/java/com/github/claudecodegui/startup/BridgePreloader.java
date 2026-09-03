@@ -210,6 +210,11 @@ public class BridgePreloader implements ProjectActivity {
                 long remainingNanos = startNanos + strategy.policy().timeout().toNanos()
                         - System.nanoTime();
                 if (remainingNanos <= 0L) {
+                    if (task.isDone()) {
+                        // 任务早已在自己的窗口内完成,只是顺序 join 轮到它时窗口已过——
+                        // 不算超时(否则已完成探针会被误 cancel 并误报 timed out)
+                        continue;
+                    }
                     task.cancel(true);
                     LOG.warn("[BridgePreloader] Provider prewarm timed out: " + strategy.provider());
                     continue;
