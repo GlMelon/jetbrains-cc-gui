@@ -20,7 +20,6 @@ interface SmitheryKeyStatus {
 }
 
 interface McpMarketDialogProps {
-  isCodexMode: boolean;
   onClose: () => void;
   onSelect: (server: McpServer) => void;
 }
@@ -92,7 +91,7 @@ function safeParse(raw: unknown): { hasKey?: boolean; masked?: string } | null {
  * <p>选中 server → GET_MCP_MARKET_DETAIL → 构建 McpServer(预填 connection)→ onSelect
  * (父组件打开 McpServerDialog 预填新建模式,用户填 API key/headers 后保存)。
  */
-export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDialogProps) {
+export function McpMarketDialog({ onClose, onSelect }: McpMarketDialogProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [servers, setServers] = useState<SmitheryServerSummary[]>([]);
@@ -180,12 +179,11 @@ export function McpMarketDialog({ isCodexMode, onClose, onSelect }: McpMarketDia
       description: server.description || '',
       tags: [server.remote ? 'remote' : MCP_TRANSPORT.STDIO, 'smithery'],
       server: spec,
-      apps: { claude: !isCodexMode, codex: isCodexMode },
       homepage: server.homepage,
       enabled: true,
     };
     onSelect(mcpServer);
-  }, [isCodexMode, onSelect, t]);
+  }, [onSelect, t]);
 
   const handleShowDetail = useCallback(async (server: SmitheryServerSummary) => {
     const namespace = server.namespace || '';

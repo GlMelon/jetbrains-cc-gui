@@ -14,8 +14,6 @@ import type { ToastMessage } from '../../Toast';
  * Server Management Operations Hook
  */
 export function useServerManagement({
-  isCodexMode,
-  messagePrefix,
   cacheKeys,
   setServerTools,
   loadServers,
@@ -25,8 +23,6 @@ export function useServerManagement({
   onToast,
   t,
 }: {
-  isCodexMode: boolean;
-  messagePrefix: string;
   cacheKeys: CacheKeys;
   setServerTools: React.Dispatch<React.SetStateAction<ServerToolsState>>;
   loadServers: () => void;
@@ -111,17 +107,9 @@ export function useServerManagement({
 
   // Toggle server enabled state
   const handleToggleServer = useCallback((server: McpServer, enabled: boolean) => {
-    // Set apps based on current provider mode
-    const updatedServer: McpServer = {
-      ...server,
-      enabled,
-      apps: {
-        claude: isCodexMode ? (server.apps?.claude ?? false) : enabled,
-        codex: isCodexMode ? enabled : (server.apps?.codex ?? false),
-      }
-    };
+    const updatedServer: McpServer = { ...server, enabled };
 
-    sendAction(isCodexMode ? UPSTREAM.TOGGLE_CODEX_MCP_SERVER : UPSTREAM.TOGGLE_MCP_SERVER, updatedServer);
+    sendAction(UPSTREAM.TOGGLE_MCP_SERVER, updatedServer);
 
     // A toggle invalidates the previous tool result. This forces a fresh
     // tools/list request after the server becomes connected again.
@@ -132,17 +120,15 @@ export function useServerManagement({
       return next;
     });
 
-    if (!isCodexMode) {
-      onToast(
-        enabled
-          ? `${t('mcp.enabled')} ${server.name || server.id}`
-          : `${t('mcp.disabled')} ${server.name || server.id}`,
-        'success'
-      );
-      loadServers();
-      loadServerStatus();
-    }
-  }, [isCodexMode, messagePrefix, cacheKeys, setServerTools, onToast, t, loadServers, loadServerStatus]);
+    onToast(
+      enabled
+        ? `${t('mcp.enabled')} ${server.name || server.id}`
+        : `${t('mcp.disabled')} ${server.name || server.id}`,
+      'success'
+    );
+    loadServers();
+    loadServerStatus();
+  }, [cacheKeys, setServerTools, onToast, t, loadServers, loadServerStatus]);
 
   return {
     serverRefreshStates,

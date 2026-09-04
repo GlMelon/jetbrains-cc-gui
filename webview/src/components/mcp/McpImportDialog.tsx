@@ -8,7 +8,6 @@ import { BaseDialog, DialogHeader, DialogBody, DialogFooter } from '../shared/Ba
 import { ClickSpark } from '../react-bits';
 
 interface McpImportDialogProps {
-  currentProvider?: 'claude' | 'codex' | string;
   existingIds?: string[];
   onClose: () => void;
   onImport: (servers: McpServer[]) => void;
@@ -32,9 +31,8 @@ function uniqueId(baseId: string, taken: Set<string>): string {
   return `${baseId}-${counter}`;
 }
 
-export function McpImportDialog({ currentProvider = 'claude', existingIds = [], onClose, onImport }: McpImportDialogProps) {
+export function McpImportDialog({ existingIds = [], onClose, onImport }: McpImportDialogProps) {
   const { t } = useTranslation();
-  const isCodexMode = currentProvider === 'codex';
   const [jsonContent, setJsonContent] = useState('');
   const [preview, setPreview] = useState<PreviewItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -76,8 +74,8 @@ export function McpImportDialog({ currentProvider = 'claude', existingIds = [], 
     }
     setLoading(true);
     setError(null);
-    sendAction(UPSTREAM.PARSE_COPILOT_MCP_CONFIG, { json: jsonContent, isCodexMode });
-  }, [jsonContent, isCodexMode]);
+    sendAction(UPSTREAM.PARSE_COPILOT_MCP_CONFIG, { json: jsonContent });
+  }, [jsonContent]);
 
   const handleContentChange = (value: string) => {
     setJsonContent(value);

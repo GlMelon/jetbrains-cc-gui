@@ -42,15 +42,6 @@ export interface McpServerSpec {
 }
 
 /**
- * MCP app enablement status (cc-switch v3.7.0 format)
- * Indicates which clients the server is applied to
- */
-interface McpApps {
-  claude: boolean;
-  codex: boolean;
-}
-
-/**
  * MCP server full configuration
  */
 export interface McpServer {
@@ -60,8 +51,6 @@ export interface McpServer {
   name?: string;
   /** Server connection specification */
   server: McpServerSpec;
-  /** App enablement status (cc-switch format) */
-  apps?: McpApps;
   /** Description */
   description?: string;
   /** Tags */

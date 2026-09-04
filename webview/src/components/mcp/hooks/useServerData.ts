@@ -11,8 +11,6 @@ import type { McpServer, McpServerStatusInfo, ServerToolsState, RefreshLog, Cach
 import { clearToolsCache, readCache, readToolsCache, writeCache } from '../utils';
 
 interface UseServerDataOptions {
-  isCodexMode: boolean;
-  messagePrefix: string;
   cacheKeys: CacheKeys;
   t: (key: string, options?: Record<string, unknown>) => string;
   onLog: (message: string, type: RefreshLog['type'], details?: string, serverName?: string, requestInfo?: string, errorReason?: string) => void;
@@ -96,8 +94,6 @@ interface UseServerDataReturn {
  * Server Data Loading and Initialization Hook
  */
 export function useServerData({
-  isCodexMode,
-  messagePrefix,
   cacheKeys,
   t,
   onLog
@@ -125,7 +121,7 @@ export function useServerData({
   useEffect(() => {
     latestToolsRequestIdsRef.current.clear();
     setServerTools({});
-  }, [isCodexMode, cacheKeys]);
+  }, [cacheKeys]);
 
   // Keep serversRef in sync with servers state
   useEffect(() => {
@@ -171,10 +167,10 @@ export function useServerData({
       'info',
       undefined,
       undefined,
-      `get_${messagePrefix}mcp_servers request to backend`
+      'get_mcp_servers request to backend'
     );
-    sendAction(isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVERS : UPSTREAM.GET_MCP_SERVERS, {});
-  }, [messagePrefix, isCodexMode, t, onLog]);
+    sendAction(UPSTREAM.GET_MCP_SERVERS, {});
+  }, [t, onLog]);
 
   // Load server status
   const loadServerStatus = useCallback(() => {
@@ -191,11 +187,11 @@ export function useServerData({
       'info',
       undefined,
       undefined,
-      `get_${messagePrefix}mcp_server_status request to backend`,
-      `Querying MCP server connection status via ${isCodexMode ? 'Codex' : 'Claude'} SDK`
+      'get_mcp_server_status request to backend',
+      'Querying MCP server connection status'
     );
-    sendAction(isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVER_STATUS : UPSTREAM.GET_MCP_SERVER_STATUS, {});
-  }, [messagePrefix, isCodexMode, t, onLog]);
+    sendAction(UPSTREAM.GET_MCP_SERVER_STATUS, {});
+  }, [t, onLog]);
 
   // Load server tools list
   const loadServerTools = useCallback((server: McpServer, forceRefresh = false) => {
@@ -238,17 +234,17 @@ export function useServerData({
       'info',
       undefined,
       server.name || server.id,
-      `get_${messagePrefix}mcp_server_tools request to backend`
+      'get_mcp_server_tools request to backend'
     );
 
     toolsRequestCounterRef.current += 1;
     const requestId = `${Date.now().toString(36)}-${toolsRequestCounterRef.current.toString(36)}`;
     latestToolsRequestIdsRef.current.set(server.id, requestId);
     sendAction(
-      isCodexMode ? UPSTREAM.GET_CODEX_MCP_SERVER_TOOLS : UPSTREAM.GET_MCP_SERVER_TOOLS,
+      UPSTREAM.GET_MCP_SERVER_TOOLS,
       { requestId, serverId: server.id, forceRefresh }
     );
-  }, [cacheKeys, messagePrefix, isCodexMode, t, onLog]);
+  }, [cacheKeys, t, onLog]);
 
   // Initialization and data loading
   useEffect(() => {
@@ -272,7 +268,7 @@ export function useServerData({
         }
       }
 
-      // 状态缓存恢复(codex 此前只写不读 → 重开面板状态列空白)。读取后若缺失/过期,
+      // 状态缓存恢复。读取后若缺失/过期,
       // 下方 hasCache 分支会补发 loadServerStatus(后端有 30s 缓存+合并+负缓存兜成本)。
       const cachedStatus = readCache<McpServerStatusInfo[]>(cacheKeys.STATUS, cacheKeys);
       if (cachedStatus && cachedStatus.length > 0) {
@@ -325,7 +321,7 @@ export function useServerData({
     if (hasCache) {
       onLog(t('mcp.logs.usingCacheStrategy'), 'info');
       // server 缓存有效但状态缓存缺失或已过期 → 补发一次状态查询(后端有 30s 缓存+合并+负缓存兜成本),
-      // 避免重开面板时状态列空白不自动补拉(codex 模式此前因状态缓存只写不读而必然空白)。
+      // 避免重开面板时状态列空白不自动补拉。
       const statusCacheEntry = localStorage.getItem(cacheKeys.STATUS);
       const statusCacheAge = statusCacheEntry
         ? Date.now() - (JSON.parse(statusCacheEntry).timestamp || 0)
@@ -346,7 +342,7 @@ export function useServerData({
         statusTimeoutRef.current = null;
       }
     };
-  }, [cacheKeys, isCodexMode, loadServers, loadServerStatus, t, onLog, clearToolsForTerminalStatuses]);
+  }, [cacheKeys, loadServers, loadServerStatus, t, onLog, clearToolsForTerminalStatuses]);
 
   // Register server list update callback
   useEffect(() => {
@@ -411,26 +407,15 @@ export function useServerData({
     };
 
     // Register callbacks（[归一化] 经 bridgeHub 订阅，替代旧 window.xxx 覆盖）
-    if (isCodexMode) {
-      registerLegacyAlias('updateCodexMcpServers', DOWNSTREAM.CODEX_MCP_SERVER_LIST);
-      registerLegacyAlias('updateCodexMcpServerStatus', DOWNSTREAM.CODEX_MCP_SERVER_STATUS);
-      const unsubList = subscribeEvent(DOWNSTREAM.CODEX_MCP_SERVER_LIST, (json) => handleServerListUpdate(json as string));
-      const unsubStatus = subscribeEvent(DOWNSTREAM.CODEX_MCP_SERVER_STATUS, (json) => handleServerStatusUpdate(json as string));
-      return () => {
-        unsubList();
-        unsubStatus();
-      };
-    } else {
-      registerLegacyAlias('updateMcpServers', DOWNSTREAM.MCP_SERVER_LIST);
-      registerLegacyAlias('updateMcpServerStatus', DOWNSTREAM.MCP_SERVER_STATUS);
-      const unsubList = subscribeEvent(DOWNSTREAM.MCP_SERVER_LIST, (json) => handleServerListUpdate(json as string));
-      const unsubStatus = subscribeEvent(DOWNSTREAM.MCP_SERVER_STATUS, (json) => handleServerStatusUpdate(json as string));
-      return () => {
-        unsubList();
-        unsubStatus();
-      };
-    }
-  }, [isCodexMode, t, onLog]);
+    registerLegacyAlias('updateMcpServers', DOWNSTREAM.MCP_SERVER_LIST);
+    registerLegacyAlias('updateMcpServerStatus', DOWNSTREAM.MCP_SERVER_STATUS);
+    const unsubList = subscribeEvent(DOWNSTREAM.MCP_SERVER_LIST, (json) => handleServerListUpdate(json as string));
+    const unsubStatus = subscribeEvent(DOWNSTREAM.MCP_SERVER_STATUS, (json) => handleServerStatusUpdate(json as string));
+    return () => {
+      unsubList();
+      unsubStatus();
+    };
+  }, [t, onLog]);
 
   return {
     // State

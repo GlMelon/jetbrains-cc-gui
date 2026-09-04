@@ -4,8 +4,6 @@
  */
 
 import type { CachedData, ToolsCacheData, CacheKeys, McpTool } from '../types';
-import { PROVIDER_TYPE } from '../../../generated/protocol';
-import type { McpProvider } from '../providerSelection';
 
 // ============================================================================
 // Cache Configuration
@@ -30,16 +28,15 @@ const MAX_CACHED_SERVERS = 50;
 // ============================================================================
 
 /**
- * Get provider-specific cache keys
- * @param provider - Provider type(opencode 走 OpenCodeMcpPanel,不使用本缓存)
+ * Get the cache keys for the global (provider-agnostic) MCP server list
  * @returns Set of cache keys
  */
-export function getCacheKeys(provider: Exclude<McpProvider, typeof PROVIDER_TYPE.OPENCODE>): CacheKeys {
+export function getCacheKeys(): CacheKeys {
   return {
-    SERVERS: `mcp_servers_cache_${provider}`,
-    STATUS: `mcp_status_cache_${provider}`,
-    TOOLS: `mcp_tools_cache_${provider}`,
-    LAST_SERVER_ID: `mcp_last_server_id_${provider}`,
+    SERVERS: 'mcp_servers_cache',
+    STATUS: 'mcp_status_cache',
+    TOOLS: 'mcp_tools_cache',
+    LAST_SERVER_ID: 'mcp_last_server_id',
   };
 }
 

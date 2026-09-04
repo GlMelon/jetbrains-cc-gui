@@ -1,6 +1,6 @@
 /**
  * MCP Server Settings Component
- * Supports both Claude and Codex modes
+ * Single global, provider-agnostic server list (backend unprefixes the MCP action family).
  */
 
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
@@ -15,17 +15,13 @@ import { McpHelpDialog } from './McpHelpDialog';
 import { McpConfirmDialog } from './McpConfirmDialog';
 import { McpPackageConfirmDialog, type PackageConfirmItem } from './McpPackageConfirmDialog';
 import { McpLogDialog } from './McpLogDialog';
-import { OpenCodeMcpPanel } from './OpenCodeMcpPanel';
-import { OpenCodeIcon } from '../shared/OpenCodeIcon';
 import { ToastContainer, type ToastMessage } from '../Toast';
 import { copyToClipboard } from '../../utils/copyUtils';
 
 // Types and utility functions
-import type { McpSettingsSectionProps, RefreshLog, McpTool } from './types';
+import type { RefreshLog, McpTool } from './types';
 import { getCacheKeys, getToolIcon, getServerStatusInfo, isServerEnabled } from './utils';
 import { parsePackageRunner } from './packageRunner';
-import type { McpProvider } from './providerSelection';
-import { resolveInitialMcpProvider, getMcpMessagePrefix } from './providerSelection';
 
 // Hooks
 import { useServerData } from './hooks/useServerData';
@@ -38,118 +34,18 @@ import { SkeletonList } from '../shared/SkeletonList';
 import { UnifiedLoader } from '../UnifiedLoader';
 import { BracesIcon, ClipboardIcon, ExtensionsIcon, PlugIcon, RefreshIcon, ServerIcon, codiconToIcon } from '../Icons';
 
+/** 全局 server 列表缓存键(provider 无关,引用稳定可作 hook 依赖) */
+const CACHE_KEYS = getCacheKeys();
+
 /**
  * MCP Server Settings Component
  */
-export function McpSettingsSection({ currentProvider = 'claude' }: McpSettingsSectionProps) {
+export function McpSettingsSection() {
   const { t } = useTranslation();
-  const [selectedProvider, setSelectedProvider] = useState<McpProvider>(() => {
-    let savedProvider: string | null = null;
-    try {
-      savedProvider = localStorage.getItem('mcp.selectedProvider');
-    } catch {
-      // Fall back to the active chat provider when storage is unavailable.
-    }
-    return resolveInitialMcpProvider(currentProvider, savedProvider);
-  });
 
-  const selectProvider = useCallback((provider: McpProvider) => {
-    setSelectedProvider(provider);
-    try {
-      localStorage.setItem('mcp.selectedProvider', provider);
-    } catch {
-      // The selection remains valid for this settings session.
-    }
-  }, []);
-
-  // ── 全局:重载 Gateway(provider 无关,重启聚合三 provider 的 gateway 进程) ──
+  // ── 全局:重载 Gateway(provider 无关,重启聚合全部 provider 的 gateway 进程) ──
   const [gatewayReloading, setGatewayReloading] = useState(false);
   const reloadTimerRef = useRef<number | null>(null);
-
-  const handleReloadGateway = useCallback(() => {
-    setGatewayReloading(true);
-    if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
-    reloadTimerRef.current = window.setTimeout(() => setGatewayReloading(false), 60000);
-    sendAction(UPSTREAM.RELOAD_MCP_GATEWAY, {});
-  }, []);
-
-  useEffect(() => {
-    const unsub = subscribeEvent(DOWNSTREAM.MCP_GATEWAY_STATUS, () => {
-      setGatewayReloading(false);
-      if (reloadTimerRef.current) {
-        window.clearTimeout(reloadTimerRef.current);
-        reloadTimerRef.current = null;
-      }
-    });
-    return () => {
-      unsub();
-      if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
-    };
-  }, []);
-
-  return (
-    <div className="mcp-settings-shell">
-      {/* Provider tabs + Gateway reload (provider 无关,重启聚合三 provider 的 gateway 进程) */}
-      <div className="mcp-tabs-bar">
-        <div className="mcp-provider-tabs" role="tablist" aria-label="MCP provider">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedProvider === 'claude'}
-            className={selectedProvider === 'claude' ? 'active' : ''}
-            onClick={() => selectProvider('claude')}
-          >
-            <span className="codicon codicon-hubot" aria-hidden="true" />
-            Claude
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedProvider === 'codex'}
-            className={selectedProvider === 'codex' ? 'active' : ''}
-            onClick={() => selectProvider('codex')}
-          >
-            <span className="codicon codicon-terminal" aria-hidden="true" />
-            Codex
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedProvider === 'opencode'}
-            className={selectedProvider === 'opencode' ? 'active' : ''}
-            onClick={() => selectProvider('opencode')}
-          >
-            <OpenCodeIcon size={16} />
-            OpenCode
-          </button>
-        </div>
-        <button
-          className="btn-reload-gateway"
-          onClick={handleReloadGateway}
-          disabled={gatewayReloading}
-          title={t('mcp.reloadGatewayTooltip')}
-          aria-label={t('mcp.reloadGateway')}
-        >
-          {gatewayReloading ? <UnifiedLoader type="spin" size={14} /> : <span className="codicon codicon-debug-restart" />}
-          {t('mcp.reloadGateway')}
-        </button>
-      </div>
-      {selectedProvider === 'opencode'
-        ? <OpenCodeMcpPanel key="opencode" />
-        : <McpProviderPanel key={selectedProvider} currentProvider={selectedProvider} />}
-    </div>
-  );
-}
-
-function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider }) {
-  const { t } = useTranslation();
-  const isCodexMode = currentProvider === 'codex';
-
-  // Generate message type prefix based on provider
-  const messagePrefix = useMemo(() => getMcpMessagePrefix(currentProvider), [currentProvider]);
-
-  // Get provider-specific cache keys
-  const cacheKeys = useMemo(() => getCacheKeys(isCodexMode ? 'codex' : 'claude'), [isCodexMode]);
 
   // Tool tooltip popup state
   const [hoveredTool, setHoveredTool] = useState<{ serverId: string; tool: McpTool; position: { x: number; y: number } } | null>(null);
@@ -217,6 +113,27 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     addLog(t('mcp.logs.cleared'), 'info');
   }, [addLog, t]);
 
+  const handleReloadGateway = useCallback(() => {
+    setGatewayReloading(true);
+    if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = window.setTimeout(() => setGatewayReloading(false), 60000);
+    sendAction(UPSTREAM.RELOAD_MCP_GATEWAY, {});
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeEvent(DOWNSTREAM.MCP_GATEWAY_STATUS, () => {
+      setGatewayReloading(false);
+      if (reloadTimerRef.current) {
+        window.clearTimeout(reloadTimerRef.current);
+        reloadTimerRef.current = null;
+      }
+    });
+    return () => {
+      unsub();
+      if (reloadTimerRef.current) window.clearTimeout(reloadTimerRef.current);
+    };
+  }, []);
+
   // Use server data hook
   const {
     servers,
@@ -233,9 +150,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     acceptToolsResponse,
     failPendingToolsRequests,
   } = useServerData({
-    isCodexMode,
-    messagePrefix,
-    cacheKeys,
+    cacheKeys: CACHE_KEYS,
     t,
     onLog: addLog,
   });
@@ -261,9 +176,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     handleRefreshSingleServer,
     handleToggleServer,
   } = useServerManagement({
-    isCodexMode,
-    messagePrefix,
-    cacheKeys,
+    cacheKeys: CACHE_KEYS,
     setServerTools,
     loadServers,
     loadServerStatus,
@@ -275,8 +188,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
 
   // Use tools list update hook
   useToolsUpdate({
-    isCodexMode,
-    cacheKeys,
+    cacheKeys: CACHE_KEYS,
     setServerTools,
     acceptToolsResponse,
     failPendingToolsRequests,
@@ -292,7 +204,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
       setExpandedServers(new Set([serverId]));
       // Save last expanded server ID to cache
       try {
-        localStorage.setItem(cacheKeys.LAST_SERVER_ID, serverId);
+        localStorage.setItem(CACHE_KEYS.LAST_SERVER_ID, serverId);
       } catch (e) {
         // ignore
       }
@@ -306,7 +218,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
       newExpanded.delete(serverId);
       setExpandedServers(newExpanded);
     }
-  }, [servers, expandedServers, serverTools, cacheKeys, setExpandedServers, loadServerTools]);
+  }, [servers, expandedServers, serverTools, setExpandedServers, loadServerTools]);
 
   // Edit server
   const handleEdit = useCallback((server: McpServer) => {
@@ -323,7 +235,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
   // Confirm deletion
   const confirmDelete = useCallback(() => {
     if (deletingServer) {
-      sendAction(isCodexMode ? UPSTREAM.DELETE_CODEX_MCP_SERVER : UPSTREAM.DELETE_MCP_SERVER, { id: deletingServer.id });
+      sendAction(UPSTREAM.DELETE_MCP_SERVER, { id: deletingServer.id });
       addToast(`${t('mcp.deleted')} ${deletingServer.name || deletingServer.id}`, 'success');
 
       setTimeout(() => {
@@ -332,7 +244,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     }
     setShowConfirmDialog(false);
     setDeletingServer(null);
-  }, [deletingServer, messagePrefix, addToast, t, loadServers]);
+  }, [deletingServer, addToast, t, loadServers]);
 
   // Cancel deletion
   const cancelDelete = useCallback(() => {
@@ -387,7 +299,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     setShowServerDialog(true);
   }, []);
 
-  // Add server from marketplace (Smithery Registry) — OpenCode 无 MCP 后端,入口在下拉菜单隐藏
+  // Add server from marketplace (Smithery Registry)
   const handleAddFromMarket = useCallback(() => {
     setShowMarketDialog(true);
   }, []);
@@ -405,15 +317,15 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
     requirePackageApproval(server, () => {
       if (editingServer) {
         if (editingServer.id !== server.id) {
-          sendAction(isCodexMode ? UPSTREAM.DELETE_CODEX_MCP_SERVER : UPSTREAM.DELETE_MCP_SERVER, { id: editingServer.id });
-          sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
+          sendAction(UPSTREAM.DELETE_MCP_SERVER, { id: editingServer.id });
+          sendAction(UPSTREAM.ADD_MCP_SERVER, server);
           addToast(`${t('mcp.updated')} ${server.name || server.id}`, 'success');
         } else {
-          sendAction(isCodexMode ? UPSTREAM.UPDATE_CODEX_MCP_SERVER : UPSTREAM.UPDATE_MCP_SERVER, server);
+          sendAction(UPSTREAM.UPDATE_MCP_SERVER, server);
           addToast(`${t('mcp.saved')} ${server.name || server.id}`, 'success');
         }
       } else {
-        sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
+        sendAction(UPSTREAM.ADD_MCP_SERVER, server);
         addToast(`${t('mcp.added')} ${server.name || server.id}`, 'success');
       }
 
@@ -425,14 +337,14 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
       setEditingServer(null);
       setPendingPresetServer(null);
     });
-  }, [editingServer, messagePrefix, addToast, t, loadServers, requirePackageApproval]);
+  }, [editingServer, addToast, t, loadServers, requirePackageApproval]);
 
   // Handle import servers from external config (e.g. Copilot MCP config)
   // B3/SEC-06:批量导入命中包管理 / 容器 runner 时弹汇总确认,确认后逐个 ADD
   const handleImportServers = useCallback((servers: McpServer[]) => {
     requirePackageApprovalBatch(servers, () => {
       for (const server of servers) {
-        sendAction(isCodexMode ? UPSTREAM.ADD_CODEX_MCP_SERVER : UPSTREAM.ADD_MCP_SERVER, server);
+        sendAction(UPSTREAM.ADD_MCP_SERVER, server);
       }
       addToast(`${t('mcp.imported')} ${servers.length} ${t('mcp.servers')}`, 'success');
       setTimeout(() => {
@@ -440,7 +352,7 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
       }, 100);
       setShowImportDialog(false);
     });
-  }, [isCodexMode, addToast, t, loadServers, requirePackageApprovalBatch]);
+  }, [addToast, t, loadServers, requirePackageApprovalBatch]);
 
   // Copy URL
   const handleCopyUrl = useCallback(async (url: string) => {
@@ -493,13 +405,13 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
   const stats = useMemo(() => {
     let connected = 0, error = 0, disabled = 0;
     servers.forEach(s => {
-      if (!isServerEnabled(s, isCodexMode)) { disabled++; return; }
+      if (!isServerEnabled(s)) { disabled++; return; }
       const st = getServerStatusInfo(s, serverStatus)?.status;
       if (st === MCP_SERVER_STATUS.CONNECTED) connected++;
       else if (st === MCP_SERVER_STATUS.FAILED) error++;
     });
     return { connected, error, disabled, total: servers.length };
-  }, [servers, serverStatus, isCodexMode]);
+  }, [servers, serverStatus]);
 
   return (
     <div className="mcp-settings-section">
@@ -544,6 +456,17 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
           >
             {loading || statusLoading ? <UnifiedLoader type="spin" size={16} /> : <RefreshIcon size={16} />}
           </button>
+          {/* 重载 Gateway(provider 无关,重启聚合全部 provider 的 gateway 进程) */}
+          <button
+            className="btn-reload-gateway"
+            onClick={handleReloadGateway}
+            disabled={gatewayReloading}
+            title={t('mcp.reloadGatewayTooltip')}
+            aria-label={t('mcp.reloadGateway')}
+          >
+            {gatewayReloading ? <UnifiedLoader type="spin" size={14} /> : <span className="codicon codicon-debug-restart" />}
+            {t('mcp.reloadGateway')}
+          </button>
           {/* 手动配置(幽灵按钮) */}
           <button
             className="btn-ghost"
@@ -553,17 +476,15 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
             <BracesIcon size={16} />
             {t('mcp.manualConfig')}
           </button>
-          {/* 从市场获取(主色按钮,OpenCode 无 MCP 后端时隐藏) */}
-          {(currentProvider as string) !== 'opencode' && (
-            <button
-              className="market-btn"
-              onClick={handleAddFromMarket}
-              title={t('mcp.addFromMarket')}
-            >
-              <ExtensionsIcon size={16} />
-              {t('mcp.addFromMarket')}
-            </button>
-          )}
+          {/* 从市场获取(主色按钮) */}
+          <button
+            className="market-btn"
+            onClick={handleAddFromMarket}
+            title={t('mcp.addFromMarket')}
+          >
+            <ExtensionsIcon size={16} />
+            {t('mcp.addFromMarket')}
+          </button>
         </div>
       </div>
 
@@ -592,7 +513,6 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
                   key={server.id}
                   server={server}
                   isExpanded={expandedServers.has(server.id)}
-                  isCodexMode={isCodexMode}
                   serverStatus={serverStatus}
                   refreshState={serverRefreshStates[server.id]}
                   toolsInfo={serverTools[server.id]}
@@ -636,7 +556,6 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
           server={editingServer ?? pendingPresetServer}
           isPreset={!!pendingPresetServer}
           existingIds={servers.map(s => s.id)}
-          currentProvider={currentProvider}
           onClose={() => {
             setShowServerDialog(false);
             setEditingServer(null);
@@ -648,7 +567,6 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
 
       {showMarketDialog && (
         <McpMarketDialog
-          isCodexMode={isCodexMode}
           onClose={() => setShowMarketDialog(false)}
           onSelect={handleSelectFromMarket}
         />
@@ -656,7 +574,6 @@ function McpProviderPanel({ currentProvider }: { currentProvider: McpProvider })
 
       {showImportDialog && (
         <McpImportDialog
-          currentProvider={currentProvider}
           existingIds={servers.map(s => s.id)}
           onClose={() => setShowImportDialog(false)}
           onImport={handleImportServers}
