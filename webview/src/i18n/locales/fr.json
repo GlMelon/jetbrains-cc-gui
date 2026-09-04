@@ -21,6 +21,7 @@
     "ready": "Prêt",
     "success": "Succès",
     "info": "Information",
+    "gotIt": "Compris",
     "seconds": "s",
     "minutes": "m",
     "optional": "Optional"
@@ -920,6 +921,41 @@
       "rechecking": "Vérification…",
 
       "updating": "Mise à jour…",
+      "title": "Vérification de l'environnement CLI",
+      "description": "Détecte les outils CLI d'IA installés localement, y compris les informations de version et les chemins d'installation.",
+      "claudeName": "Claude CLI",
+      "claudeDescription": "Outil en ligne de commande Claude AI pour l'assistance au codage interactif",
+      "codexName": "Codex CLI",
+      "codexDescription": "Outil en ligne de commande OpenAI Codex pour la génération de code par IA",
+      "opencodeName": "OpenCode CLI",
+      "opencodeDescription": "Outil en ligne de commande OpenCode AI avec prise en charge multi-modèles",
+      "grokName": "Grok CLI",
+      "grokDescription": "Outil en ligne de commande xAI Grok pour le codage par IA",
+      "kimiName": "Kimi CLI",
+      "kimiDescription": "Outil en ligne de commande Moonshot Kimi pour le codage par IA",
+      "piName": "Pi CLI",
+      "piDescription": "Outil en ligne de commande Inflection Pi pour le codage par IA",
+      "ompName": "OMP CLI",
+      "ompDescription": "Outil en ligne de commande oh-my-pi (fork de Pi) pour le codage par IA",
+      "dshName": "DeepSeek Harness CLI",
+      "dshDescription": "Outil en ligne de commande DeepSeek Harness pour le codage par IA",
+      "installed": "Installé",
+      "notInstalled": "Non installé",
+      "updateAvailable": "Mise à jour disponible",
+      "currentVersion": "Version actuelle",
+      "latestVersion": "Dernière version",
+      "installPath": "Chemin d'installation",
+      "installSource": "Source d'installation",
+      "lastChecked": "Dernière vérification",
+      "refreshCheck": "Revérifier",
+      "checking": "Vérification...",
+      "checkingVersion": "Vérification de la version...",
+      "docUrl": "Documentation",
+      "updateToVersion": "Mettre à jour vers v{{version}}",
+      "viewDocs": "Voir la documentation",
+      "install": "Installer",
+      "installing": "Installation...",
+      "error": "Erreur lors de la détection de l'état de la CLI",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -954,6 +990,10 @@
         "omp": {
           "name": "OMP CLI",
           "description": "Agent de codage terminal Oh My Pi avec prise en charge multi-fournisseurs"
+        },
+        "dsh": {
+          "name": "DeepSeek Harness",
+          "description": "CLI de l'agent terminal DeepSeek (dsh)"
         }
       },
       "installDialog": {
@@ -975,6 +1015,26 @@
       "visibility": {
         "hide": "Masquer dans le sélecteur de fournisseur",
         "show": "Afficher dans le sélecteur de fournisseur"
+      },
+      "dsh": {
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "Installation de la CLI",
+        "cardTitle": "Hôte local",
+        "rowHint": "Démarrer ou adopter l'hôte web dsh local",
+        "hint": "Un seul hôte web dsh local persistant sert toutes les sessions ; le plugin adopte un hôte en cours d'exécution au lieu d'en lancer un second.",
+        "state": {
+          "checking": "Vérification…",
+          "notInstalled": "Non installé",
+          "notRunning": "Non démarré",
+          "connected": "Connecté"
+        },
+        "adopted": "adopté",
+        "adoptedHint": "Un hôte déjà en cours d'exécution a été adopté ; le plugin ne l'arrête jamais.",
+        "openWebUi": "Ouvrir DSH Web UI",
+        "startHost": "Démarrer l'hôte",
+        "stopHost": "Arrêter l'hôte (uniquement ceux démarrés par le plugin)",
+        "autoStart": "Démarrage automatique si nécessaire",
+        "moreActions": "Plus"
       }
     },
     "sponsor": "Sponsor",
@@ -1452,6 +1512,15 @@
     "filePath": "Chemin du fichier :",
     "bashGroupBatchExecution": "Batch Execution"
   },
+  "modelConfig": {
+    "title": "Paramètres du modèle",
+    "context": "Contexte 1M",
+    "contextDefault": "Par défaut",
+    "effort": "Effort",
+    "speed": "Vitesse",
+    "preset": "Préréglage",
+    "model": "Modèle"
+  },
   "todo": {
     "progress": "{{completed}} sur {{total}} tâches terminées",
     "inProgress": "En cours {{completed}}/{{total}} tâches",
@@ -1735,26 +1804,36 @@
         "label": "GPT-5.4",
         "description": "Dernier modèle de pointe avec des capacités améliorées."
       }
+    },
+    "grok": {
+      "grok46": {
+        "label": "Grok 4.6",
+        "description": "xAI Grok 4.6"
+      }
     }
   },
   "modes": {
     "default": {
       "label": "Default Mode",
+      "shortLabel": "Default",
       "tooltip": "Standard permission behavior",
       "description": "Requires manual confirmation for each operation, suitable for cautious use"
     },
     "plan": {
       "label": "Plan Mode",
+      "shortLabel": "Plan",
       "tooltip": "Plan mode - read-only analysis",
       "description": "Uses only read-only tools, generates plan for user approval"
     },
     "acceptEdits": {
       "label": "Agent Mode",
+      "shortLabel": "Agent",
       "tooltip": "Automatically accept file edits",
       "description": "Automatically accept file creation/editing, reducing confirmation steps"
     },
     "bypassPermissions": {
       "label": "Auto Mode",
+      "shortLabel": "Auto",
       "tooltip": "Bypass all permission checks",
       "description": "Fully automated, bypassing all permission checks [Use with caution]"
     },
@@ -1769,6 +1848,7 @@
     },
     "plan": {
       "label": "Plan Mode",
+      "shortLabel": "Plan",
       "tooltip": "Plan mode - read-only analysis",
       "description": "Uses only read-only tools, generates plan for user approval"
     },
@@ -1815,12 +1895,27 @@
     "opencode": {
       "label": "OpenCode"
     },
+    "grok": {
+      "label": "Grok"
+    },
+    "kimi": {
+      "label": "Kimi"
+    },
     "pi": {
       "label": "PI CLI"
     },
     "omp": {
       "label": "OMP CLI"
-    }
+    },
+    "beta": {
+      "badge": "Beta",
+      "title": "Fonctionnalité Beta",
+      "message": "Cette fonctionnalité est encore en version Beta. Si vous rencontrez des bugs, veuillez les signaler rapidement à l'auteur."
+    },
+    "dsh": {
+      "label": "DeepSeek Harness"
+    },
+    "manageCli": "Paramètres CLI"
   },
   "promptEnhancer": {
     "title": "Prompt Enhancer",
@@ -1947,7 +2042,12 @@
   "changelog": {
     "title": "Nouveautés",
     "close": "Compris",
-    "page": "{{current}} / {{total}}"
+    "page": "{{current}} / {{total}}",
+    "versionList": "Versions",
+    "searchPlaceholder": "Rechercher des versions...",
+    "noResults": "Aucune version correspondante trouvée",
+    "jumpTo": "Aller à",
+    "go": "Aller"
   },
   "error": {
     "providerNotConfigured": "Fournisseur non configuré",
@@ -1979,6 +2079,32 @@
           "step1": "2. Ouvrez Gestion des dépendances et réinstallez la dernière CLI :"
         }
       }
+    }
+  },
+  "dshPresets": {
+    "title": "Sélectionner un préréglage d'agent DeepSeek Harness",
+    "none": {
+      "label": "Par défaut",
+      "description": "Composition headless par défaut de dsh (ensemble d'outils complet)"
+    },
+    "standard": {
+      "label": "Standard",
+      "description": "Agent de codage complet avec l'ensemble d'outils standard"
+    },
+    "code": {
+      "label": "PTC",
+      "description": "Capacités standard avec Code Mode"
+    },
+    "minimal": {
+      "label": "Minimal",
+      "description": "Uniquement bash et str_replace_editor"
+    },
+    "cordis": {
+      "label": "Creator",
+      "description": "Capacités standard plus création de compositions"
+    },
+    "user": {
+      "description": "Préréglage personnalisé installé dans le répertoire DSH"
     }
   }
 }

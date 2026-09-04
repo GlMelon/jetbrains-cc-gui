@@ -21,6 +21,7 @@
     "ready": "準備完了",
     "success": "成功",
     "info": "情報",
+    "gotIt": "了解",
     "seconds": "秒",
     "minutes": "分",
     "optional": "Optional"
@@ -925,6 +926,41 @@
       "rechecking": "検出中…",
 
       "updating": "更新中…",
+      "title": "CLI 環境チェック",
+      "description": "バージョン情報とインストールパスを含む、ローカルにインストールされた AI CLI ツールを検出します。",
+      "claudeName": "Claude CLI",
+      "claudeDescription": "対話型コーディング支援のための Claude AI コマンドラインツール",
+      "codexName": "Codex CLI",
+      "codexDescription": "AI によるコード生成のための OpenAI Codex コマンドラインツール",
+      "opencodeName": "OpenCode CLI",
+      "opencodeDescription": "マルチモデル対応の OpenCode AI コマンドラインツール",
+      "grokName": "Grok CLI",
+      "grokDescription": "AI コーディングのための xAI Grok コマンドラインツール",
+      "kimiName": "Kimi CLI",
+      "kimiDescription": "AI コーディングのための Moonshot Kimi コマンドラインツール",
+      "piName": "Pi CLI",
+      "piDescription": "AI コーディングのための Inflection Pi コマンドラインツール",
+      "ompName": "OMP CLI",
+      "ompDescription": "AI コーディングのための oh-my-pi(Pi fork)コマンドラインツール",
+      "dshName": "DeepSeek Harness CLI",
+      "dshDescription": "AI コーディングのための DeepSeek Harness コマンドラインツール",
+      "installed": "インストール済み",
+      "notInstalled": "未インストール",
+      "updateAvailable": "更新あり",
+      "currentVersion": "現在のバージョン",
+      "latestVersion": "最新バージョン",
+      "installPath": "インストールパス",
+      "installSource": "インストール元",
+      "lastChecked": "最終チェック",
+      "refreshCheck": "再チェック",
+      "checking": "チェック中...",
+      "checkingVersion": "バージョンをチェック中...",
+      "docUrl": "ドキュメント",
+      "updateToVersion": "v{{version}} に更新",
+      "viewDocs": "ドキュメントを見る",
+      "install": "インストール",
+      "installing": "インストール中...",
+      "error": "CLI 状態の検出エラー",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -959,6 +995,10 @@
         "omp": {
           "name": "OMP CLI",
           "description": "マルチプロバイダーのモデルに対応した Oh My Pi ターミナルコーディングエージェント"
+        },
+        "dsh": {
+          "name": "DeepSeek Harness",
+          "description": "DeepSeek ターミナルエージェント CLI(dsh)"
         }
       },
       "installDialog": {
@@ -980,6 +1020,26 @@
       "visibility": {
         "hide": "プロバイダー切り替えメニューに表示しない",
         "show": "プロバイダー切り替えメニューに表示する"
+      },
+      "dsh": {
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "CLI インストール",
+        "cardTitle": "ローカルホスト",
+        "rowHint": "ローカル dsh web ホストを起動または引き継ぐ",
+        "hint": "1 台の常駐ローカル dsh web ホストがすべてのセッションを処理します。プラグインは 2 台目を起動せず、実行中のホストを引き継ぎます。",
+        "state": {
+          "checking": "チェック中…",
+          "notInstalled": "未インストール",
+          "notRunning": "未実行",
+          "connected": "接続済み"
+        },
+        "adopted": "引き継ぎ済み",
+        "adoptedHint": "実行中のホストを引き継ぎました。プラグインがこのホストを停止することはありません。",
+        "openWebUi": "DSH Web UI を開く",
+        "startHost": "ホストを起動",
+        "stopHost": "ホストを停止(プラグインが起動したもののみ)",
+        "autoStart": "必要時に自動起動",
+        "moreActions": "その他"
       }
     },
     "sponsor": "Sponsor",
@@ -1457,6 +1517,15 @@
     "filePath": "ファイルパス：",
     "bashGroupBatchExecution": "Batch Execution"
   },
+  "modelConfig": {
+    "title": "モデル設定",
+    "context": "1M コンテキスト",
+    "contextDefault": "デフォルト",
+    "effort": "思考強度",
+    "speed": "速度",
+    "preset": "プリセット",
+    "model": "モデル"
+  },
   "todo": {
     "progress": "{{total}} 件中 {{completed}} 件完了",
     "inProgress": "進行中 {{completed}}/{{total}} タスク",
@@ -1740,26 +1809,36 @@
         "label": "GPT-5.4",
         "description": "拡張された能力を備えた最新の最先端モデル"
       }
+    },
+    "grok": {
+      "grok46": {
+        "label": "Grok 4.6",
+        "description": "xAI Grok 4.6"
+      }
     }
   },
   "modes": {
     "default": {
       "label": "デフォルトモード",
+      "shortLabel": "デフォルト",
       "tooltip": "標準権限動作",
       "description": "各操作に手動確認が必要、慎重な使用に適しています"
     },
     "plan": {
       "label": "プランモード",
+      "shortLabel": "プラン",
       "tooltip": "プランモード - 実行なし(まだサポートされていません)",
       "description": "実行なしの計画のみ、まだサポートされていません"
     },
     "acceptEdits": {
       "label": "エージェントモード",
+      "shortLabel": "エージェント",
       "tooltip": "ファイル編集を自動的に承認",
       "description": "ファイルの作成/編集を自動的に承認し、確認手順を削減"
     },
     "bypassPermissions": {
       "label": "自動モード",
+      "shortLabel": "自動",
       "tooltip": "すべての権限チェックをバイパス",
       "description": "完全自動、すべての権限チェックをバイパス[注意して使用]"
     },
@@ -1774,6 +1853,7 @@
     },
     "plan": {
       "label": "Plan Mode",
+      "shortLabel": "プラン",
       "tooltip": "Plan mode - read-only analysis",
       "description": "Uses only read-only tools, generates plan for user approval"
     },
@@ -1820,12 +1900,27 @@
     "opencode": {
       "label": "OpenCode"
     },
+    "grok": {
+      "label": "Grok"
+    },
+    "kimi": {
+      "label": "Kimi"
+    },
     "pi": {
       "label": "PI CLI"
     },
     "omp": {
       "label": "OMP CLI"
-    }
+    },
+    "beta": {
+      "badge": "Beta",
+      "title": "Beta 機能",
+      "message": "この機能はまだ Beta 段階です。バグを見つけた場合は、速やかに作者に報告してください。"
+    },
+    "dsh": {
+      "label": "DeepSeek Harness"
+    },
+    "manageCli": "CLI 設定管理"
   },
   "promptEnhancer": {
     "title": "プロンプトエンハンサー",
@@ -1952,7 +2047,12 @@
   "changelog": {
     "title": "更新情報",
     "close": "了解",
-    "page": "{{current}} / {{total}}"
+    "page": "{{current}} / {{total}}",
+    "versionList": "バージョン",
+    "searchPlaceholder": "バージョンを検索...",
+    "noResults": "一致するバージョンが見つかりません",
+    "jumpTo": "移動先",
+    "go": "移動"
   },
   "error": {
     "providerNotConfigured": "プロバイダー未設定",
@@ -1984,6 +2084,32 @@
           "step1": "2. 「依存関係管理」を開いて最新の CLI を再インストール："
         }
       }
+    }
+  },
+  "dshPresets": {
+    "title": "DeepSeek Harness エージェントプリセットを選択",
+    "none": {
+      "label": "デフォルト",
+      "description": "dsh デフォルトの headless 構成(フルツールセット)"
+    },
+    "standard": {
+      "label": "Standard",
+      "description": "標準ツールセットを備えたフル機能のコーディングエージェント"
+    },
+    "code": {
+      "label": "PTC",
+      "description": "Code Mode を備えた標準機能"
+    },
+    "minimal": {
+      "label": "Minimal",
+      "description": "bash と str_replace_editor のみ"
+    },
+    "cordis": {
+      "label": "Creator",
+      "description": "標準機能にコンポジション作成機能を追加"
+    },
+    "user": {
+      "description": "DSH ホームにインストールされたカスタムプリセット"
     }
   }
 }
