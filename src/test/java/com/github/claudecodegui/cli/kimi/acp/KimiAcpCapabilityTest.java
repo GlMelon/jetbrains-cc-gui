@@ -31,21 +31,32 @@ public class KimiAcpCapabilityTest {
     @Test
     public void negotiatedAcpCapabilitiesReflectThinkingCatalog() {
         SessionNegotiatedCapabilities capabilities = KimiAcpCliSession.negotiatedCapabilities(
-                new KimiAcpCliSession.ThinkingOptions(List.of("off", "low", "high"), "off"));
+                new KimiAcpCliSession.ThinkingOptions(List.of("off", "low", "high"), "off"), true);
 
         assertEquals(SessionCapabilityState.NEGOTIATED, capabilities.state());
         assertEquals(SessionCapabilityChannel.KIMI_ACP, capabilities.channel());
         assertTrue(capabilities.thinkingAvailable());
         assertTrue(capabilities.toolsAvailable());
-        assertFalse(capabilities.mcpAvailable());
+        assertTrue(capabilities.mcpAvailable());
         assertFalse(capabilities.degraded());
         assertNull(capabilities.degradationReason());
     }
 
     @Test
+    public void negotiatedAcpCapabilitiesReportNoMcpWhenNothingConfigured() {
+        SessionNegotiatedCapabilities capabilities = KimiAcpCliSession.negotiatedCapabilities(
+                new KimiAcpCliSession.ThinkingOptions(List.of("off", "low", "high"), "off"), false);
+
+        assertEquals(SessionCapabilityState.NEGOTIATED, capabilities.state());
+        assertTrue(capabilities.thinkingAvailable());
+        assertTrue(capabilities.toolsAvailable());
+        assertFalse(capabilities.mcpAvailable());
+    }
+
+    @Test
     public void negotiatedAcpCapabilitiesDisableThinkingWhenCatalogOnlyHasOff() {
         SessionNegotiatedCapabilities capabilities = KimiAcpCliSession.negotiatedCapabilities(
-                new KimiAcpCliSession.ThinkingOptions(List.of("off"), "off"));
+                new KimiAcpCliSession.ThinkingOptions(List.of("off"), "off"), false);
 
         assertEquals(SessionCapabilityState.NEGOTIATED, capabilities.state());
         assertFalse(capabilities.thinkingAvailable());

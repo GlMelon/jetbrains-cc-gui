@@ -17,6 +17,7 @@ import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
 import com.github.claudecodegui.mcp.McpGatewayConstants;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.provider.kimi.KimiHistoryReader;
 import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.session.SessionCapabilityChannel;
 import com.github.claudecodegui.session.SessionCapabilityDegradationReason;
@@ -33,6 +34,7 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -100,6 +102,11 @@ public class KimiAcpCliSession implements CliSession {
     private volatile String persistentProcessToken;
     /** 当前 session 的思考档位目录(session/new 或 load 的 configOptions 解析),随 clearPersistent 清空。 */
     private volatile ThinkingOptions thinkingOptions;
+    /**
+     * 当前 session 是否配置了 MCP(ACP session/new 注入非空,或 ~/.kimi-code/mcp.json 存在),
+     * 在 establishSession 时算定,随 clearPersistent 重置。
+     */
+    private volatile boolean mcpConfigured;
     private volatile SessionNegotiatedCapabilities negotiatedCapabilities =
             SessionNegotiatedCapabilities.unknown();
 
@@ -594,6 +601,10 @@ public class KimiAcpCliSession implements CliSession {
                                      String effectiveSessionId, McpGatewayCliConfig gatewayConfig,
                                      KimiAcpStreamParser parser) throws Exception {
         JsonArray mcpServers = buildMcpServers(gatewayConfig);
+        // mcpAvailable 观测:session/new 注入了 MCP,或 CLI 会自读 ~/.kimi-code/mcp.json。
+        // 此处本就在后台线程(会话建立在 send 链路),Files.exists 单次 stat 不进 EDT。
+        this.mcpConfigured = mcpServers.size() > 0
+                || Files.exists(KimiHistoryReader.kimiHome().resolve(KimiHistoryReader.MCP_CONFIG_FILE_NAME));
         String resolved;
         JsonObject sessionResult;
         if (effectiveSessionId != null && !effectiveSessionId.isBlank()) {
@@ -995,13 +1006,14 @@ public class KimiAcpCliSession implements CliSession {
                 .anyMatch(value -> value != null && !KimiAcpProtocol.THINKING_OFF.equalsIgnoreCase(value));
     }
 
-    static SessionNegotiatedCapabilities negotiatedCapabilities(ThinkingOptions options) {
+    static SessionNegotiatedCapabilities negotiatedCapabilities(ThinkingOptions options,
+                                                                boolean mcpConfigured) {
         return new SessionNegotiatedCapabilities(
                 SessionCapabilityState.NEGOTIATED,
                 SessionCapabilityChannel.KIMI_ACP,
                 hasThinkingCapability(options),
                 true,
-                false,
+                mcpConfigured,
                 false,
                 null);
     }
@@ -1012,7 +1024,7 @@ public class KimiAcpCliSession implements CliSession {
             negotiatedCapabilities = degradedCapabilities(reason);
             return;
         }
-        negotiatedCapabilities = negotiatedCapabilities(thinkingOptions);
+        negotiatedCapabilities = negotiatedCapabilities(thinkingOptions, mcpConfigured);
     }
 
     /** 清除长驻状态(进程死/握手失败/turn 失效时,下 turn 重建)。 */
@@ -1026,6 +1038,7 @@ public class KimiAcpCliSession implements CliSession {
         persistentProcessGeneration = null;
         persistentProcessToken = null;
         thinkingOptions = null;
+        mcpConfigured = false;
         if (old != null) {
             try {
                 old.close();
