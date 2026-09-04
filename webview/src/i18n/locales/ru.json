@@ -21,6 +21,7 @@
     "ready": "Готово",
     "success": "Успешно",
     "info": "Информация",
+    "gotIt": "Понятно",
     "seconds": "с",
     "minutes": "м",
     "optional": "Необязательно"
@@ -930,6 +931,41 @@
       "rechecking": "Проверка…",
 
       "updating": "Обновление…",
+      "title": "Проверка CLI-среды",
+      "description": "Обнаруживает локально установленные AI CLI-инструменты, включая информацию о версии и пути установки.",
+      "claudeName": "Claude CLI",
+      "claudeDescription": "Инструмент командной строки Claude AI для интерактивной помощи в кодировании",
+      "codexName": "Codex CLI",
+      "codexDescription": "Инструмент командной строки OpenAI Codex для генерации кода с помощью ИИ",
+      "opencodeName": "OpenCode CLI",
+      "opencodeDescription": "Инструмент командной строки OpenCode AI с поддержкой нескольких моделей",
+      "grokName": "Grok CLI",
+      "grokDescription": "Инструмент командной строки xAI Grok для кодирования с помощью ИИ",
+      "kimiName": "Kimi CLI",
+      "kimiDescription": "Инструмент командной строки Moonshot Kimi для кодирования с помощью ИИ",
+      "piName": "Pi CLI",
+      "piDescription": "Инструмент командной строки Inflection Pi для кодирования с помощью ИИ",
+      "ompName": "OMP CLI",
+      "ompDescription": "Инструмент командной строки oh-my-pi (форк Pi) для кодирования с помощью ИИ",
+      "dshName": "DeepSeek Harness CLI",
+      "dshDescription": "Инструмент командной строки DeepSeek Harness для кодирования с помощью ИИ",
+      "installed": "Установлена",
+      "notInstalled": "Не установлена",
+      "updateAvailable": "Доступно обновление",
+      "currentVersion": "Текущая версия",
+      "latestVersion": "Последняя версия",
+      "installPath": "Путь установки",
+      "installSource": "Источник установки",
+      "lastChecked": "Последняя проверка",
+      "refreshCheck": "Обновить проверку",
+      "checking": "Проверка...",
+      "checkingVersion": "Проверка версии...",
+      "docUrl": "Документация",
+      "updateToVersion": "Обновить до v{{version}}",
+      "viewDocs": "Открыть документацию",
+      "install": "Установить",
+      "installing": "Установка...",
+      "error": "Ошибка определения состояния CLI",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -964,6 +1000,10 @@
         "omp": {
           "name": "OMP CLI",
           "description": "Терминальный агент для кодирования Oh My Pi с поддержкой нескольких провайдеров"
+        },
+        "dsh": {
+          "name": "DeepSeek Harness",
+          "description": "CLI терминального агента DeepSeek (dsh)"
         }
       },
       "installDialog": {
@@ -985,6 +1025,26 @@
       "visibility": {
         "hide": "Скрыть в меню выбора провайдера",
         "show": "Показать в меню выбора провайдера"
+      },
+      "dsh": {
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "Установка CLI",
+        "cardTitle": "Локальный хост",
+        "rowHint": "Запустить или подключиться к локальному dsh web-хосту",
+        "hint": "Один постоянный локальный dsh web-хост обслуживает все сессии; плагин подключается к уже запущенному хосту вместо запуска второго.",
+        "state": {
+          "checking": "Проверка…",
+          "notInstalled": "Не установлен",
+          "notRunning": "Не запущен",
+          "connected": "Подключено"
+        },
+        "adopted": "подключён",
+        "adoptedHint": "Подключён уже запущенный хост; плагин никогда его не останавливает.",
+        "openWebUi": "Открыть DSH Web UI",
+        "startHost": "Запустить хост",
+        "stopHost": "Остановить хост (только запущенные плагином)",
+        "autoStart": "Автозапуск при необходимости",
+        "moreActions": "Ещё"
       }
     },
     "sponsor": "Поддержать проект",
@@ -1735,26 +1795,45 @@
         "label": "GPT-5.4",
         "description": "Новейшая модель с расширенными возможностями."
       }
+    },
+    "grok": {
+      "grok46": {
+        "label": "Grok 4.6",
+        "description": "xAI Grok 4.6"
+      }
     }
+  },
+  "modelConfig": {
+    "title": "Настройки модели",
+    "context": "Контекст 1M",
+    "contextDefault": "По умолчанию",
+    "effort": "Интенсивность",
+    "speed": "Скорость",
+    "preset": "Пресет",
+    "model": "Модель"
   },
   "modes": {
     "default": {
       "label": "Обычный режим",
+      "shortLabel": "Обычный",
       "tooltip": "Стандартное поведение разрешений",
       "description": "Требует ручного подтверждения каждой операции, подходит для осторожного использования"
     },
     "plan": {
       "label": "Режим планирования",
+      "shortLabel": "План",
       "tooltip": "Режим планирования — только чтение",
       "description": "Использует только инструменты чтения, генерирует план для утверждения"
     },
     "acceptEdits": {
       "label": "Агентный режим",
+      "shortLabel": "Агент",
       "tooltip": "Автоматическое принятие правок файлов",
       "description": "Автоматически принимает создание/редактирование файлов, уменьшая количество подтверждений"
     },
     "bypassPermissions": {
       "label": "Авто-режим",
+      "shortLabel": "Авто",
       "tooltip": "Пропуск всех проверок разрешений",
       "description": "Полностью автоматический, пропускает все проверки разрешений [Используйте с осторожностью]"
     },
@@ -1769,6 +1848,7 @@
     },
     "plan": {
       "label": "Режим планирования",
+      "shortLabel": "План",
       "tooltip": "Режим планирования — только чтение",
       "description": "Использует только инструменты чтения, генерирует план для утверждения"
     },
@@ -1815,12 +1895,27 @@
     "opencode": {
       "label": "OpenCode"
     },
+    "grok": {
+      "label": "Grok"
+    },
+    "kimi": {
+      "label": "Kimi"
+    },
     "pi": {
       "label": "PI CLI"
     },
     "omp": {
       "label": "OMP CLI"
-    }
+    },
+    "beta": {
+      "badge": "Beta",
+      "title": "Бета-функция",
+      "message": "Эта функция всё ещё находится в стадии Beta. Если вы столкнётесь с ошибками, пожалуйста, своевременно сообщите автору."
+    },
+    "dsh": {
+      "label": "DeepSeek Harness"
+    },
+    "manageCli": "Настройки CLI"
   },
   "promptEnhancer": {
     "title": "Улучшение промпта",
@@ -1947,7 +2042,12 @@
   "changelog": {
     "title": "Что нового",
     "close": "Понятно",
-    "page": "{{current}} / {{total}}"
+    "page": "{{current}} / {{total}}",
+    "versionList": "Версии",
+    "searchPlaceholder": "Поиск версий...",
+    "noResults": "Подходящие версии не найдены",
+    "jumpTo": "Перейти к",
+    "go": "Перейти"
   },
   "error": {
     "providerNotConfigured": "Провайдер не настроен",
@@ -2003,6 +2103,32 @@
       "unitS": "с",
       "unitTools": "инструментов",
       "unitTokens": "токенов"
+    }
+  },
+  "dshPresets": {
+    "title": "Выбор пресета агента DeepSeek Harness",
+    "none": {
+      "label": "По умолчанию",
+      "description": "Стандартная headless-композиция dsh (полный набор инструментов)"
+    },
+    "standard": {
+      "label": "Стандартный",
+      "description": "Полнофункциональный агент кодирования со стандартным набором инструментов"
+    },
+    "code": {
+      "label": "PTC",
+      "description": "Стандартные возможности с Code Mode"
+    },
+    "minimal": {
+      "label": "Минимальный",
+      "description": "Только bash и str_replace_editor"
+    },
+    "cordis": {
+      "label": "Creator",
+      "description": "Стандартные возможности плюс создание композиций"
+    },
+    "user": {
+      "description": "Пользовательский пресет, установленный в домашнем каталоге DSH"
     }
   }
 }

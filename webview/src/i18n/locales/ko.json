@@ -21,6 +21,7 @@
     "ready": "준비 완료",
     "success": "성공",
     "info": "정보",
+    "gotIt": "알겠습니다",
     "seconds": "초",
     "minutes": "분",
     "optional": "선택사항"
@@ -1018,18 +1019,41 @@
       "rechecking": "검사 중…",
 
       "updating": "업데이트 중…",
+      "title": "CLI 환경 검사",
+      "description": "버전 정보와 설치 경로를 포함하여 로컬에 설치된 AI CLI 도구를 감지합니다.",
+      "claudeName": "Claude CLI",
+      "claudeDescription": "대화형 코딩 지원을 위한 Claude AI 명령줄 도구",
+      "codexName": "Codex CLI",
+      "codexDescription": "AI 기반 코드 생성을 위한 OpenAI Codex 명령줄 도구",
+      "opencodeName": "OpenCode CLI",
+      "opencodeDescription": "멀티 모델을 지원하는 OpenCode AI 명령줄 도구",
       "grokName": "Grok CLI",
       "grokDescription": "AI 코딩을 위한 xAI Grok 명령줄 도구",
       "kimiName": "Kimi CLI",
       "kimiDescription": "AI 코딩을 위한 Moonshot Kimi 명령줄 도구",
       "piName": "Pi CLI",
       "piDescription": "AI 코딩을 위한 Inflection Pi 명령줄 도구",
+      "ompName": "OMP CLI",
+      "ompDescription": "AI 코딩을 위한 oh-my-pi(Pi fork) 명령줄 도구",
+      "dshName": "DeepSeek Harness CLI",
+      "dshDescription": "AI 코딩을 위한 DeepSeek Harness 명령줄 도구",
+      "installed": "설치됨",
+      "notInstalled": "설치되지 않음",
+      "updateAvailable": "업데이트 사용 가능",
+      "currentVersion": "현재 버전",
+      "latestVersion": "최신 버전",
+      "installPath": "설치 경로",
+      "installSource": "설치 소스",
+      "lastChecked": "마지막 확인",
+      "refreshCheck": "다시 확인",
+      "checking": "확인 중...",
       "checkingVersion": "버전 확인 중...",
       "docUrl": "문서",
       "updateToVersion": "v{{version}}으로 업데이트",
       "viewDocs": "문서 보기",
       "install": "설치",
       "installing": "설치 중...",
+      "error": "CLI 상태 감지 오류",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -1064,6 +1088,10 @@
         "omp": {
           "name": "OMP CLI",
           "description": "멀티 프로바이더 모델을 지원하는 Oh My Pi 터미널 코딩 에이전트"
+        },
+        "dsh": {
+          "name": "DeepSeek Harness",
+          "description": "DeepSeek 터미널 에이전트 CLI(dsh)"
         }
       },
       "installDialog": {
@@ -1085,6 +1113,26 @@
       "visibility": {
         "hide": "제공자 전환 메뉴에서 숨기기",
         "show": "제공자 전환 메뉴에 표시"
+      },
+      "dsh": {
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "CLI 설치",
+        "cardTitle": "로컬 호스트",
+        "rowHint": "로컬 dsh web 호스트 시작 또는 인수",
+        "hint": "하나의 상주 로컬 dsh web 호스트가 모든 세션을 처리합니다. 플러그인은 두 번째 호스트를 시작하는 대신 실행 중인 호스트를 인수합니다.",
+        "state": {
+          "checking": "확인 중…",
+          "notInstalled": "설치되지 않음",
+          "notRunning": "실행 중 아님",
+          "connected": "연결됨"
+        },
+        "adopted": "인수됨",
+        "adoptedHint": "이미 실행 중인 호스트를 인수했으며, 플러그인이 이 호스트를 중지하지 않습니다.",
+        "openWebUi": "DSH Web UI 열기",
+        "startHost": "호스트 시작",
+        "stopHost": "호스트 중지(플러그인이 시작한 경우만)",
+        "autoStart": "필요 시 자동 시작",
+        "moreActions": "더 보기"
       }
     }
   },
@@ -1815,26 +1863,45 @@
         "label": "GPT-5.4",
         "description": "향상된 기능의 최신 프론티어 모델."
       }
+    },
+    "grok": {
+      "grok46": {
+        "label": "Grok 4.6",
+        "description": "xAI Grok 4.6"
+      }
     }
+  },
+  "modelConfig": {
+    "title": "모델 설정",
+    "context": "1M 컨텍스트",
+    "contextDefault": "기본값",
+    "effort": "사고 강도",
+    "speed": "속도",
+    "preset": "프리셋",
+    "model": "모델"
   },
   "modes": {
     "default": {
       "label": "기본 모드",
+      "shortLabel": "기본",
       "tooltip": "표준 권한 동작",
       "description": "각 작업에 대해 수동 확인이 필요하며, 신중한 사용에 적합합니다"
     },
     "plan": {
       "label": "계획 모드",
+      "shortLabel": "계획",
       "tooltip": "계획 모드 - 읽기 전용 분석",
       "description": "읽기 전용 도구만 사용하여 사용자 승인을 위한 계획을 생성합니다"
     },
     "acceptEdits": {
       "label": "에이전트 모드",
+      "shortLabel": "에이전트",
       "tooltip": "파일 편집 자동 수락",
       "description": "파일 생성/편집을 자동으로 수락하여 확인 단계를 줄입니다"
     },
     "bypassPermissions": {
       "label": "자동 모드",
+      "shortLabel": "자동",
       "tooltip": "모든 권한 검사 우회",
       "description": "완전 자동화, 모든 권한 검사를 우회합니다 [주의하여 사용]"
     },
@@ -1849,6 +1916,7 @@
     },
     "plan": {
       "label": "계획 모드",
+      "shortLabel": "계획",
       "tooltip": "계획 모드 - 읽기 전용 분석",
       "description": "읽기 전용 도구만 사용하여 사용자 승인을 위한 계획을 생성합니다"
     },
@@ -1906,7 +1974,16 @@
     },
     "omp": {
       "label": "OMP CLI"
-    }
+    },
+    "beta": {
+      "badge": "Beta",
+      "title": "Beta 기능",
+      "message": "이 기능은 아직 Beta 단계입니다. 사용 중 버그를 발견하면 개발자에게 즉시 알려 주세요."
+    },
+    "dsh": {
+      "label": "DeepSeek Harness"
+    },
+    "manageCli": "CLI 설정 관리"
   },
   "promptEnhancer": {
     "title": "프롬프트 강화",
@@ -2094,6 +2171,32 @@
       "unitTools": "도구",
       "unitTokens": "토큰",
       "title": "에이전트 프로세스"
+    }
+  },
+  "dshPresets": {
+    "title": "DeepSeek Harness 에이전트 프리셋 선택",
+    "none": {
+      "label": "기본",
+      "description": "dsh 기본 headless 조합(전체 도구 세트)"
+    },
+    "standard": {
+      "label": "Standard",
+      "description": "표준 도구 세트를 갖춘 완전한 코딩 에이전트"
+    },
+    "code": {
+      "label": "PTC",
+      "description": "Code Mode가 포함된 표준 기능"
+    },
+    "minimal": {
+      "label": "Minimal",
+      "description": "bash와 str_replace_editor만 제공"
+    },
+    "cordis": {
+      "label": "Creator",
+      "description": "표준 기능에 조합 작성 기능 추가"
+    },
+    "user": {
+      "description": "DSH 홈에 설치된 사용자 정의 프리셋"
     }
   }
 }

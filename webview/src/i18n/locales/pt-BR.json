@@ -21,6 +21,7 @@
     "ready": "Pronto",
     "success": "Sucesso",
     "info": "Informação",
+    "gotIt": "Entendi",
     "seconds": "s",
     "minutes": "m",
     "optional": "Opcional"
@@ -1070,18 +1071,41 @@
       "rechecking": "Verificando…",
 
       "updating": "Atualizando…",
+      "title": "Verificação do ambiente CLI",
+      "description": "Detecta ferramentas CLI de IA instaladas localmente, incluindo informações de versão e caminhos de instalação.",
+      "claudeName": "Claude CLI",
+      "claudeDescription": "Ferramenta de linha de comando Claude AI para assistência de codificação interativa",
+      "codexName": "Codex CLI",
+      "codexDescription": "Ferramenta de linha de comando OpenAI Codex para geração de código com IA",
+      "opencodeName": "OpenCode CLI",
+      "opencodeDescription": "Ferramenta de linha de comando OpenCode AI com suporte a vários modelos",
       "grokName": "Grok CLI",
       "grokDescription": "Ferramenta de linha de comando xAI Grok para codificação com IA",
       "kimiName": "Kimi CLI",
       "kimiDescription": "Ferramenta de linha de comando Moonshot Kimi para codificação com IA",
       "piName": "Pi CLI",
       "piDescription": "Ferramenta de linha de comando Inflection Pi para codificação com IA",
+      "ompName": "OMP CLI",
+      "ompDescription": "Ferramenta de linha de comando oh-my-pi (fork do Pi) para codificação com IA",
+      "dshName": "DeepSeek Harness CLI",
+      "dshDescription": "Ferramenta de linha de comando DeepSeek Harness para codificação com IA",
+      "installed": "Instalada",
+      "notInstalled": "Não instalada",
+      "updateAvailable": "Atualização disponível",
+      "currentVersion": "Versão atual",
+      "latestVersion": "Versão mais recente",
+      "installPath": "Caminho de instalação",
+      "installSource": "Origem da instalação",
+      "lastChecked": "Última verificação",
+      "refreshCheck": "Verificar novamente",
+      "checking": "Verificando...",
       "checkingVersion": "Verificando versão...",
       "docUrl": "Documentação",
       "updateToVersion": "Atualizar para v{{version}}",
       "viewDocs": "Ver documentação",
       "install": "Instalar",
       "installing": "Instalando...",
+      "error": "Erro ao detectar o status da CLI",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -1116,6 +1140,10 @@
         "omp": {
           "name": "OMP CLI",
           "description": "Agente de codificação de terminal Oh My Pi com suporte a múltiplos provedores"
+        },
+        "dsh": {
+          "name": "DeepSeek Harness",
+          "description": "CLI do agente de terminal DeepSeek (dsh)"
         }
       },
       "installDialog": {
@@ -1137,6 +1165,26 @@
       "visibility": {
         "hide": "Ocultar no seletor de provedor",
         "show": "Mostrar no seletor de provedor"
+      },
+      "dsh": {
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "Instalação da CLI",
+        "cardTitle": "Host local",
+        "rowHint": "Iniciar ou adotar o host web dsh local",
+        "hint": "Um único host web dsh local persistente atende todas as sessões; o plugin adota um host em execução em vez de iniciar um segundo.",
+        "state": {
+          "checking": "Verificando…",
+          "notInstalled": "Não instalado",
+          "notRunning": "Não em execução",
+          "connected": "Conectado"
+        },
+        "adopted": "adotado",
+        "adoptedHint": "Um host já em execução foi adotado; o plugin nunca o interrompe.",
+        "openWebUi": "Abrir DSH Web UI",
+        "startHost": "Iniciar host",
+        "stopHost": "Parar host (somente os iniciados pelo plugin)",
+        "autoStart": "Iniciar automaticamente quando necessário",
+        "moreActions": "Mais"
       }
     }
   },
@@ -1869,26 +1917,45 @@
         "label": "GPT-5.4",
         "description": "Modelo de fronteira mais recente com capacidades aprimoradas."
       }
+    },
+    "grok": {
+      "grok46": {
+        "label": "Grok 4.6",
+        "description": "xAI Grok 4.6"
+      }
     }
+  },
+  "modelConfig": {
+    "title": "Configurações do modelo",
+    "context": "Contexto 1M",
+    "contextDefault": "Padrão",
+    "effort": "Esforço",
+    "speed": "Velocidade",
+    "preset": "Preset",
+    "model": "Modelo"
   },
   "modes": {
     "default": {
       "label": "Modo Padrão",
+      "shortLabel": "Padrão",
       "tooltip": "Comportamento de permissão padrão",
       "description": "Requer confirmação manual para cada operação, adequado para uso cauteloso"
     },
     "plan": {
       "label": "Modo Plano",
+      "shortLabel": "Plano",
       "tooltip": "Modo plano - análise somente leitura",
       "description": "Usa apenas ferramentas somente leitura, gera plano para aprovação do usuário"
     },
     "acceptEdits": {
       "label": "Modo Agente",
+      "shortLabel": "Agente",
       "tooltip": "Aceitar edições de arquivo automaticamente",
       "description": "Aceitar automaticamente criação/edição de arquivos, reduzindo etapas de confirmação"
     },
     "bypassPermissions": {
       "label": "Modo Auto",
+      "shortLabel": "Auto",
       "tooltip": "Ignorar todas as verificações de permissão",
       "description": "Totalmente automatizado, ignorando todas as verificações de permissão [Use com cautela]"
     },
@@ -1903,6 +1970,7 @@
     },
     "plan": {
       "label": "Modo Plano",
+      "shortLabel": "Plano",
       "tooltip": "Modo plano - análise somente leitura",
       "description": "Usa apenas ferramentas somente leitura, gera plano para aprovação do usuário"
     },
@@ -1949,12 +2017,27 @@
     "opencode": {
       "label": "OpenCode"
     },
+    "grok": {
+      "label": "Grok"
+    },
+    "kimi": {
+      "label": "Kimi"
+    },
     "pi": {
       "label": "PI CLI"
     },
     "omp": {
       "label": "OMP CLI"
-    }
+    },
+    "beta": {
+      "badge": "Beta",
+      "title": "Recurso Beta",
+      "message": "Este recurso ainda está em Beta. Se você encontrar algum bug, informe o autor o quanto antes."
+    },
+    "dsh": {
+      "label": "DeepSeek Harness"
+    },
+    "manageCli": "Configurações de CLI"
   },
   "promptEnhancer": {
     "title": "Melhorador de Prompt",
@@ -2142,6 +2225,32 @@
       "unitTools": "ferramentas",
       "unitTokens": "tokens",
       "title": "Processo do agente"
+    }
+  },
+  "dshPresets": {
+    "title": "Selecionar preset de agente do DeepSeek Harness",
+    "none": {
+      "label": "Padrão",
+      "description": "Composição headless padrão do dsh (conjunto completo de ferramentas)"
+    },
+    "standard": {
+      "label": "Standard",
+      "description": "Agente de codificação completo com o conjunto de ferramentas padrão"
+    },
+    "code": {
+      "label": "PTC",
+      "description": "Capacidades padrão com Code Mode"
+    },
+    "minimal": {
+      "label": "Mínimo",
+      "description": "Apenas bash e str_replace_editor"
+    },
+    "cordis": {
+      "label": "Creator",
+      "description": "Capacidades padrão mais criação de composições"
+    },
+    "user": {
+      "description": "Preset personalizado instalado no diretório DSH"
     }
   }
 }

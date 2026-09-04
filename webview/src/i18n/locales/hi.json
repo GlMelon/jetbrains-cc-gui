@@ -21,6 +21,7 @@
     "ready": "तैयार",
     "success": "सफलता",
     "info": "जानकारी",
+    "gotIt": "समझ गया",
     "seconds": "से",
     "minutes": "मि",
     "optional": "Optional"
@@ -920,6 +921,41 @@
       "rechecking": "जाँच हो रही है…",
 
       "updating": "अपडेट हो रहा है…",
+      "title": "CLI वातावरण जाँच",
+      "description": "स्थानीय रूप से इंस्टॉल किए गए AI CLI टूल का पता लगाता है, जिनमें संस्करण जानकारी और इंस्टॉल पथ शामिल हैं।",
+      "claudeName": "Claude CLI",
+      "claudeDescription": "इंटरैक्टिव कोडिंग सहायता के लिए Claude AI कमांड-लाइन टूल",
+      "codexName": "Codex CLI",
+      "codexDescription": "AI-संचालित कोड जनरेशन के लिए OpenAI Codex कमांड-लाइन टूल",
+      "opencodeName": "OpenCode CLI",
+      "opencodeDescription": "मल्टी-मॉडल समर्थन के लिए OpenCode AI कमांड-लाइन टूल",
+      "grokName": "Grok CLI",
+      "grokDescription": "AI कोडिंग के लिए xAI Grok कमांड-लाइन टूल",
+      "kimiName": "Kimi CLI",
+      "kimiDescription": "AI कोडिंग के लिए Moonshot Kimi कमांड-लाइन टूल",
+      "piName": "Pi CLI",
+      "piDescription": "AI कोडिंग के लिए Inflection Pi कमांड-लाइन टूल",
+      "ompName": "OMP CLI",
+      "ompDescription": "AI कोडिंग के लिए oh-my-pi (Pi fork) कमांड-लाइन टूल",
+      "dshName": "DeepSeek Harness CLI",
+      "dshDescription": "AI कोडिंग के लिए DeepSeek Harness कमांड-लाइन टूल",
+      "installed": "इंस्टॉल्ड",
+      "notInstalled": "इंस्टॉल नहीं",
+      "updateAvailable": "अपडेट उपलब्ध",
+      "currentVersion": "वर्तमान संस्करण",
+      "latestVersion": "नवीनतम संस्करण",
+      "installPath": "इंस्टॉल पथ",
+      "installSource": "इंस्टॉल स्रोत",
+      "lastChecked": "अंतिम जाँच",
+      "refreshCheck": "जाँच रीफ़्रेश करें",
+      "checking": "जाँच हो रही है...",
+      "checkingVersion": "संस्करण जाँचा जा रहा है...",
+      "docUrl": "दस्तावेज़",
+      "updateToVersion": "v{{version}} पर अपडेट करें",
+      "viewDocs": "दस्तावेज़ देखें",
+      "install": "इंस्टॉल करें",
+      "installing": "इंस्टॉल हो रहा है...",
+      "error": "CLI स्थिति का पता लगाने में त्रुटि",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",
       "retry": "Retry",
@@ -954,6 +990,10 @@
         "omp": {
           "name": "OMP CLI",
           "description": "मल्टी-प्रोवाइडर मॉडल सपोर्ट वाला Oh My Pi टर्मिनल कोडिंग एजेंट"
+        },
+        "dsh": {
+          "name": "DeepSeek Harness",
+          "description": "DeepSeek टर्मिनल एजेंट CLI (dsh)"
         }
       },
       "installDialog": {
@@ -975,6 +1015,26 @@
       "visibility": {
         "hide": "प्रदाता स्विचर में छिपाएँ",
         "show": "प्रदाता स्विचर में दिखाएँ"
+      },
+      "dsh": {
+        "groupTitle": "DeepSeek Harness",
+        "cliRowTitle": "CLI इंस्टॉल",
+        "cardTitle": "लोकल होस्ट",
+        "rowHint": "लोकल dsh web होस्ट शुरू करें या अपनाएँ",
+        "hint": "एक स्थायी लोकल dsh web होस्ट सभी सत्रों को सेवा देता है; प्लगइन दूसरा होस्ट शुरू करने के बजाय चल रहे होस्ट को अपना लेता है।",
+        "state": {
+          "checking": "जाँच हो रही है…",
+          "notInstalled": "इंस्टॉल नहीं",
+          "notRunning": "नहीं चल रहा",
+          "connected": "कनेक्टेड"
+        },
+        "adopted": "अपनाया गया",
+        "adoptedHint": "पहले से चल रहा होस्ट अपनाया गया; प्लगइन इसे कभी नहीं रोकता।",
+        "openWebUi": "DSH Web UI खोलें",
+        "startHost": "होस्ट शुरू करें",
+        "stopHost": "होस्ट रोकें (केवल प्लगइन द्वारा शुरू किया गया)",
+        "autoStart": "ज़रूरत पर ऑटो-स्टार्ट",
+        "moreActions": "और"
       }
     },
     "sponsor": "Sponsor",
@@ -1710,26 +1770,45 @@
         "label": "GPT-5.4",
         "description": "उन्नत क्षमताओं के साथ नवीनतम फ्रंटियर मॉडल।"
       }
+    },
+    "grok": {
+      "grok46": {
+        "label": "Grok 4.6",
+        "description": "xAI Grok 4.6"
+      }
     }
+  },
+  "modelConfig": {
+    "title": "मॉडल सेटिंग्स",
+    "context": "1M कॉन्टेक्स्ट",
+    "contextDefault": "डिफ़ॉल्ट",
+    "effort": "एफर्ट",
+    "speed": "गति",
+    "preset": "प्रीसेट",
+    "model": "मॉडल"
   },
   "modes": {
     "default": {
       "label": "Default Mode",
+      "shortLabel": "Default",
       "tooltip": "Standard permission behavior",
       "description": "Requires manual confirmation for each operation, suitable for cautious use"
     },
     "plan": {
       "label": "Plan Mode",
+      "shortLabel": "Plan",
       "tooltip": "Plan mode - read-only analysis",
       "description": "Uses only read-only tools, generates plan for user approval"
     },
     "acceptEdits": {
       "label": "Agent Mode",
+      "shortLabel": "Agent",
       "tooltip": "Automatically accept file edits",
       "description": "Automatically accept file creation/editing, reducing confirmation steps"
     },
     "bypassPermissions": {
       "label": "Auto Mode",
+      "shortLabel": "Auto",
       "tooltip": "Bypass all permission checks",
       "description": "Fully automated, bypassing all permission checks [Use with caution]"
     },
@@ -1744,6 +1823,7 @@
     },
     "plan": {
       "label": "Plan Mode",
+      "shortLabel": "Plan",
       "tooltip": "Plan mode - read-only analysis",
       "description": "Uses only read-only tools, generates plan for user approval"
     },
@@ -1790,12 +1870,27 @@
     "opencode": {
       "label": "OpenCode"
     },
+    "grok": {
+      "label": "Grok"
+    },
+    "kimi": {
+      "label": "Kimi"
+    },
     "pi": {
       "label": "PI CLI"
     },
     "omp": {
       "label": "OMP CLI"
-    }
+    },
+    "beta": {
+      "badge": "Beta",
+      "title": "Beta फ़ीचर",
+      "message": "यह फ़ीचर अभी Beta चरण में है। कोई बग मिले तो कृपया तुरंत लेखक को बताएँ।"
+    },
+    "dsh": {
+      "label": "DeepSeek Harness"
+    },
+    "manageCli": "CLI सेटिंग्स"
   },
   "promptEnhancer": {
     "title": "Prompt Enhancer",
@@ -1922,7 +2017,12 @@
   "changelog": {
     "title": "नया क्या है",
     "close": "समझ गया",
-    "page": "{{current}} / {{total}}"
+    "page": "{{current}} / {{total}}",
+    "versionList": "संस्करण",
+    "searchPlaceholder": "संस्करण खोजें...",
+    "noResults": "कोई मेल खाता संस्करण नहीं मिला",
+    "jumpTo": "इस पर जाएँ",
+    "go": "जाएँ"
   },
   "error": {
     "providerNotConfigured": "प्रदाता कॉन्फ़िगर नहीं है",
@@ -1978,6 +2078,32 @@
       "unitS": "से॰",
       "unitTools": "उपकरण",
       "unitTokens": "टोकन"
+    }
+  },
+  "dshPresets": {
+    "title": "DeepSeek Harness एजेंट प्रीसेट चुनें",
+    "none": {
+      "label": "डिफ़ॉल्ट",
+      "description": "dsh डिफ़ॉल्ट headless कम्पोज़िशन (पूरा टूलसेट)"
+    },
+    "standard": {
+      "label": "स्टैंडर्ड",
+      "description": "स्टैंडर्ड टूलसेट के साथ पूर्ण कोडिंग एजेंट"
+    },
+    "code": {
+      "label": "PTC",
+      "description": "Code Mode के साथ स्टैंडर्ड क्षमताएँ"
+    },
+    "minimal": {
+      "label": "मिनिमल",
+      "description": "केवल bash और str_replace_editor"
+    },
+    "cordis": {
+      "label": "Creator",
+      "description": "स्टैंडर्ड क्षमताओं के साथ कम्पोज़िशन ऑथरिंग"
+    },
+    "user": {
+      "description": "DSH होम में इंस्टॉल किया गया कस्टम प्रीसेट"
     }
   }
 }
