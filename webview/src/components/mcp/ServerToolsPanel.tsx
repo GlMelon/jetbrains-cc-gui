@@ -9,6 +9,8 @@ import { getToolIcon } from './utils';
 import { SyncIcon, codiconToIcon } from '../Icons';
 import { UnifiedLoader } from '../UnifiedLoader';
 
+const WARNING_HEADER_STYLE: React.CSSProperties = { color: 'var(--color-warning)' };
+
 /**
  * Server Tools Panel — chip 流式工具列表
  */
@@ -21,21 +23,25 @@ export function ServerToolsPanel({
 }: {
   toolsInfo?: ServerToolsState[string];
   isConnected: boolean;
-  isCodexMode: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
   onLoadTools: (forceRefresh: boolean) => void;
   onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
 }) {
-  const toolCount = toolsInfo?.tools?.length ?? 0;
+  // Tool results are only meaningful while the server is connected. Keeping a
+  // stale empty result visible after a disconnect makes the panel report
+  // "no tools" instead of the actual connection state.
+  const visibleToolsInfo = isConnected ? toolsInfo : undefined;
+  const emptyToolsResult = isEmptyToolsResult(visibleToolsInfo);
+  const toolCount = visibleToolsInfo?.tools?.length ?? 0;
 
   return (
     <>
       <div className="tools-head">
         <span className="expand-section-label">
-          {t('mcp.tools')}{toolsInfo?.tools ? ` (${toolCount})` : ''}
+          {t('mcp.tools')}{visibleToolsInfo?.tools ? ` (${toolCount})` : ''}
         </span>
         <span className="tools-actions">
-          {toolsInfo && !toolsInfo.loading && (
+          {visibleToolsInfo && !visibleToolsInfo.loading && (
             <button
               className="act-btn"
               onClick={(e) => { e.stopPropagation(); onLoadTools(true); }}
@@ -44,23 +50,23 @@ export function ServerToolsPanel({
               <SyncIcon size={14} />
             </button>
           )}
-          {toolsInfo?.loading && (
+          {visibleToolsInfo?.loading && (
             <UnifiedLoader type="bounce" size={14} />
           )}
         </span>
       </div>
 
       <div className="tool-chips">
-        {!isConnected && !toolsInfo && (
+        {!isConnected && (
           <span className="tool-empty">{t('mcp.notConnected')}</span>
         )}
-        {toolsInfo?.error && (
+        {visibleToolsInfo?.error && (
           <span className="tool-empty err">{t('mcp.loadFailed')}</span>
         )}
-        {toolsInfo?.tools && toolCount === 0 && (
-          <span className="tool-empty">{t('mcp.noTools')}</span>
+        {emptyToolsResult && (
+          <span className="tool-empty" style={WARNING_HEADER_STYLE}>{t('mcp.noTools')}</span>
         )}
-        {isConnected && !toolsInfo && (
+        {isConnected && !visibleToolsInfo && (
           <button
             className="tool-chip clickable"
             onClick={(e) => { e.stopPropagation(); onLoadTools(false); }}
@@ -68,7 +74,7 @@ export function ServerToolsPanel({
             {t('mcp.clickToLoad')}
           </button>
         )}
-        {toolsInfo?.tools?.map((tool, index) => (
+        {visibleToolsInfo?.tools?.map((tool, index) => (
           <span
             key={index}
             className="tool-chip"
