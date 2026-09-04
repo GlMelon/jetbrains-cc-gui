@@ -10,10 +10,18 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Collects provider MCP settings into a provider-neutral Gateway snapshot.
+ * <p>
+ * 收集顺序与去重语义(2026-09-04 全局 MCP 统一列表落地):
+ * ① 全局列表(config.json mcpServers,SSOT)优先收录,打 {@link McpGatewayConstants#SOURCE_GLOBAL} 标签;
+ * ② 三家原生配置(claude ~/.claude.json / codex / opencode)仅补充插件外手工添加的
+ *    native-only 条目 —— 与全局列表同 serverId 的 write-through 镜像一律跳过;
+ *    native-only 条目之间亦按 serverId 去重,优先级 claude &gt; codex &gt; opencode(先到先得)。
  */
 public class McpGatewayConfigCollector {
     private static final Logger LOG = Logger.getInstance(McpGatewayConfigCollector.class);
@@ -25,60 +33,110 @@ public class McpGatewayConfigCollector {
     }
 
     public McpGatewayConfigSnapshot collect(long revision, String projectPath) {
-        List<McpGatewayServerSpec> servers = new ArrayList<>();
-        collectClaude(projectPath, servers);
-        collectCodex(servers);
-        collectOpenCode(servers);
-        return McpGatewayConfigSnapshot.create(revision, projectPath, servers);
+        return McpGatewayConfigSnapshot.create(revision, projectPath, mergeServers(
+                readGlobalServers(),
+                readClaudeServers(projectPath),
+                readCodexServers(),
+                readOpenCodeServers()));
     }
 
-    private void collectClaude(String projectPath, List<McpGatewayServerSpec> servers) {
+    /** 全局 MCP 统一列表(config.json mcpServers,SSOT)。 */
+    private List<JsonObject> readGlobalServers() {
         try {
-            for (JsonObject server : settingsService.getMcpServersWithProjectPath(projectPath)) {
-                McpGatewayServerSpec spec = fromFrontendShape(CommonConstants.PROVIDER_CLAUDE, server);
-                if (spec != null) {
-                    servers.add(spec);
-                }
-            }
+            return settingsService.getMcpServers();
+        } catch (Exception e) {
+            LOG.warn("[McpGateway] Failed to collect global MCP settings: " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Claude 原生 MCP 配置(~/.claude.json 直读,非全局列表镜像)。 */
+    private List<JsonObject> readClaudeServers(String projectPath) {
+        try {
+            return settingsService.readClaudeNativeMcpServers(projectPath);
         } catch (Exception e) {
             LOG.warn("[McpGateway] Failed to collect Claude MCP settings: " + e.getMessage());
+            return List.of();
         }
     }
 
-    private void collectCodex(List<McpGatewayServerSpec> servers) {
+    private List<JsonObject> readCodexServers() {
         try {
-            for (JsonObject server : settingsService.getCodexMcpServerManager().getMcpServers()) {
-                McpGatewayServerSpec spec = fromFrontendShape(CommonConstants.PROVIDER_CODEX, server);
-                if (spec != null) {
-                    servers.add(spec);
-                }
-            }
+            return settingsService.getCodexMcpServerManager().getMcpServers();
         } catch (Exception e) {
             LOG.warn("[McpGateway] Failed to collect Codex MCP settings: " + e.getMessage());
+            return List.of();
         }
     }
 
-    private void collectOpenCode(List<McpGatewayServerSpec> servers) {
+    private List<JsonObject> readOpenCodeServers() {
         try {
-            for (JsonObject server : OpenCodeConfigReader.readMcpServers()) {
-                String id = getString(server, CommonConstants.JSON_KEY_ID);
-                if (id == null || id.isBlank()) {
-                    continue;
-                }
-                boolean enabled = !server.has(McpGatewayConstants.KEY_ENABLED)
-                        || server.get(McpGatewayConstants.KEY_ENABLED).getAsBoolean();
-                JsonObject config = normalizeOpenCodeConfig(server);
-                String transport = normalizeOpenCodeTransport(getString(server, McpGatewayConstants.KEY_TYPE));
-                servers.add(new McpGatewayServerSpec(
-                        CommonConstants.PROVIDER_OPENCODE,
-                        id,
-                        enabled,
-                        transport,
-                        config
-                ));
-            }
+            return OpenCodeConfigReader.readMcpServers();
         } catch (Exception e) {
             LOG.warn("[McpGateway] Failed to collect OpenCode MCP settings: " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * 合并四源配置并按 serverId 去重(包私有静态纯函数,脱离 settingsService 单测):
+     * 全局列表先收录并打 {@link McpGatewayConstants#SOURCE_GLOBAL} 标签;三家原生配置
+     * 跳过已收录 serverId 的 write-through 镜像,native-only 条目保留各自 provider 标签,
+     * 跨源 serverId 冲突按 claude &gt; codex &gt; opencode 先到先得。
+     */
+    static List<McpGatewayServerSpec> mergeServers(
+            List<JsonObject> globalServers,
+            List<JsonObject> claudeServers,
+            List<JsonObject> codexServers,
+            List<JsonObject> openCodeServers) {
+        List<McpGatewayServerSpec> servers = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+        appendFrontendShape(servers, seenIds, McpGatewayConstants.SOURCE_GLOBAL, globalServers);
+        appendFrontendShape(servers, seenIds, CommonConstants.PROVIDER_CLAUDE, claudeServers);
+        appendFrontendShape(servers, seenIds, CommonConstants.PROVIDER_CODEX, codexServers);
+        appendOpenCode(servers, seenIds, openCodeServers);
+        return servers;
+    }
+
+    private static void appendFrontendShape(
+            List<McpGatewayServerSpec> servers,
+            Set<String> seenIds,
+            String provider,
+            List<JsonObject> source) {
+        if (source == null) {
+            return;
+        }
+        for (JsonObject server : source) {
+            McpGatewayServerSpec spec = fromFrontendShape(provider, server);
+            if (spec != null && seenIds.add(spec.serverId())) {
+                servers.add(spec);
+            }
+        }
+    }
+
+    private static void appendOpenCode(
+            List<McpGatewayServerSpec> servers,
+            Set<String> seenIds,
+            List<JsonObject> source) {
+        if (source == null) {
+            return;
+        }
+        for (JsonObject server : source) {
+            String id = getString(server, CommonConstants.JSON_KEY_ID);
+            if (id == null || id.isBlank() || !seenIds.add(id)) {
+                continue;
+            }
+            boolean enabled = !server.has(McpGatewayConstants.KEY_ENABLED)
+                    || server.get(McpGatewayConstants.KEY_ENABLED).getAsBoolean();
+            JsonObject config = normalizeOpenCodeConfig(server);
+            String transport = normalizeOpenCodeTransport(getString(server, McpGatewayConstants.KEY_TYPE));
+            servers.add(new McpGatewayServerSpec(
+                    CommonConstants.PROVIDER_OPENCODE,
+                    id,
+                    enabled,
+                    transport,
+                    config
+            ));
         }
     }
 
