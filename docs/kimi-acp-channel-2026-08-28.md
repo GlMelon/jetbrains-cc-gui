@@ -161,3 +161,38 @@ bundled manifest 本地加载**不验签**(仅远程更新验 .sig),故签名缺
 - `0670d06d` fix(ai-bridge): restore grok-acp-client/acp-terminal-host clobbered by channel-path retirement
 - `b2207572` feat(kimi): ACP channel for thinking/tool/title (bypasses stream-json thinking limit)
 - `4a6610f3` feat(kimi-acp): persistent process + session/cancel interrupt + e2e verify script
+
+---
+
+## 十一、更正与 usage_update 接入(2026-09-04)
+
+### 路由事实更正
+
+本文早前表述「协议事实基于 0.38.0 + packages/acp-adapter 源码级确认」。经 kimi-code
+仓库逐 tag 复核(`apps/kimi-code/src/cli/sub/acp.ts`):
+
+- **0.38.0 起 `kimi acp` 默认路由已是 acp-server(agent-core-v2,acp-native)**;
+  旧 `packages/acp-adapter` 仅在 `KIMI_CODE_LEGACY_FLAG` truthy 时启用;
+- **0.40.0 起 acp-adapter 包整个删除**,`kimi acp` 只剩 acp-server 实现;
+- 早前以 acp-adapter 为参照的源码级结论,与 0.38 默认路径的实际实现(acp-server)
+  存在参照偏差;行为级实测结论(0.38 实测项)不受影响。
+
+### usage_update
+
+- **0.38.0 发布包实测已发出**(`scripts/verify-kimi-acp.mjs` 真机断言通过,本机
+  kimi 0.38.0):npm dist 含 `emitUsageUpdate()`(`usageUpdateNotification(sessionId,
+  used, size)`),turn settle 后 one-shot 推送。注意 git tag 0.38.0 的
+  `acp-server/session.ts` 源码未见调用——发布构建与 tag 源码有差异,以实测为准;
+- 语义:`used` = 当前上下文 token 数,`size` = 模型上下文上限;**无 cost、无单轮
+  input/output 拆分**;
+- 插件接入:`KimiAcpProtocol.UPDATE_USAGE` + `KimiAcpStreamParser.handleUsageUpdate`
+  归一为 Claude-schema(`used` → `input_tokens`,口径同 Claude 统计条「输入」;
+  output/cache 置 0;`size` → `model_context_window`)后经 `MSG_USAGE` 下发,消费侧
+  `CodexMessageHandler.handleUsageMessage` 零改动(与 Codex/OpenCode 同一推送链路):
+  stamp `raw.usage`(上下文条 token_detail)+ `raw.turnUsage`(消息统计条「输入/总计」)
+  并推 `usage.update` 下行;
+- 上下文条分母走既有 `SessionState.getEffectiveMaxTokens()`(静态模型上限),
+  `model_context_window` 键供 `TokenUsageUtils.extractMaxTokens` 的历史重建路径识别;
+- 版本门禁:manifest kimi `maximumTested` 与 `features.acp.maximumTested` 升至 0.41.0
+  (revision 2026090401,已重签);usage_update 不设独立 feature 门禁——更低版本是否
+  发出未逐一实测,解析侧缺字段防御即可。
