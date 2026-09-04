@@ -124,49 +124,17 @@ public class CodexSkillService {
 
     /**
      * Gets the list of directories to scan for Codex skills.
-     * Scans from CWD upward (max 3 levels), ensures repo root is included,
-     * then adds the user-level ~/.agents/skills/ directory.
+     * Scans the shared .agents/skills directories (see {@link #getAgentSkillsScanDirs}),
+     * then appends the Codex-specific ~/.codex/skills/ directories when authorized.
      */
     public static List<SkillScanDir> getSkillScanDirs(String cwd) {
-        List<SkillScanDir> dirs = new ArrayList<>();
+        String userHome = PlatformUtils.getHomeDirectory();
         Set<String> seen = new HashSet<>();
 
-        if (cwd != null && !cwd.isEmpty()) {
-            String repoRoot = findRepoRoot(cwd);
-            Path current = Paths.get(cwd).toAbsolutePath().normalize();
-            Path fsRoot = current.getRoot();
-            int level = 0;
-
-            while (level < MAX_SCAN_LEVELS && current != null && !current.equals(fsRoot)) {
-                String candidate = current.resolve(".agents").resolve("skills").toString();
-                String normalizedCandidate = normalizePath(candidate);
-                if (Files.isDirectory(Path.of(candidate)) && seen.add(normalizedCandidate)) {
-                    dirs.add(new SkillScanDir(candidate, "repo"));
-                }
-                if (current.toString().equals(repoRoot)) {
-                    break;
-                }
-                current = current.getParent();
-                level++;
-            }
-
-            // Ensure repo root is scanned even if beyond 3 levels
-            if (repoRoot != null) {
-                String repoCandidate = Paths.get(repoRoot, ".agents", "skills").toString();
-                String normalizedRepo = normalizePath(repoCandidate);
-                if (Files.isDirectory(Path.of(repoCandidate)) && seen.add(normalizedRepo)) {
-                    dirs.add(new SkillScanDir(repoCandidate, "repo"));
-                }
-            }
-        }
-
-        // User-level directories
-        String userHome = PlatformUtils.getHomeDirectory();
-
-        // ~/.agents/skills/ (Codex community skills)
-        String agentsDir = Paths.get(userHome, ".agents", "skills").toString();
-        if (Files.isDirectory(Path.of(agentsDir)) && seen.add(normalizePath(agentsDir))) {
-            dirs.add(new SkillScanDir(agentsDir, "user"));
+        List<SkillScanDir> dirs = new ArrayList<>();
+        for (SlashCommandRegistry.SkillScanDir dir : getAgentSkillsScanDirs(cwd, userHome)) {
+            dirs.add(new SkillScanDir(dir.path(), dir.scope()));
+            seen.add(normalizePath(dir.path()));
         }
 
         // ~/.codex/skills/ (Codex CLI installed skills)
@@ -180,6 +148,56 @@ public class CodexSkillService {
             String systemDir = Paths.get(userHome, ".codex", "skills", ".system").toString();
             if (Files.isDirectory(Path.of(systemDir)) && seen.add(normalizePath(systemDir))) {
                 dirs.add(new SkillScanDir(systemDir, "user"));
+            }
+        }
+
+        return dirs;
+    }
+
+    /**
+     * Gets the .agents/skills scan directories shared by agent-style CLIs (Codex, Kimi):
+     * scans from CWD upward (max 3 levels), ensures the repo root is included,
+     * then adds the user-level ~/.agents/skills/ directory.
+     * Provider-specific extra directories are appended by callers.
+     */
+    public static List<SlashCommandRegistry.SkillScanDir> getAgentSkillsScanDirs(String cwd, String userHome) {
+        List<SlashCommandRegistry.SkillScanDir> dirs = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+
+        if (cwd != null && !cwd.isEmpty()) {
+            String repoRoot = findRepoRoot(cwd);
+            Path current = Paths.get(cwd).toAbsolutePath().normalize();
+            Path fsRoot = current.getRoot();
+            int level = 0;
+
+            while (level < MAX_SCAN_LEVELS && current != null && !current.equals(fsRoot)) {
+                String candidate = current.resolve(".agents").resolve("skills").toString();
+                String normalizedCandidate = normalizePath(candidate);
+                if (Files.isDirectory(Path.of(candidate)) && seen.add(normalizedCandidate)) {
+                    dirs.add(new SlashCommandRegistry.SkillScanDir(candidate, "repo"));
+                }
+                if (current.toString().equals(repoRoot)) {
+                    break;
+                }
+                current = current.getParent();
+                level++;
+            }
+
+            // Ensure repo root is scanned even if beyond 3 levels
+            if (repoRoot != null) {
+                String repoCandidate = Paths.get(repoRoot, ".agents", "skills").toString();
+                String normalizedRepo = normalizePath(repoCandidate);
+                if (Files.isDirectory(Path.of(repoCandidate)) && seen.add(normalizedRepo)) {
+                    dirs.add(new SlashCommandRegistry.SkillScanDir(repoCandidate, "repo"));
+                }
+            }
+        }
+
+        // ~/.agents/skills/ (user-level agent skills)
+        if (userHome != null && !userHome.isEmpty()) {
+            String agentsDir = Paths.get(userHome, ".agents", "skills").toString();
+            if (Files.isDirectory(Path.of(agentsDir)) && seen.add(normalizePath(agentsDir))) {
+                dirs.add(new SlashCommandRegistry.SkillScanDir(agentsDir, "user"));
             }
         }
 
