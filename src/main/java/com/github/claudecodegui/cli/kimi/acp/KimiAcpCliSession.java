@@ -12,7 +12,6 @@ import com.github.claudecodegui.cli.common.CliEnvironmentBuilder;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliProcessHandle;
 import com.github.claudecodegui.cli.common.CliPromptContexts;
-import com.github.claudecodegui.cli.common.CliProcessLifecycle;
 import com.github.claudecodegui.cli.common.ProviderCliResolver;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
 import com.github.claudecodegui.mcp.McpGatewayConstants;

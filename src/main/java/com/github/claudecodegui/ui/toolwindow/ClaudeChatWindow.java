@@ -48,16 +48,8 @@ import org.cef.browser.CefBrowser;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.event.HierarchyEvent;
-import java.awt.event.HierarchyListener;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BooleanSupplier;import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;

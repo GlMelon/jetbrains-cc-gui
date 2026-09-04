@@ -2,7 +2,6 @@ package com.github.claudecodegui.provider.pi;
 
 import com.github.claudecodegui.cli.common.CliPromptContexts;
 import com.github.claudecodegui.handler.history.NativeCliHistoryMessages;
-import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;

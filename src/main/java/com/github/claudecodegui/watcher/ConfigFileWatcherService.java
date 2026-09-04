@@ -3,7 +3,6 @@ package com.github.claudecodegui.watcher;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow;
-import com.github.claudecodegui.util.JsUtils;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;

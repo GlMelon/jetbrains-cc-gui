@@ -4,7 +4,6 @@ import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.provider.omp.OmpHistoryReader;
 import com.google.gson.JsonObject;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
