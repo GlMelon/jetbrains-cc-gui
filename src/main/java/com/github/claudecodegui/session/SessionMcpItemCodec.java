@@ -6,8 +6,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 会话 MCP 面板条目的字段组装 helper(自 GatewaySessionMcpSource 原私有方法整体搬入,
@@ -24,16 +27,21 @@ final class SessionMcpItemCodec {
 
     /**
      * gateway statusJson servers 元素 → 面板条目。
-     * 不过滤 sourceProvider:全部 gateway 注入型 provider(claude/codex/opencode/kimi)
-     * 都经同一个 melon_gateway 聚合端点接入,会话实际加载的是整个 catalog,
-     * 面板据此展示全量(条目的 provider 字段保留来源 provider 供展示)。
+     * {@code currentProvider} 非空且与元素的 sourceProvider 不等(ignoreCase)时跳过
+     * (claude/codex/opencode 会话只显示本 provider 来源的 server,2026-09-04 用户确认);
+     * null / 空串 = 不过滤(kimi 的「失败补充 / 全量兜底」段自行圈定来源后逐元素调用)。
      */
-    static void appendServer(List<JsonObject> target, JsonElement element) {
+    static void appendServer(List<JsonObject> target, JsonElement element, String currentProvider) {
+
         if (element == null || !element.isJsonObject()) {
             return;
         }
         JsonObject server = element.getAsJsonObject();
         String provider = stringValue(server, McpGatewayConstants.KEY_SOURCE_PROVIDER);
+        if (provider != null && !provider.isEmpty() && currentProvider != null
+                && !currentProvider.isEmpty() && !provider.equalsIgnoreCase(currentProvider)) {
+            return;
+        }
         String name = stringValue(server, McpGatewayConstants.KEY_SERVER_ID);
         if (name == null || name.isEmpty()) {
             name = SessionCapabilityState.UNKNOWN.value();
@@ -109,6 +117,23 @@ final class SessionMcpItemCodec {
         } else {
             target.addProperty(key, 0);
         }
+    }
+
+    /**
+     * 稳定重排:按条目 provider 字段首次出现顺序分组(LinkedHashMap),组内保持原相对
+     * 顺序(输入已基本按 catalog/wire 顺序,此步保证跨源合并后仍按 provider 聚合展示)。
+     */
+    static List<JsonObject> groupByProviderThenServerId(List<JsonObject> items) {
+        Map<String, List<JsonObject>> byProvider = new LinkedHashMap<>();
+        for (JsonObject item : items) {
+            String provider = stringValue(item, SessionMcpCapabilityPayloadField.PROVIDER.wireKey());
+            byProvider.computeIfAbsent(provider == null ? EMPTY : provider, key -> new ArrayList<>()).add(item);
+        }
+        List<JsonObject> out = new ArrayList<>(items.size());
+        for (List<JsonObject> group : byProvider.values()) {
+            out.addAll(group);
+        }
+        return out;
     }
 
     private static String safe(String value) {

@@ -4,7 +4,6 @@ import com.github.claudecodegui.mcp.McpGatewayConstants;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.provider.ProviderCapability;
 import com.github.claudecodegui.session.runtime.ProviderType;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
@@ -16,10 +15,9 @@ import java.util.List;
 
 /**
  * gateway 注入型 provider(claude/codex/opencode)的 MCP 面板数据源:
- * 读 {@link McpGatewayService#statusJson()} 的 servers 数组全量收录(不按 sourceProvider
- * 过滤——各家会话均经同一个 melon_gateway 聚合端点接入,实际加载的是整个 catalog),
- * 即经 gateway 实际加载的 MCP 服务集。行为自 SessionCapabilityService 原 gateway 段搬入,
- * 唯一语义差异即上述过滤的移除(2026-09-04 起对齐「展示会话实际加载」)。
+ * 读 {@link McpGatewayService#statusJson()} 的 servers 数组并按 sourceProvider 过滤
+ * (2026-09-04 用户确认:每会话只显示本 provider 来源加载的 server 集,
+ * claude 会话只列 claude 来源,以此类推)。
  */
 public final class GatewaySessionMcpSource implements SessionMcpSource {
 
@@ -62,7 +60,7 @@ public final class GatewaySessionMcpSource implements SessionMcpSource {
                 if (serversElement != null && serversElement.isJsonArray()) {
                     available = true;
                     for (JsonElement serverElement : serversElement.getAsJsonArray()) {
-                        SessionMcpItemCodec.appendServer(items, serverElement);
+                        SessionMcpItemCodec.appendServer(items, serverElement, session.getProvider());
                     }
                 }
             }

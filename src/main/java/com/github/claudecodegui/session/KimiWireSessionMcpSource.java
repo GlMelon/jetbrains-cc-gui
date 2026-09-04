@@ -21,17 +21,21 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * kimi 会话的 MCP 面板数据源,「gateway 目录优先 + wire 并集」:
+ * kimi 会话的 MCP 面板数据源(2026-09-04 用户确认的最终语义):
+ * 显示「本会话实际加载的 + 相关来源里配置但加载失败的」,按 provider 分组展示。
  * <p>
- * ① catalog 优先:kimi 会话经 ACP session/new 注入 melon_gateway(聚合 gateway),
- * gateway statusJson 的 servers 数组本身即配置的全部 server 及其真实状态
- * (READY/DEGRADED/BACKOFF/STOPPED,与设置页同源),面板全量收录;
- * ② wire 并集:kimi CLI 自读 ~/.kimi-code/mcp.json 直连的 server(不经 gateway,
- * catalog 里没有)按会话 wire 的 mcp.tools_discovered 事件
- * (见 {@link KimiMcpDiscoveryReader})观测追加,state=ready;
- * ③ 展开兜底:仅当 catalog 不可用 / 为空时,wire 里的 melon_gateway 条目才按工具名
- * ({@code mcp__<sourceProvider>__<serverId>__<toolName>},见 McpGatewayConstants)
- * 展开,避免 gateway 不可达时面板空无一物。
+ * ① 实际加载:以会话 wire 的 mcp.tools_discovered 为准(见 {@link KimiMcpDiscoveryReader})。
+ *    melon_gateway(插件 ACP session/new 注入的聚合 gateway)条目按工具名
+ *    ({@code mcp__<sourceProvider>__<serverId>__<toolName>},见 McpGatewayConstants)
+ *    展开成 (provider × serverId) 条目;kimi CLI 自读 ~/.kimi-code/mcp.json 直连的
+ *    server 直接列出(provider=kimi,state=ready)。已加载 server 若 gateway catalog
+ *    (statusJson servers)里有状态,用 catalog 实时状态富化,否则 ready。
+ * ② 失败补充:catalog 里 sourceProvider 属于「wire 展开实际出现过的来源 provider 集合」
+ *    (有直连 server 时含 kimi)但 serverId 不在已加载集合的,按 catalog 真实状态
+ *    (backoff/degraded/stopped 等)追加显示;其他来源 provider 的 server 不出现
+ *    (没进这个会话)。
+ * ③ 兜底:wire 不可读(新会话无 wire)或 melon_gateway 工具名全部解析失败且无直连
+ *    server(拿不到来源信息)→ 退化为全量 catalog 收录(无法圈定来源时宁多勿漏)。
  * <p>
  * available = catalog 可读(servers 数组存在,哪怕空)|| wire 可观测(reader 返回非 null),
  * 双不可用才降级 unavailable。
@@ -49,8 +53,10 @@ public final class KimiWireSessionMcpSource implements SessionMcpSource {
 
     @Override
     public McpPanelData collect(Project project, ClaudeSession session) {
-        // 1. catalog 优先:gateway statusJson 的 servers 全量收录。
-        List<JsonObject> catalogItems = new ArrayList<>();
+        // 1. gateway catalog 读取(一次):原始 servers 元素用于「失败补充 / 全量兜底」,
+        //    statusByServer 索引用于已加载条目的实时状态富化;异常仅告警,catalog 视为不可用。
+        List<JsonObject> catalogServers = new ArrayList<>();
+        Map<String, JsonObject> statusByServer = new LinkedHashMap<>();
         boolean catalogAvailable = false;
         if (project != null) {
             try {
@@ -63,71 +69,107 @@ public final class KimiWireSessionMcpSource implements SessionMcpSource {
                     if (serversElement != null && serversElement.isJsonArray()) {
                         catalogAvailable = true;
                         for (JsonElement serverElement : serversElement.getAsJsonArray()) {
-                            SessionMcpItemCodec.appendServer(catalogItems, serverElement);
+                            if (!serverElement.isJsonObject()) {
+                                continue;
+                            }
+                            JsonObject server = serverElement.getAsJsonObject();
+                            catalogServers.add(server);
+                            String serverId = SessionMcpItemCodec.stringValue(server, McpGatewayConstants.KEY_SERVER_ID);
+                            if (serverId != null && !serverId.isEmpty()) {
+                                statusByServer.put(serverId, server);
+                            }
                         }
                     }
                 }
             } catch (RuntimeException e) {
-                // catalog 视为不可用,不致死(不设 mcpError:还有 wire 兜底)。
+                // catalog 视为不可用,不致死(不设 mcpError:还有 wire 观测路径)。
                 LOG.warn("[KimiWireSessionMcpSource] read gateway catalog failed: " + e.getMessage());
             }
         }
-        // 2. wire 观测(无会话坐标即跳过,仅靠 catalog)。
+        // 2. wire 观测(无会话坐标即跳过)。
         String sessionId = session == null ? null : session.getSessionId();
         String cwd = session == null ? null : session.getCwd();
         List<KimiMcpDiscoveryReader.DiscoveredMcpServer> wireServers = null;
         if (sessionId != null && !sessionId.isBlank() && cwd != null && !cwd.isBlank()) {
             wireServers = new KimiMcpDiscoveryReader().readDiscoveredServers(sessionId, cwd);
         }
-        // 3. 双不可用 → 面板不可用;否则合并 catalog + wire 并集。
+        // 3. 双不可用 → 面板不可用;否则按最终语义合并。
         if (!catalogAvailable && wireServers == null) {
             return McpPanelData.unavailable();
         }
-        return new McpPanelData(true, null, mergeItems(catalogItems, wireServers));
+        return new McpPanelData(true, null, mergeItems(catalogServers, statusByServer, wireServers));
     }
 
     /**
-     * 合并 catalog 条目与 wire 观测 server(包私有静态纯函数,脱离 Project 单测):
-     * - catalog 非空:全部配置 server 已在列(含真实状态);wire 里仅「直连
-     *   (serverName != melon_gateway)且不在 catalog(按 serverId 比对)」的 server
-     *   追加为 ready 观测条目;
-     * - catalog 为空:wire 里的 melon_gateway 条目走 {@link #expandGatewayTools} 展开兜底
-     *   (无 status 可富化,state 全 ready;工具名全畸形时保留 melon_gateway 单条),
-     *   直连 server 照常追加。
+     * 合并 wire 观测与 gateway catalog(包私有静态纯函数,脱离 Project 单测):
+     * 实际加载条目(melon_gateway 展开富化 + 直连 ready)优先;再从 catalog 补充
+     * 「来源 provider 在 wire 展开里出现过、但 serverId 未加载」的失败条目(真实状态);
+     * wire 为 null 或拿不到任何来源信息(无直连且展开为空)→ 全量 catalog 兜底;
+     * 最终按 provider 分组重排(见 {@link SessionMcpItemCodec#groupByProviderThenServerId})。
      */
     static List<JsonObject> mergeItems(
-            List<JsonObject> catalogItems,
+            List<JsonObject> catalogServers,
+            Map<String, JsonObject> statusByServer,
             List<KimiMcpDiscoveryReader.DiscoveredMcpServer> wireServers) {
-        List<JsonObject> items = new ArrayList<>(catalogItems);
-        if (wireServers == null || wireServers.isEmpty()) {
-            return items;
+        List<JsonObject> items = new ArrayList<>();
+        if (wireServers == null) {
+            // wire 不可读 → 无法圈定来源,全量 catalog 兜底(宁多勿漏)。
+            appendAllCatalog(items, catalogServers);
+            return SessionMcpItemCodec.groupByProviderThenServerId(items);
         }
-        boolean catalogEmpty = catalogItems.isEmpty();
-        // catalog 条目的 name 即 serverId(见 SessionMcpItemCodec.appendServer)。
-        Set<String> catalogServerIds = new HashSet<>();
-        for (JsonObject item : catalogItems) {
-            String name = SessionMcpItemCodec.stringValue(item, SessionMcpCapabilityPayloadField.NAME.wireKey());
-            if (name != null) {
-                catalogServerIds.add(name);
-            }
-        }
+        // 已加载条目:melon_gateway 按工具名展开(catalog 命中则富化),直连 server 直接列出。
+        List<JsonObject> loaded = new ArrayList<>();
+        boolean hasDirect = false;
         for (KimiMcpDiscoveryReader.DiscoveredMcpServer server : wireServers) {
             if (McpGatewayConstants.GATEWAY_SERVER_ID.equals(server.name())) {
-                if (catalogEmpty) {
-                    List<JsonObject> expanded = expandGatewayTools(server.toolNames(), Map.of());
-                    if (expanded.isEmpty()) {
-                        // 兜底:工具名全部解析失败 → 保留 melon_gateway 单条现状输出。
-                        items.add(toItem(server));
-                    } else {
-                        items.addAll(expanded);
-                    }
-                }
-                // catalog 非空时 melon_gateway 不再展开(catalog 已列出真实 server)。
-            } else if (!catalogServerIds.contains(server.name())) {
-                items.add(toItem(server));
+                loaded.addAll(expandGatewayTools(server.toolNames(), statusByServer));
+            } else {
+                hasDirect = true;
+                loaded.add(toItem(server));
             }
         }
-        return items;
+        if (loaded.isEmpty()) {
+            // 无直连且展开为空(全畸形 / 无 MCP 事件)→ 拿不到来源信息,全量 catalog 兜底。
+            appendAllCatalog(items, catalogServers);
+            return SessionMcpItemCodec.groupByProviderThenServerId(items);
+        }
+        items.addAll(loaded);
+        // 已加载 serverId 集合 + 实际出现过的来源 provider 集合(有直连时含 kimi)。
+        Set<String> loadedServerIds = new HashSet<>();
+        Set<String> relevantProviders = new HashSet<>();
+        for (JsonObject item : loaded) {
+            String name = SessionMcpItemCodec.stringValue(item, SessionMcpCapabilityPayloadField.NAME.wireKey());
+            if (name != null) {
+                loadedServerIds.add(name);
+            }
+            String provider = SessionMcpItemCodec.stringValue(item, SessionMcpCapabilityPayloadField.PROVIDER.wireKey());
+            if (provider != null && !provider.isEmpty()) {
+                relevantProviders.add(provider);
+            }
+        }
+        if (hasDirect) {
+            relevantProviders.add(ProviderType.KIMI.value());
+        }
+        // catalog 失败补充:相关来源里配置但未加载的 server,按 catalog 真实状态追加。
+        for (JsonObject server : catalogServers) {
+            String sourceProvider = SessionMcpItemCodec.stringValue(server, McpGatewayConstants.KEY_SOURCE_PROVIDER);
+            if (sourceProvider == null || !relevantProviders.contains(sourceProvider)) {
+                continue;
+            }
+            String serverId = SessionMcpItemCodec.stringValue(server, McpGatewayConstants.KEY_SERVER_ID);
+            if (serverId == null || loadedServerIds.contains(serverId)) {
+                continue;
+            }
+            SessionMcpItemCodec.appendServer(items, server, null);
+        }
+        return SessionMcpItemCodec.groupByProviderThenServerId(items);
+    }
+
+    /** 全量 catalog 收录(不过滤 sourceProvider):兜底路径用,无法圈定来源时宁多勿漏。 */
+    private static void appendAllCatalog(List<JsonObject> items, List<JsonObject> catalogServers) {
+        for (JsonObject server : catalogServers) {
+            SessionMcpItemCodec.appendServer(items, server, null);
+        }
     }
 
     /**
