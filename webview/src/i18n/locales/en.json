@@ -31,6 +31,7 @@
       "queued": { "title": "Request queued", "description": "Preparing to send your message" },
       "mcp_syncing": { "title": "Connecting MCP", "description": "Starting MCP gateway and loading tools" },
       "connecting": { "title": "Starting runtime", "description": "Launching the AI CLI process" },
+      "awaiting_model": { "title": "Waiting for model response", "description": "Request sent, waiting for the model's first output" },
       "understanding": { "title": "Waiting for model", "description": "Waiting for the model to respond" },
       "thinking": { "title": "Thinking", "description": "Analyzing context and planning the response" },
       "tooling": { "title": "Using tools", "description": "Running the requested operation and waiting for results" },

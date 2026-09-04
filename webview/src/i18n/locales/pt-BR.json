@@ -31,6 +31,7 @@
       "queued": { "title": "Solicitação na fila", "description": "Preparando o envio da sua mensagem" },
       "mcp_syncing": { "title": "Conectando MCP", "description": "Iniciando o gateway MCP e carregando ferramentas" },
       "connecting": { "title": "Iniciando o runtime", "description": "Iniciando o processo CLI de IA" },
+      "awaiting_model": { "title": "Aguardando resposta do modelo", "description": "Solicitação enviada, aguardando o primeiro conteúdo do modelo" },
       "understanding": { "title": "Aguardando o modelo", "description": "Aguardando o início da resposta" },
       "thinking": { "title": "Pensando", "description": "Analisando o contexto e planejando a resposta" },
       "tooling": { "title": "Usando ferramentas", "description": "Executando a operação solicitada e aguardando resultados" },

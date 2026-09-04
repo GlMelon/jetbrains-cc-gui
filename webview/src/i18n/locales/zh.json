@@ -33,6 +33,7 @@
       "queued": { "title": "请求已提交", "description": "正在准备发送你的消息" },
       "mcp_syncing": { "title": "正在连接 MCP", "description": "正在启动 MCP 网关并加载工具" },
       "connecting": { "title": "正在启动运行时", "description": "正在启动 AI CLI 进程" },
+      "awaiting_model": { "title": "等待模型响应", "description": "请求已发送，正在等待模型返回首个内容" },
       "understanding": { "title": "正在等待模型响应", "description": "正在等待模型开始回复" },
       "thinking": { "title": "正在思考", "description": "正在分析上下文并规划回答" },
       "tooling": { "title": "正在调用工具", "description": "正在执行请求的操作并等待结果" },

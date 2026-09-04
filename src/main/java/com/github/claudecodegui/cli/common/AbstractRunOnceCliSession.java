@@ -307,6 +307,10 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                 + ", effectiveSessionId=" + effectiveSessionDisplay
                 + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                 + ", thread=" + Thread.currentThread().getName());
+        // AWAITING_MODEL:进程已 spawn、请求随参数发给 CLI,覆盖一次性 CLI 从 spawn 到首个
+        // 协议事件(opencode step_start 约 3s)的静默窗口;首个事件/内容由解析器与
+        // SessionCallbackAdapter 继续推进(UNDERSTANDING → THINKING/RESPONDING)。
+        callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.AWAITING_MODEL.value());
         CliProcessHandle currentHandle = new CliProcessHandle(process, providerType.cliCommand() + "-tab-" + tabId);
         activeHandle = currentHandle;
 
@@ -321,6 +325,9 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                     byte[] readBuf = new byte[8192];
                     int n;
                     boolean firstOutputLogged = false;
+                    // [CliTurnPerf] 埋点去重标志:首个协议事件行 / 首个含内容的行
+                    AtomicBoolean firstProtocolEventLogged = new AtomicBoolean(false);
+                    AtomicBoolean firstContentEventLogged = new AtomicBoolean(false);
                     while ((n = rawIn.read(readBuf)) != -1) {
                         for (int i = 0; i < n; i++) {
                             byte b = readBuf[i];
@@ -334,6 +341,8 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                                             + ", thread=" + Thread.currentThread().getName());
                                 }
                                 processLine(lineBuf, parser, diagnostic);
+                                logTurnPerfMarkers(parser, sendStartNanos,
+                                        firstProtocolEventLogged, firstContentEventLogged);
                             } else {
                                 lineBuf.write(b);
                             }
@@ -341,6 +350,8 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                     }
                     if (lineBuf.size() > 0) {
                         processLine(lineBuf, parser, diagnostic);
+                        logTurnPerfMarkers(parser, sendStartNanos,
+                                firstProtocolEventLogged, firstContentEventLogged);
                     }
                 }
                 recordLifecycle(LifecycleEventType.STDOUT_EOF, process, request, processGeneration,
@@ -614,6 +625,29 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     }
 
     // ── output line handling ──────────────────────────────────────────────────
+
+    /**
+     * [CliTurnPerf] TTFT 埋点(对齐 ClaudePersistentSendPath.TurnTimingProbe):
+     * 在既有「first stdout line」之上区分「首个协议事件行」与「首个含内容的行」,
+     * 切出 CLI 有输出但模型尚无内容的静默段(即 AWAITING_MODEL 窗口)。
+     * 不改 parser 接口,只读 {@link CliStreamParser#receivedAnyEvent()} /
+     * {@link CliStreamParser#accumulatedText()} 的状态迁移,每个标志每轮只打一条。
+     */
+    private void logTurnPerfMarkers(CliStreamParser parser, long sendStartNanos,
+                                    AtomicBoolean firstProtocolEventLogged,
+                                    AtomicBoolean firstContentEventLogged) {
+        if (!firstProtocolEventLogged.get() && parser.receivedAnyEvent()) {
+            firstProtocolEventLogged.set(true);
+            LOG.info("[CliTurnPerf] " + providerType.value() + " first_protocol_event: tab=" + tabId
+                    + ", elapsedMs=" + elapsedMillis(sendStartNanos));
+        }
+        String accumulated = parser.accumulatedText();
+        if (!firstContentEventLogged.get() && accumulated != null && !accumulated.isEmpty()) {
+            firstContentEventLogged.set(true);
+            LOG.info("[CliTurnPerf] " + providerType.value() + " first_content_event: tab=" + tabId
+                    + ", elapsedMs=" + elapsedMillis(sendStartNanos));
+        }
+    }
 
     private void processLine(CliOutputLimits.LineBuffer lineBuf, CliStreamParser parser, StringBuilder diagnostic) {
         if (lineBuf.isTruncated()) {

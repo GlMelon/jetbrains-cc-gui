@@ -31,6 +31,7 @@
       "queued": { "title": "요청 대기 중", "description": "메시지 전송 준비 중" },
       "mcp_syncing": { "title": "MCP 연결 중", "description": "MCP 게이트웨이 시작 및 도구 로드 중" },
       "connecting": { "title": "런타임 시작 중", "description": "AI CLI 프로세스 시작 중" },
+      "awaiting_model": { "title": "모델 첫 응답 대기 중", "description": "요청을 전송했으며 모델의 첫 출력을 기다리는 중" },
       "understanding": { "title": "모델 응답 대기 중", "description": "응답 시작 대기 중" },
       "thinking": { "title": "생각 중", "description": "컨텍스트 분석 및 응답 계획 중" },
       "tooling": { "title": "도구 사용 중", "description": "요청된 작업 실행 및 결과 대기 중" },

@@ -27,6 +27,19 @@ public enum AssistantResponsePhase {
             "assistant.response.phase.connecting.description",
             true
     ),
+    /**
+     * 请求已发给模型、等待模型首个输出的阶段:覆盖 codex exec 的长等待窗口
+     * (turn.started 之后、item.completed(agent_message) 之前,实测 30-56s)与
+     * opencode run 等一次性 CLI 的启动静默窗口(spawn 到首个协议事件约 3s)。
+     * 由 CLI send 路径在真实边界上报;首个 thinking/content delta 仍由
+     * {@link SessionCallbackAdapter} 自动推进到 THINKING/RESPONDING。
+     */
+    AWAITING_MODEL(
+            "awaiting_model",
+            "assistant.response.phase.awaitingModel.title",
+            "assistant.response.phase.awaitingModel.description",
+            true
+    ),
     UNDERSTANDING(
             "understanding",
             "assistant.response.phase.understanding.title",

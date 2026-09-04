@@ -31,6 +31,7 @@
       "queued": { "title": "リクエスト待機中", "description": "メッセージの送信を準備中" },
       "mcp_syncing": { "title": "MCP に接続中", "description": "MCP ゲートウェイを起動しツールを読み込み中" },
       "connecting": { "title": "ランタイムを起動中", "description": "AI CLI プロセスを起動中" },
+      "awaiting_model": { "title": "モデルの応答待ち", "description": "リクエストを送信済み、モデルの最初の出力を待機中" },
       "understanding": { "title": "モデルの応答を待っています", "description": "応答の開始を待っています" },
       "thinking": { "title": "思考中", "description": "コンテキストを分析し、応答を計画中" },
       "tooling": { "title": "ツールを使用中", "description": "リクエストされた操作を実行し、結果を待機中" },

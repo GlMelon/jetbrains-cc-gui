@@ -17,13 +17,13 @@ interface AssistantResponseStatusProps {
  * 英文),仅作缺 key/未初始化环境的 fallback。
  *
  * 各阶段图标:
- * - waiting类(queued/connecting/understanding): SpinLoader ring
+ * - waiting类(queued/connecting/awaiting_model/understanding): SpinLoader ring
  * - active类(thinking/tooling/responding): WaveLoader 音浪
  * - api_retry: ProgressRing 不确定旋转 + 重试信息(琥珀色)
  * - done: ✓
  * - error: ✕
  */
-const WAITING_PHASES = new Set(['queued', 'mcp_syncing', 'connecting', 'understanding', 'api_retry']);
+const WAITING_PHASES = new Set(['queued', 'mcp_syncing', 'connecting', 'awaiting_model', 'understanding', 'api_retry']);
 
 export function AssistantResponseStatus({ payload }: AssistantResponseStatusProps): ReactElement | null {
   const { t } = useTranslation();
@@ -31,7 +31,7 @@ export function AssistantResponseStatus({ payload }: AssistantResponseStatusProp
   const waitStartRef = useRef<number | null>(null);
 
   const isApiRetry = payload?.phase === 'api_retry';
-  const shouldTimer = payload?.phase === 'understanding' || isApiRetry;
+  const shouldTimer = payload?.phase === 'understanding' || payload?.phase === 'awaiting_model' || isApiRetry;
   const isWaitingPhase = WAITING_PHASES.has(payload?.phase ?? '');
 
   useEffect(() => {

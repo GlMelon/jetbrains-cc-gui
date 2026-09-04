@@ -69,18 +69,23 @@ public class CliStartupTimingAnalysisTest {
         // 验证阶段枚举的定义顺序与代码流转一致
         AssistantResponsePhase[] phases = AssistantResponsePhase.values();
         assertEquals(AssistantResponsePhase.QUEUED, phases[0]);
-        assertEquals(AssistantResponsePhase.CONNECTING, phases[1]);
-        assertEquals(AssistantResponsePhase.UNDERSTANDING, phases[2]);
-        assertEquals(AssistantResponsePhase.THINKING, phases[3]);
-        assertEquals(AssistantResponsePhase.TOOLING, phases[4]);
-        assertEquals(AssistantResponsePhase.RESPONDING, phases[5]);
-        assertEquals(AssistantResponsePhase.DONE, phases[6]);
-        assertEquals(AssistantResponsePhase.ERROR, phases[7]);
+        assertEquals(AssistantResponsePhase.MCP_SYNCING, phases[1]);
+        assertEquals(AssistantResponsePhase.CONNECTING, phases[2]);
+        // AWAITING_MODEL:请求已发给模型、等待首个输出(codex 长等待窗口 / opencode 启动静默窗口)
+        assertEquals(AssistantResponsePhase.AWAITING_MODEL, phases[3]);
+        assertEquals(AssistantResponsePhase.UNDERSTANDING, phases[4]);
+        assertEquals(AssistantResponsePhase.API_RETRY, phases[5]);
+        assertEquals(AssistantResponsePhase.THINKING, phases[6]);
+        assertEquals(AssistantResponsePhase.TOOLING, phases[7]);
+        assertEquals(AssistantResponsePhase.RESPONDING, phases[8]);
+        assertEquals(AssistantResponsePhase.DONE, phases[9]);
+        assertEquals(AssistantResponsePhase.ERROR, phases[10]);
     }
 
     @Test
     public void connectingAndUnderstandingAreActivePhases() {
         assertTrue(AssistantResponsePhase.CONNECTING.active());
+        assertTrue(AssistantResponsePhase.AWAITING_MODEL.active());
         assertTrue(AssistantResponsePhase.UNDERSTANDING.active());
         assertTrue(AssistantResponsePhase.THINKING.active());
         assertTrue(AssistantResponsePhase.TOOLING.active());

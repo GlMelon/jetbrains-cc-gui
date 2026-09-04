@@ -138,6 +138,10 @@ public class CodexCliSession implements CliSession {
     private SegmentKind lastSegmentKind = SegmentKind.NONE;
     // turn.completed 后置位,其后非 JSON 行视为进程收尾噪声,不再作为正文 delta 输出。
     private volatile boolean turnCompleted;
+    // 本轮 send 起始时间(供 [CliTurnPerf] 轮级埋点换算 elapsedMs;send 入口赋值)
+    private volatile long turnStartNanos;
+    // [CliTurnPerf] codex 事实 TTFT(item.completed 的 agent_message)每轮只打一条
+    private boolean firstAgentMessageLogged;
 
     private enum SegmentKind {
         NONE,
@@ -181,6 +185,7 @@ public class CodexCliSession implements CliSession {
         prepareForSend();
         return CliSessionExecutor.runAsync(() -> {
             long sendStartNanos = System.nanoTime();
+            turnStartNanos = sendStartNanos;
             List<File> tempFiles = new ArrayList<>();
             StringBuilder diagnostic = new StringBuilder();
             StringBuilder cliError = new StringBuilder();
@@ -450,6 +455,7 @@ public class CodexCliSession implements CliSession {
         emittedToolUseIds.clear();
         emittedToolResultIds.clear();
         emittedThinkingStartIds.clear();
+        firstAgentMessageLogged = false;
     }
 
     boolean wasInterrupted() {
@@ -658,6 +664,14 @@ public class CodexCliSession implements CliSession {
                 case CliConstants.CODEX_EVENT_TURN_STARTED -> {
                     lastSegmentKind = SegmentKind.NONE;
                     sectionEmitter(callback).messageStart();
+                    // codex 的死窗在 turn.started 之后、item.completed(agent_message) 之前
+                    // (实测 30-56s):thread.started(~0.7s)已被 onStreamStart 推进到
+                    // UNDERSTANDING,这里再发 AWAITING_MODEL 覆盖,让长等待窗口全程显示
+                    // awaiting_model;首个真实 delta 由 SessionCallbackAdapter 自动推进
+                    // THINKING/RESPONDING(adapter 仅对同 phase 连续去重,错序无害)。
+                    callback.onMessage(CliConstants.MSG_RESPONSE_PHASE, AssistantResponsePhase.AWAITING_MODEL.value());
+                    LOG.info("[CliTurnPerf] codex turn_started: tab=" + tabId
+                            + ", elapsedMs=" + elapsedMillis(turnStartNanos));
                 }
                 case CliConstants.CODEX_EVENT_ITEM_STARTED, CliConstants.CODEX_EVENT_ITEM_UPDATED, CliConstants.CODEX_EVENT_ITEM_COMPLETED -> {
                     if (event.has("item") && event.get("item").isJsonObject()) {
@@ -765,6 +779,15 @@ public class CodexCliSession implements CliSession {
         if (itemType == null) {
             emitNormalizedAssistantBlock(eventNormalizer.unknown(eventType, null, item), callback);
             return;
+        }
+        // [CliTurnPerf] codex 事实 TTFT:exec --json 无 text delta,首个 agent_message
+        // 在 item.completed 一次性到达,此即用户看到首文本的时间点。每轮只打一条。
+        if (!firstAgentMessageLogged
+                && CliConstants.CODEX_EVENT_ITEM_COMPLETED.equals(eventType)
+                && CliConstants.CODEX_ITEM_AGENT_MESSAGE.equals(itemType)) {
+            firstAgentMessageLogged = true;
+            LOG.info("[CliTurnPerf] codex first_agent_message: tab=" + tabId
+                    + ", elapsedMs=" + elapsedMillis(turnStartNanos));
         }
         switch (itemType) {
             case CliConstants.CODEX_ITEM_REASONING, CliConstants.CODEX_ITEM_AGENT_REASONING -> handleReasoningItem(item, callback);

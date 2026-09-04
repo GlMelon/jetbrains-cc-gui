@@ -30,6 +30,7 @@
       "queued": { "title": "請求已提交", "description": "正在準備發送你的訊息" },
       "mcp_syncing": { "title": "正在連接 MCP", "description": "正在啟動 MCP 閘道並載入工具" },
       "connecting": { "title": "正在啟動執行階段", "description": "正在啟動 AI CLI 程序" },
+      "awaiting_model": { "title": "等待模型回應", "description": "請求已發送，正在等待模型回傳第一個內容" },
       "understanding": { "title": "正在等待模型回應", "description": "正在等待模型開始回覆" },
       "thinking": { "title": "正在思考", "description": "正在分析上下文並規劃回答" },
       "tooling": { "title": "正在呼叫工具", "description": "正在執行請求的操作並等待結果" },
