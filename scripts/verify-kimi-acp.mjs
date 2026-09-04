@@ -151,6 +151,13 @@ async function main() {
     check('thought chunk content.type=text', client.updates.some(u => u.sessionUpdate === 'agent_thought_chunk' && u.content?.type === 'text'));
     check('thought 文本非空', thoughtText.length > 0);
 
+    // usage_update 在 turn settle 后推送(one-shot),稍等再断言
+    await sleep(800);
+    const usageUpdate = client.updates.find(u => u.sessionUpdate === 'usage_update');
+    check('收到 usage_update(0.38.0 实测已发出;used/size 为数字)',
+      usageUpdate != null && typeof usageUpdate.used === 'number' && typeof usageUpdate.size === 'number',
+      'counts=' + JSON.stringify(client.counts()));
+
     // ── 4. tool_call(诱导 shell 工具) ──
     console.log('[4/6] tool_call 工具卡验证');
     client.updates.length = 0;
