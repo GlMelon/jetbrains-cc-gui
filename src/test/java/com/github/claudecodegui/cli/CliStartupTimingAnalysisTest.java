@@ -160,7 +160,7 @@ public class CliStartupTimingAnalysisTest {
     @Test
     public void connectingPhaseEndsWhenStreamStartIsEmitted() {
         // 关键验证：CONNECTING 阶段在 onStreamStart 时转换为 UNDERSTANDING
-        // 这意味着 CONNECTING 的持续时间 = 从 sendMessageToProvider 到 CLI 进程输出第一条有效行
+        // 这意味着 CONNECTING 的持续时间 = 从 CLI session send 到 CLI 进程输出第一条有效行
 
         // 验证 SessionCallbackAdapter.onStreamStart() 中硬编码了 UNDERSTANDING 阶段
         // (通过源码检查确认)
@@ -170,12 +170,18 @@ public class CliStartupTimingAnalysisTest {
             ));
             assertTrue("onStreamStart 应发送 UNDERSTANDING 阶段",
                     source.contains("sendResponsePhaseForCurrentTurn(AssistantResponsePhase.UNDERSTANDING)"));
-            // 确认 CONNECTING 阶段在 sendMessageToProvider 中设置
+            // CONNECTING 已由各 CliSession.send 在真实边界自报(SessionSendService 不再预发,
+            // 避免 CLI 路径 CONNECTING 双发闪烁);此处确认双层契约:send 服务不预发 + CLI 会话层自报
             String sendSource = java.nio.file.Files.readString(java.nio.file.Paths.get(
                     "src", "main", "java", "com", "github", "claudecodegui", "session", "SessionSendService.java"
             ));
-            assertTrue("sendMessageToProvider 应设置 CONNECTING 阶段",
+            assertFalse("sendMessageToProvider 不应再预发 CONNECTING(由 CliSession.send 自报)",
                     sendSource.contains("AssistantResponsePhase.CONNECTING"));
+            String cliSessionSource = java.nio.file.Files.readString(java.nio.file.Paths.get(
+                    "src", "main", "java", "com", "github", "claudecodegui", "cli", "common", "AbstractRunOnceCliSession.java"
+            ));
+            assertTrue("CLI 会话层应在真实边界自报 CONNECTING 阶段",
+                    cliSessionSource.contains("AssistantResponsePhase.CONNECTING"));
         } catch (Exception e) {
             fail("源码读取失败: " + e.getMessage());
         }
@@ -368,13 +374,14 @@ public class CliStartupTimingAnalysisTest {
 
     @Test
     public void readOutputBlocksUntilFirstLine() throws Exception {
-        // 验证 readOutput 使用 BufferedReader.readLine() 阻塞读取
+        // 验证 readOutput 使用 BoundedLineReader.readLine() 阻塞读取
         // 这意味着 readOutput 会一直阻塞直到 CLI 进程输出第一行
+        // (BoundedLineReader 在 BufferedReader 等价语义上加了单行长度上限,防内存打爆)
         String source = java.nio.file.Files.readString(java.nio.file.Paths.get(
                 "src", "main", "java", "com", "github", "claudecodegui", "cli", "claude", "ClaudeCliSession.java"
         ));
-        assertTrue("readOutput 应使用 BufferedReader",
-                source.contains("BufferedReader"));
+        assertTrue("readOutput 应使用 BoundedLineReader",
+                source.contains("CliOutputLimits.BoundedLineReader"));
         assertTrue("readOutput 应使用 readLine() 阻塞读取",
                 source.contains("reader.readLine()"));
     }
