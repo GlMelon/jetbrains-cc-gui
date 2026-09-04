@@ -220,9 +220,25 @@
     background: var(--color-success, #58d7ae);
 }
 
+.session-capability-state.is-ready,
+.session-capability-state.is-loaded,
+.session-capability-state.is-connected,
+.session-capability-state.is-success {
+    color: var(--color-success, #58d7ae);
+}
+
 .session-capability-state.is-error .session-capability-state-dot,
-.session-capability-state.is-failed .session-capability-state-dot {
+.session-capability-state.is-failed .session-capability-state-dot,
+.session-capability-state.is-degraded .session-capability-state-dot,
+.session-capability-state.is-backoff .session-capability-state-dot {
     background: var(--color-danger, #ef7c88);
+}
+
+.session-capability-state.is-error,
+.session-capability-state.is-failed,
+.session-capability-state.is-degraded,
+.session-capability-state.is-backoff {
+    color: var(--color-danger, #ef7c88);
 }
 
 .session-capability-empty,
