@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "revision": 2026082801,
-  "generatedAt": "2026-08-28",
+  "revision": 2026090401,
+  "generatedAt": "2026-09-04",
   "providers": {
     "claude": {
       "minimumSupported": "0.0.0",
@@ -33,14 +33,14 @@
     },
     "kimi": {
       "minimumSupported": "0.0.0",
-      "maximumTested": "0.38.0",
+      "maximumTested": "0.41.0",
       "blockedVersions": [],
       "unknownVersionPolicy": "WARN_ALLOW",
       "higherVersionPolicy": "WARN_ALLOW",
       "features": {
         "acp": {
           "minimumSupported": "0.9.0",
-          "maximumTested": "0.38.0"
+          "maximumTested": "0.41.0"
         }
       }
     },
