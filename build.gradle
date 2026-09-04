@@ -521,8 +521,16 @@ tasks.register('buildWebview', Exec) {
     inputs.dir(file("${webviewDir}/scripts"))
         .withPropertyName('webview-scripts')
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // The VITE_ENABLE_VCONSOLE flag is baked into the bundle at build time, so
+    // switching between runIde (true) and packaging tasks (false) must
+    // invalidate the up-to-date check instead of reusing a stale dist.
+    inputs.property('webview-enable-vconsole', enableVConsoleInWebview)
     outputs.dir(file("${webviewDir}/dist"))
         .withPropertyName('webview-dist')
+    // Packaging runs (buildPlugin etc.) must always bundle the latest webview:
+    // only dev runs (runIde, where VITE_ENABLE_VCONSOLE is on) may reuse dist
+    // via the incremental up-to-date check.
+    outputs.upToDateWhen { enableVConsoleInWebview }
 
     onlyIf { webviewDir.exists() && !skipWebviewBuild }
     if (skipWebviewBuild) {
