@@ -32,6 +32,10 @@ import java.util.Set;
  *   <li>{@code tool_call_update} → status 为 completed/failed 时发
  *       {@link CliSectionEmitter#toolResult(JsonObject)}(content 为 REPLACE 全量文本,非追加);</li>
  *   <li>{@code session_info_update} → 捕获 title(供会话层接入 CliSessionTitleService);</li>
+ *   <li>{@code usage_update} → 归一为 Claude-schema usage 后经
+ *       {@link CliSectionEmitter#usage(String)} 发 {@code MSG_USAGE}(0.38.0 发布包实测已发出;
+ *       语义是上下文窗口占用快照 {@code {used, size}},非单轮记账——used 口径与
+ *       Claude 统计条的「输入」一致,都是整份上下文);</li>
  *   <li>{@code available_commands_update}/{@code user_message_chunk} → 忽略
  *       (load 重放时的 user_message_chunk 天然静默)。</li>
  * </ul>
@@ -164,6 +168,7 @@ public class KimiAcpStreamParser implements CliStreamParser {
                 case KimiAcpProtocol.UPDATE_TOOL_CALL -> handleToolCall(update);
                 case KimiAcpProtocol.UPDATE_TOOL_CALL_UPDATE -> handleToolCallUpdate(update);
                 case KimiAcpProtocol.UPDATE_SESSION_INFO -> handleSessionInfo(update);
+                case KimiAcpProtocol.UPDATE_USAGE -> handleUsageUpdate(update);
                 case KimiAcpProtocol.UPDATE_AVAILABLE_COMMANDS,
                      KimiAcpProtocol.UPDATE_USER_MESSAGE_CHUNK -> {
                     // 忽略
@@ -268,6 +273,37 @@ public class KimiAcpStreamParser implements CliStreamParser {
         }
     }
 
+    /**
+     * usage_update:上下文窗口占用快照 {used, size} → 归一为 Claude-schema usage 后发
+     * {@code MSG_USAGE}。消费侧是 {@code CodexMessageHandler.handleUsageMessage}
+     * (kimi 与其它非 Claude provider 共用):stamp raw.usage(上下文条)+ raw.turnUsage
+     * (消息统计条「输入」)并推 {@code usage.update} 下行,与 Claude/Codex/OpenCode 同一推送链路。
+     *
+     * <p>归一约定:used → input_tokens(used 含生成 token,是窗口占用总量,口径对齐 Claude
+     * 统计条「输入 = 非缓存输入+缓存写入+缓存读取」);output/cache 无数据置 0(前端 0 值行不渲染);
+     * size → model_context_window(供 TokenUsageUtils.extractMaxTokens 的历史重建路径识别)。
+     *
+     * <p>防御:used 缺失/非数字/&lt;=0 → 跳过(更低版本是否发出未逐一实测,总则六·健壮性)。</p>
+     */
+    private void handleUsageUpdate(JsonObject update) {
+        long used = getLongField(update, "used");
+        if (used <= 0) {
+            return;
+        }
+        JsonObject usage = new JsonObject();
+        usage.addProperty("input_tokens", used);
+        usage.addProperty("output_tokens", 0);
+        usage.addProperty("cache_creation_input_tokens", 0);
+        usage.addProperty("cache_read_input_tokens", 0);
+        long size = getLongField(update, "size");
+        if (size > 0) {
+            usage.addProperty("model_context_window", size);
+        }
+        JsonObject wrapper = new JsonObject();
+        wrapper.add("usage", usage);
+        emitter.usage(wrapper.toString());
+    }
+
     // ── 字段提取工具 ─────────────────────────────────────────────────────────
 
     /** update.content:{type:"text",text:"..."} → 取 text(增量 delta)。 */
@@ -342,6 +378,18 @@ public class KimiAcpStreamParser implements CliStreamParser {
             return obj.get(key).getAsString();
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    /** 安全取数字字段:缺失/非数字/异常 → -1(调用方按 <=0 跳过)。 */
+    private static long getLongField(JsonObject obj, String key) {
+        if (obj == null || !obj.has(key) || !obj.get(key).isJsonPrimitive()) {
+            return -1;
+        }
+        try {
+            return obj.get(key).getAsLong();
+        } catch (Exception e) {
+            return -1;
         }
     }
 

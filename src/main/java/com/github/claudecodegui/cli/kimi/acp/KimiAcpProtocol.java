@@ -7,12 +7,19 @@ package com.github.claudecodegui.cli.kimi.acp;
  * JSON-RPC 2.0 消息。本类集中管理 method 名、{@code session/update} 变体、
  * config id、thinking 取值与错误码,避免散落字面量。
  *
- * <p>协议事实基于 0.38.0 实测 + MoonshotAI/kimi-code {@code packages/acp-adapter} 源码级确认:
+ * <p>协议事实基于 0.38.0–0.41.0 实测 + MoonshotAI/kimi-code {@code packages/acp-server}
+ * (agent-core-v2)源码级确认。注意:0.38.0 起 {@code kimi acp} 默认路由到 acp-server
+ * (acp-native),旧 {@code packages/acp-adapter} 仅在 {@code KIMI_CODE_LEGACY_FLAG}
+ * 启用时使用,0.40.0 起 acp-adapter 已删除:
  * <ul>
  *   <li>{@code agent_thought_chunk}:思考内容一等公民通道(stream-json 通道不透出 thinking,
  *       ACP 通道透出,纯增量 delta,需 {@code session/set_config_option} 显式开启 thinking);</li>
  *   <li>{@code tool_call}/{@code tool_call_update}:懒创建,update.content 为 REPLACE 语义;</li>
  *   <li>{@code session_info_update}:0.38 实测带 title(接 CliSessionTitleService);</li>
+ *   <li>{@code usage_update}:上下文窗口占用快照 {@code {used, size}}(used=当前上下文 token 数,
+ *       size=模型上下文上限,无 cost、无单轮 input/output 拆分),turn settle 后 one-shot 发出。
+ *       <b>0.38.0 发布包实测已发出</b>(npm dist 含 emitUsageUpdate;git tag 0.38.0 的
+ *       acp-server/session.ts 源码未见调用,发布构建与 tag 源码有差异,以实测为准);</li>
  *   <li>未登录返回错误码 {@code -32000}。</li>
  * </ul>
  *
@@ -50,6 +57,13 @@ final class KimiAcpProtocol {
     static final String UPDATE_AVAILABLE_COMMANDS = "available_commands_update";
     /** 用户消息增量(仅 session/load 重放历史时出现,门控丢弃)。 */
     static final String UPDATE_USER_MESSAGE_CHUNK = "user_message_chunk";
+    /**
+     * 上下文窗口占用快照(turn settle 后 one-shot;0.38.0 发布包实测已发出)。
+     * 字段:used(当前上下文 token 数)、size(模型上下文上限);无 cost、无单轮
+     * input/output 拆分。更低版本是否发出未逐一实测,解析侧按缺字段防御
+     * (总则六·健壮性),无需独立版本门禁。
+     */
+    static final String UPDATE_USAGE = "usage_update";
 
     // ── config option ────────────────────────────────────────────────────────
 

@@ -195,6 +195,54 @@ public class KimiAcpStreamParserTest {
         assertEquals("real-title", parser.capturedTitle());
     }
 
+    // ── usage_update:归一 Claude-schema usage 后发 MSG_USAGE(0.38.0 实测已发出) ──
+
+    @Test
+    public void usageUpdateEmitsNormalizedUsage() {
+        RecordingCallback cb = new RecordingCallback();
+        KimiAcpStreamParser parser = new KimiAcpStreamParser(cb);
+        parser.beginLiveTurn();
+        parser.parseLine(updateLine("{\"sessionUpdate\":\"usage_update\",\"used\":12345,\"size\":200000}"));
+
+        long usages = types(cb).stream().filter(CliConstants.MSG_USAGE::equals).count();
+        assertEquals("usage_update 应发一条 MSG_USAGE", 1, usages);
+        String payload = cb.messages.stream()
+                .filter(m -> CliConstants.MSG_USAGE.equals(m[0]))
+                .findFirst().orElseThrow()[1];
+        // CodexMessageHandler.handleUsageMessage 消费 {"usage": {...}} 包装
+        com.google.gson.JsonObject usage =
+                JsonParser.parseString(payload).getAsJsonObject().getAsJsonObject("usage");
+        assertEquals("used → input_tokens(上下文窗口占用,口径同 Claude 统计条输入)",
+                12345, usage.get("input_tokens").getAsInt());
+        assertEquals("无输出数据置 0(前端 0 值行不渲染)", 0, usage.get("output_tokens").getAsInt());
+        assertEquals(0, usage.get("cache_creation_input_tokens").getAsInt());
+        assertEquals(0, usage.get("cache_read_input_tokens").getAsInt());
+        assertEquals("size → model_context_window(extractMaxTokens 可识别)",
+                200000, usage.get("model_context_window").getAsInt());
+    }
+
+    @Test
+    public void usageUpdateDroppedWhenNotLive() {
+        RecordingCallback cb = new RecordingCallback();
+        KimiAcpStreamParser parser = new KimiAcpStreamParser(cb);
+        // live=false(load 重放期间):usage_update 同样丢弃
+        parser.parseLine(updateLine("{\"sessionUpdate\":\"usage_update\",\"used\":12345,\"size\":200000}"));
+        assertTrue("live=false 时 usage_update 应丢弃", cb.messages.isEmpty());
+    }
+
+    @Test
+    public void usageUpdateWithoutUsedIsSkipped() {
+        RecordingCallback cb = new RecordingCallback();
+        KimiAcpStreamParser parser = new KimiAcpStreamParser(cb);
+        parser.beginLiveTurn();
+        // 更低版本是否发出未逐一实测;缺 used / used<=0 防御性跳过(总则六·健壮性)
+        parser.parseLine(updateLine("{\"sessionUpdate\":\"usage_update\",\"size\":200000}"));
+        parser.parseLine(updateLine("{\"sessionUpdate\":\"usage_update\",\"used\":0,\"size\":200000}"));
+        parser.parseLine(updateLine("{\"sessionUpdate\":\"usage_update\",\"used\":\"oops\",\"size\":200000}"));
+        assertTrue("缺/非法 used 不应产出 MSG_USAGE",
+                types(cb).stream().noneMatch(CliConstants.MSG_USAGE::equals));
+    }
+
     // ── 忽略:available_commands_update / user_message_chunk ──
 
     @Test
