@@ -29,6 +29,8 @@ final class SessionMcpItemCodec {
      * gateway statusJson servers 元素 → 面板条目。
      * {@code currentProvider} 非空且与元素的 sourceProvider 不等(ignoreCase)时跳过
      * (claude/codex/opencode 会话只显示本 provider 来源的 server,2026-09-04 用户确认);
+     * 例外:sourceProvider 为 {@link McpGatewayConstants#SOURCE_GLOBAL}(全局统一列表)
+     * 的条目对任意 provider 会话一律放行 —— 每个会话都能经 gateway 调用它们;
      * null / 空串 = 不过滤(kimi 的「失败补充 / 全量兜底」段自行圈定来源后逐元素调用)。
      */
     static void appendServer(List<JsonObject> target, JsonElement element, String currentProvider) {
@@ -39,7 +41,8 @@ final class SessionMcpItemCodec {
         JsonObject server = element.getAsJsonObject();
         String provider = stringValue(server, McpGatewayConstants.KEY_SOURCE_PROVIDER);
         if (provider != null && !provider.isEmpty() && currentProvider != null
-                && !currentProvider.isEmpty() && !provider.equalsIgnoreCase(currentProvider)) {
+                && !currentProvider.isEmpty() && !provider.equalsIgnoreCase(currentProvider)
+                && !McpGatewayConstants.SOURCE_GLOBAL.equalsIgnoreCase(provider)) {
             return;
         }
         String name = stringValue(server, McpGatewayConstants.KEY_SERVER_ID);

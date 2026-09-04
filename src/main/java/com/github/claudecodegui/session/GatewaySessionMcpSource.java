@@ -17,7 +17,9 @@ import java.util.List;
  * gateway 注入型 provider(claude/codex/opencode)的 MCP 面板数据源:
  * 读 {@link McpGatewayService#statusJson()} 的 servers 数组并按 sourceProvider 过滤
  * (2026-09-04 用户确认:每会话只显示本 provider 来源加载的 server 集,
- * claude 会话只列 claude 来源,以此类推)。
+ * claude 会话只列 claude 来源,以此类推);sourceProvider=global(全局统一列表)
+ * 的条目对任意 provider 会话一律放行(所有会话均可经 gateway 调用,
+ * 见 {@link SessionMcpItemCodec#appendServer})。
  */
 public final class GatewaySessionMcpSource implements SessionMcpSource {
 

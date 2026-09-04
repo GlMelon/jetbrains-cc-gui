@@ -62,6 +62,29 @@ public class SessionMcpItemCodecTest {
     }
 
     @Test
+    public void appendServerGlobalSourcePassesForAnyProviderSession() {
+        // sourceProvider=global(全局统一列表)的条目对 claude / codex 会话一律放行
+        List<JsonObject> items = new ArrayList<>();
+        SessionMcpItemCodec.appendServer(
+                items, server(McpGatewayConstants.SOURCE_GLOBAL, "shared", McpGatewayConstants.STATE_READY), "claude");
+        SessionMcpItemCodec.appendServer(
+                items, server(McpGatewayConstants.SOURCE_GLOBAL, "websearch", McpGatewayConstants.STATE_READY), "codex");
+
+        assertEquals(2, items.size());
+        assertEquals("shared", name(items.get(0)));
+        assertEquals("websearch", name(items.get(1)));
+    }
+
+    @Test
+    public void appendServerStillSkipsRealOtherProviderForClaudeSession() {
+        List<JsonObject> items = new ArrayList<>();
+        SessionMcpItemCodec.appendServer(
+                items, server("codex", "filesystem", McpGatewayConstants.STATE_READY), "claude");
+
+        assertTrue(items.isEmpty());
+    }
+
+    @Test
     public void groupByProviderThenServerIdGroupsByFirstAppearance() {
         List<JsonObject> items = new ArrayList<>();
         SessionMcpItemCodec.appendServer(items, server("codex", "filesystem", McpGatewayConstants.STATE_READY), null);
