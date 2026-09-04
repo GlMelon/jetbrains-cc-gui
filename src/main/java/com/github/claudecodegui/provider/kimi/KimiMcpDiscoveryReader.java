@@ -50,7 +50,7 @@ public class KimiMcpDiscoveryReader {
 
     /**
      * 读取该会话实际加载的 MCP server 列表(按 serverName 去重保序,
-     * toolCount 取该 server 最后一条 tools_discovered 事件的 tools 长度)。
+     * toolCount / toolNames 取该 server 最后一条 tools_discovered 事件)。
      *
      * @return {@code null} = 会话目录不存在 / wire 不可读(面板按不可用降级);
      *         空列表 = 会话在但无 MCP 发现事件。
@@ -78,19 +78,20 @@ public class KimiMcpDiscoveryReader {
                 LOG.warn("[KimiMcpDiscovery] wire too large, skipped: " + wire);
                 return List.of();
             }
-            // LinkedHashMap:按首次发现保序;重复事件 put 覆盖 → toolCount 取最后一条。
-            Map<String, Integer> toolCountByServer = new LinkedHashMap<>();
+            // LinkedHashMap:按首次发现保序;重复事件 put 覆盖 → toolCount/toolNames 取最后一条。
+            Map<String, ServerTools> toolsByServer = new LinkedHashMap<>();
             try (BufferedReader reader = Files.newBufferedReader(wire, StandardCharsets.UTF_8)) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     if (!line.contains(EVENT_MARKER)) {
                         continue;
                     }
-                    parseEvent(line, toolCountByServer);
+                    parseEvent(line, toolsByServer);
                 }
             }
             List<DiscoveredMcpServer> out = new ArrayList<>();
-            toolCountByServer.forEach((name, toolCount) -> out.add(new DiscoveredMcpServer(name, toolCount)));
+            toolsByServer.forEach((name, tools) ->
+                    out.add(new DiscoveredMcpServer(name, tools.toolCount, tools.toolNames)));
             return out;
         } catch (IOException e) {
             LOG.debug("[KimiMcpDiscovery] read failed: " + wire + " - " + e.getMessage());
@@ -99,7 +100,7 @@ public class KimiMcpDiscoveryReader {
     }
 
     /** 单行事件解析:畸形行 / 缺 serverName 跳过不致死。 */
-    private static void parseEvent(String line, Map<String, Integer> toolCountByServer) {
+    private static void parseEvent(String line, Map<String, ServerTools> toolsByServer) {
         try {
             JsonObject event = JsonParser.parseString(line).getAsJsonObject();
             String serverName = NativeCliHistoryMessages.primitiveString(event, "serverName");
@@ -107,17 +108,38 @@ public class KimiMcpDiscoveryReader {
                 return;
             }
             int toolCount = 0;
+            List<String> toolNames = new ArrayList<>();
             JsonElement tools = event.get("tools");
             if (tools != null && tools.isJsonArray()) {
                 toolCount = tools.getAsJsonArray().size();
+                for (JsonElement tool : tools.getAsJsonArray()) {
+                    if (tool.isJsonObject()) {
+                        // 只收字符串 name,非字符串元素跳过(容错,不影响 toolCount 口径)
+                        JsonElement name = tool.getAsJsonObject().get("name");
+                        if (name != null && name.isJsonPrimitive() && name.getAsJsonPrimitive().isString()) {
+                            toolNames.add(name.getAsString());
+                        }
+                    }
+                }
             }
-            toolCountByServer.put(serverName, toolCount);
+            toolsByServer.put(serverName, new ServerTools(toolCount, toolNames));
         } catch (JsonParseException | IllegalStateException e) {
             // 畸形行跳过(容错,对齐 KimiHistoryReader 未知行跳过策略)
         }
     }
 
-    /** 发现的 MCP server(名称 + 工具数)。 */
-    public record DiscoveredMcpServer(String name, int toolCount) {
+    /** 单 server 最后一次发现事件的 tools 快照(toolCount=数组长度,toolNames=其中字符串 name 列表)。 */
+    private static final class ServerTools {
+        private final int toolCount;
+        private final List<String> toolNames;
+
+        private ServerTools(int toolCount, List<String> toolNames) {
+            this.toolCount = toolCount;
+            this.toolNames = toolNames;
+        }
+    }
+
+    /** 发现的 MCP server(名称 + 工具数 + 工具名列表,均取最后一条发现事件)。 */
+    public record DiscoveredMcpServer(String name, int toolCount, List<String> toolNames) {
     }
 }

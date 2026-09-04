@@ -73,8 +73,13 @@ public class KimiMcpDiscoveryReaderTest {
         assertEquals(2, servers.size());
         assertEquals("melon_gateway", servers.get(0).name());
         assertEquals(7, servers.get(0).toolCount());
+        // toolNames 同样取最后一条事件
+        assertEquals(7, servers.get(0).toolNames().size());
+        assertEquals("tool_0", servers.get(0).toolNames().get(0));
+        assertEquals("tool_6", servers.get(0).toolNames().get(6));
         assertEquals("filesystem", servers.get(1).name());
         assertEquals(3, servers.get(1).toolCount());
+        assertEquals(List.of("tool_0", "tool_1", "tool_2"), servers.get(1).toolNames());
     }
 
     @Test
@@ -118,5 +123,33 @@ public class KimiMcpDiscoveryReaderTest {
         assertEquals(1, servers.size());
         assertEquals("big_server", servers.get(0).name());
         assertEquals(2000, servers.get(0).toolCount());
+        assertEquals(2000, servers.get(0).toolNames().size());
+    }
+
+    @Test
+    public void nonStringToolNamesSkippedButStillCounted() throws IOException {
+        Path base = Files.createTempDirectory("kimi-mcp5");
+        Path wire = base.resolve("wire.jsonl");
+        JsonObject event = new JsonObject();
+        event.addProperty("type", "mcp.tools_discovered");
+        event.addProperty("serverName", "mixed");
+        JsonArray tools = new JsonArray();
+        JsonObject ok = new JsonObject();
+        ok.addProperty("name", "good_tool");
+        tools.add(ok);
+        JsonObject numericName = new JsonObject();
+        numericName.addProperty("name", 42);
+        tools.add(numericName);
+        tools.add(new JsonObject()); // 缺 name
+        tools.add("plain-string");   // 非对象元素
+        event.add("tools", tools);
+        Files.writeString(wire, event.toString() + "\n");
+
+        List<KimiMcpDiscoveryReader.DiscoveredMcpServer> servers = KimiMcpDiscoveryReader.parseWire(wire);
+
+        assertEquals(1, servers.size());
+        // toolCount 仍是 tools 数组长度;toolNames 只收字符串 name
+        assertEquals(4, servers.get(0).toolCount());
+        assertEquals(List.of("good_tool"), servers.get(0).toolNames());
     }
 }

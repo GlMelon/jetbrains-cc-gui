@@ -26,6 +26,11 @@ public final class McpGatewayConstants {
 
     public static final String GATEWAY_SERVER_ID = "melon_gateway";
 
+    /** Gateway 聚合工具名契约(与 ai-bridge/mcp-gateway/tool-router.js parseGatewayToolName 逐字对齐):
+     *  {@code mcp__<sourceProvider>__<serverId>__<toolName>}。 */
+    public static final String GATEWAY_TOOL_PREFIX = "mcp__";
+    public static final String GATEWAY_TOOL_SEPARATOR = "__";
+
     public static final String KEY_SCHEMA_VERSION = "schemaVersion";
     public static final String KEY_REVISION = "revision";
     public static final String KEY_PROJECT_PATH = "projectPath";
