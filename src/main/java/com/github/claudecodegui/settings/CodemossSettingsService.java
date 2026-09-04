@@ -131,9 +131,6 @@ public class CodemossSettingsService {
         // Initialize AgentManager
         this.agentManager = new AgentManager(gson, pathManager);
 
-        // MCP domain owns its manager and uses ConfigStore for fallback persistence.
-        this.mcpSettingsService = new McpSettingsService(configRepository, gson, claudeSettingsManager);
-
         // Initialize CodexSettingsManager
         this.codexSettingsManager = new CodexSettingsManager(gson);
 
@@ -142,6 +139,15 @@ public class CodemossSettingsService {
 
         // Initialize OpenCodeSettingsManager(对称 claude/codex settings manager,native-file 依赖;构造后注入 ProviderSettingsService)
         this.openCodeSettingsManager = new OpenCodeSettingsManager(gson);
+
+        // MCP domain:全局 SSOT 为 config.json mcpServers;codex/opencode manager 注入用于原生写穿与一次性迁移。
+        this.mcpSettingsService = new McpSettingsService(
+                configRepository,
+                gson,
+                claudeSettingsManager,
+                codexMcpServerManager,
+                openCodeSettingsManager
+        );
 
         // Provider domain owns all provider managers and depends on ConfigStore only.
         this.providerSettingsService = new ProviderSettingsService(
@@ -757,6 +763,14 @@ public class CodemossSettingsService {
 
     public List<JsonObject> getMcpServersWithProjectPath(String projectPath) throws IOException {
         return mcpSettingsService.getMcpServersWithProjectPath(projectPath);
+    }
+
+    /**
+     * 读取 claude 原生 MCP 配置(~/.claude.json 直读,含项目级合并),供 MCP Gateway collector 使用;
+     * 不走全局 SSOT。
+     */
+    public List<JsonObject> readClaudeNativeMcpServers(String projectPath) {
+        return mcpSettingsService.readClaudeNativeMcpServers(projectPath);
     }
 
     public void upsertMcpServer(JsonObject server) throws IOException {

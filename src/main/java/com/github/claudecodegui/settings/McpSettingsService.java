@@ -10,8 +10,9 @@ import java.util.Map;
 /**
  * MCP 配置领域 Service。
  *
- * <p>持有 {@link McpServerManager} 并通过 {@link ConfigStore} 提供 config.json fallback；
- * Claude 原生 MCP 配置仍由 {@link ClaudeSettingsManager} 负责。Facade 只保留兼容调用面。
+ * <p>持有 {@link McpServerManager} 并通过 {@link ConfigStore} 提供全局 SSOT(config.json
+ * mcpServers)读写;Claude 原生 MCP 配置仍由 {@link ClaudeSettingsManager} 负责,
+ * codex / opencode 原生写穿经注入的 manager 完成。Facade 只保留兼容调用面。
  */
 public final class McpSettingsService {
     private final McpServerManager mcpServerManager;
@@ -19,7 +20,9 @@ public final class McpSettingsService {
     public McpSettingsService(
             ConfigStore configStore,
             Gson gson,
-            ClaudeSettingsManager claudeSettingsManager) {
+            ClaudeSettingsManager claudeSettingsManager,
+            CodexMcpServerManager codexMcpServerManager,
+            OpenCodeSettingsManager openCodeSettingsManager) {
         this.mcpServerManager = new McpServerManager(
                 gson,
                 (ignored) -> {
@@ -36,7 +39,9 @@ public final class McpSettingsService {
                         throw new RuntimeException(e);
                     }
                 },
-                claudeSettingsManager
+                claudeSettingsManager,
+                codexMcpServerManager,
+                openCodeSettingsManager
         );
     }
 
@@ -46,6 +51,14 @@ public final class McpSettingsService {
 
     public List<JsonObject> getMcpServersWithProjectPath(String projectPath) throws IOException {
         return mcpServerManager.getMcpServersWithProjectPath(projectPath);
+    }
+
+    /**
+     * 读取 claude 原生 MCP 配置(~/.claude.json 直读,含项目级合并),供一次性迁移与
+     * MCP Gateway collector 使用;不走全局 SSOT。
+     */
+    public List<JsonObject> readClaudeNativeMcpServers(String projectPath) {
+        return mcpServerManager.readClaudeNativeMcpServers(projectPath);
     }
 
     public void upsertMcpServer(JsonObject server) throws IOException {

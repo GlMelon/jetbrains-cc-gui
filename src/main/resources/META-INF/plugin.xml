@@ -34,9 +34,9 @@
         <ul>
             <li><strong>No silent credential scanning.</strong> The plugin never silently scans your disk for API keys or tokens. All credential sources require <strong>explicit user authorization</strong> via a confirmation dialog in the plugin UI.</li>
             <li><strong>Provider credentials</strong>: Users enter API keys manually in the provider settings UI, or explicitly authorize reading from <code>~/.claude/settings.json</code>, or explicitly authorize delegating to the Claude SDK's native OAuth flow (CLI Login). If Claude provider access is revoked or disabled, the plugin does not continue using credentials from <code>~/.claude/settings.json</code>.</li>
-            <li><strong>MCP server configuration</strong>: When the user opens the MCP settings page, the plugin reads MCP server definitions (server names, commands, arguments) from <code>~/.claude.json</code>. This file contains <strong>no credentials or tokens</strong> — only MCP server configuration metadata managed by the Claude CLI.</li>
+            <li><strong>MCP server configuration</strong>: When the user opens the MCP settings page, the plugin reads MCP server definitions (server names, commands, arguments) from the plugin's own configuration file <code>~/.codemoss/config.json</code>, and mirrors them to each provider's native config (<code>~/.claude.json</code>, <code>~/.codex/config.toml</code>, <code>~/.config/opencode/opencode.json</code>) so the CLIs can use them standalone. These files contain <strong>no credentials or tokens</strong> — only MCP server configuration metadata.</li>
         </ul>
-        <p>插件不会静默扫描磁盘上的凭证。所有凭证来源均需用户在 UI 中显式授权确认。MCP 服务器配置仅在用户打开 MCP 设置页面时读取，该文件仅含服务器定义，不含任何凭证或令牌。</p>
+        <p>插件不会静默扫描磁盘上的凭证。所有凭证来源均需用户在 UI 中显式授权确认。MCP 服务器配置在用户打开 MCP 设置页面时读取自插件自有配置文件 <code>~/.codemoss/config.json</code>，并镜像写入各供应商原生配置（<code>~/.claude.json</code>、<code>~/.codex/config.toml</code>、<code>~/.config/opencode/opencode.json</code>）；这些文件仅含服务器定义，不含任何凭证或令牌。</p>
 
         <h2>核心功能</h2>
         <ul>

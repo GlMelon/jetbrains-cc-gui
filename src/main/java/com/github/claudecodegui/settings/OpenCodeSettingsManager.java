@@ -241,8 +241,53 @@ public class OpenCodeSettingsManager {
     }
 
     /**
-     * 前端 McpServer 嵌套形状 → OpenCode 原生 mcp 条目(逆向 {@code OpenCodeMcpServerActionHandlers.
-     * adaptToServerShape}):{@code command:string+args} 合并为数组、{@code env}→{@code environment}、
+     * 把 {@link com.github.claudecodegui.config.OpenCodeConfigReader#readMcpServers()} 返回的扁平
+     * OpenCode server 配置({@code {id,type,enabled,command?[数组],url?,environment?}})适配成前端
+     * {@code McpServer} 嵌套形状({@code {id,name,enabled,server:{type,command,args?,url?,env?}}})。
+     *
+     * <p>OpenCode 的 {@code command} 是数组({@code ["npx","-y","pkg"]},command+args 合一),
+     * 前端 {@code McpServerSpec} 是 {@code command:string + args[]},故拆分 command[0]→command、
+     * command[1:]→args,使前端 {@code [command,...args].join(' ')} 正确还原。逆向见 {@link #toNativeMcpEntry}。
+     */
+    public static JsonObject adaptMcpToFrontendShape(JsonObject info) {
+        JsonObject out = new JsonObject();
+        String id = info.has("id") ? info.get("id").getAsString() : "";
+        out.addProperty("id", id);
+        out.addProperty("name", id);
+        out.addProperty("enabled", !info.has("enabled") || info.get("enabled").getAsBoolean());
+
+        JsonObject server = new JsonObject();
+        String type = info.has("type") ? info.get("type").getAsString() : "local";
+        server.addProperty("type", "remote".equals(type) ? "sse" : "stdio");
+
+        if (info.has("command") && info.get("command").isJsonArray()) {
+            JsonArray cmdArr = info.getAsJsonArray("command");
+            if (cmdArr.size() > 0 && cmdArr.get(0).isJsonPrimitive()) {
+                server.addProperty("command", cmdArr.get(0).getAsString());
+            }
+            if (cmdArr.size() > 1) {
+                JsonArray args = new JsonArray();
+                for (int i = 1; i < cmdArr.size(); i++) {
+                    if (cmdArr.get(i).isJsonPrimitive()) {
+                        args.add(cmdArr.get(i).getAsString());
+                    }
+                }
+                server.add("args", args);
+            }
+        }
+        if (info.has("url") && info.get("url").isJsonPrimitive()) {
+            server.addProperty("url", info.get("url").getAsString());
+        }
+        if (info.has("environment") && info.get("environment").isJsonObject()) {
+            server.add("env", info.getAsJsonObject("environment"));
+        }
+        out.add("server", server);
+        return out;
+    }
+
+    /**
+     * 前端 McpServer 嵌套形状 → OpenCode 原生 mcp 条目(逆向 {@link #adaptMcpToFrontendShape}):
+     * {@code command:string+args} 合并为数组、{@code env}→{@code environment}、
      * 前端 transport({@code stdio}/{@code sse}/{@code http})折叠回 {@code local}/{@code remote}。
      * 前端专属字段(apps/name/description/tags 等)不写入。
      */
