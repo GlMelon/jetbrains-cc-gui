@@ -87,14 +87,14 @@ public class CliCompatibilityProviderMatrixTest {
      */
     @Test
     public void kimiAcpFeatureGateIsEvaluatedSafely() throws IOException {
-        // kimi 带 features.acp(0.9.0-0.38.0);其它 provider 同一基础 rule 无 features
+        // kimi 带 features.acp(0.9.0-0.41.0);其它 provider 同一基础 rule 无 features
         String baseRule = "{\"minimumSupported\":\"0.0.0\",\"maximumTested\":\"1.0.0\","
                 + "\"blockedVersions\":[],\"unknownVersionPolicy\":\"WARN_ALLOW\","
                 + "\"higherVersionPolicy\":\"WARN_ALLOW\"}";
-        String kimiRule = "{\"minimumSupported\":\"0.0.0\",\"maximumTested\":\"0.38.0\","
+        String kimiRule = "{\"minimumSupported\":\"0.0.0\",\"maximumTested\":\"0.41.0\","
                 + "\"blockedVersions\":[],\"unknownVersionPolicy\":\"WARN_ALLOW\","
                 + "\"higherVersionPolicy\":\"WARN_ALLOW\","
-                + "\"features\":{\"acp\":{\"minimumSupported\":\"0.9.0\",\"maximumTested\":\"0.38.0\"}}}";
+                + "\"features\":{\"acp\":{\"minimumSupported\":\"0.9.0\",\"maximumTested\":\"0.41.0\"}}}";
         StringBuilder providers = new StringBuilder();
         for (ProviderType provider : ProviderType.values()) {
             if (providers.length() > 0) {
@@ -107,9 +107,9 @@ public class CliCompatibilityProviderMatrixTest {
                 + "\"generatedAt\":\"2026-08-28\",\"providers\":{" + providers + "}}";
         CliCompatibilityService svc = serviceWithManifest(json.getBytes(StandardCharsets.UTF_8));
 
-        // 范围内(0.38.0)→ true
-        assertTrue("kimi 0.38.0 ACP gate must pass",
-                svc.evaluateFeature(ProviderType.KIMI, "Kimi 0.38.0", "acp"));
+        // 范围内(0.41.0)→ true
+        assertTrue("kimi 0.41.0 ACP gate must pass",
+                svc.evaluateFeature(ProviderType.KIMI, "Kimi 0.41.0", "acp"));
         // 低于 floor(0.8.0 < 0.9.0)→ false
         assertFalse("kimi 0.8.0 below ACP floor must fail",
                 svc.evaluateFeature(ProviderType.KIMI, "Kimi 0.8.0", "acp"));
