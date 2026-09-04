@@ -163,7 +163,9 @@
         "degraded": "已降级",
         "ready": "就绪",
         "backoff": "退避中",
-        "loaded": "已加载"
+        "loaded": "已加载",
+        "starting": "启动中",
+        "stopped": "已停止"
       },
       "scope": {
         "bundled": "内置",

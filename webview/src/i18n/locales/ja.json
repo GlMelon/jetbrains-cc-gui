@@ -151,7 +151,9 @@
         "degraded": "デグレード",
         "ready": "準備完了",
         "backoff": "バックオフ",
-        "loaded": "読み込み済み"
+        "loaded": "読み込み済み",
+        "starting": "起動中",
+        "stopped": "停止"
       },
       "scope": {
         "bundled": "同梱",

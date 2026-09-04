@@ -151,7 +151,9 @@
         "degraded": "अवनत",
         "ready": "तैयार",
         "backoff": "बैकऑफ़",
-        "loaded": "लोड किया गया"
+        "loaded": "लोड किया गया",
+        "starting": "शुरू हो रहा है",
+        "stopped": "रुका हुआ"
       },
       "scope": {
         "bundled": "बंडल",

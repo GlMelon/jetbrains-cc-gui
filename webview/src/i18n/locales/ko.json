@@ -151,7 +151,9 @@
         "degraded": "저하됨",
         "ready": "준비됨",
         "backoff": "백오프",
-        "loaded": "로드됨"
+        "loaded": "로드됨",
+        "starting": "시작 중",
+        "stopped": "중지됨"
       },
       "scope": {
         "bundled": "기본 제공",

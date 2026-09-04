@@ -151,7 +151,9 @@
         "degraded": "dégradé",
         "ready": "prêt",
         "backoff": "backoff",
-        "loaded": "chargé"
+        "loaded": "chargé",
+        "starting": "démarrage",
+        "stopped": "arrêté"
       },
       "scope": {
         "bundled": "intégré",

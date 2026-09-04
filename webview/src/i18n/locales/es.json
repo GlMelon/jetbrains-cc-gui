@@ -151,7 +151,9 @@
         "degraded": "degradado",
         "ready": "listo",
         "backoff": "retroceso",
-        "loaded": "cargado"
+        "loaded": "cargado",
+        "starting": "iniciando",
+        "stopped": "detenido"
       },
       "scope": {
         "bundled": "integrado",

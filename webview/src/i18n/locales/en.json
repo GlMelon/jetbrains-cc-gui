@@ -161,7 +161,9 @@
         "degraded": "degraded",
         "ready": "ready",
         "backoff": "backoff",
-        "loaded": "loaded"
+        "loaded": "loaded",
+        "starting": "starting",
+        "stopped": "stopped"
       },
       "scope": {
         "bundled": "bundled",
