@@ -130,7 +130,37 @@
       "error": "सेशन क्षमताएँ लोड नहीं की जा सकीं।",
       "updatedAt": "{{time}} पर अपडेट किया गया",
       "notUpdated": "अभी तक अपडेट नहीं किया गया",
-      "refresh": "रीफ़्रेश"
+      "refresh": "रीफ़्रेश",
+      "runtime": {
+        "ariaLabel": "रनटाइम क्षमताएँ",
+        "sessionState": "सत्र स्थिति",
+        "channel": "चैनल",
+        "thinking": "सोच",
+        "tools": "उपकरण",
+        "sessionMcp": "सत्र MCP"
+      },
+      "availability": {
+        "available": "उपलब्ध",
+        "unavailable": "अनुपलब्ध",
+        "unknown": "अज्ञात"
+      },
+      "state": {
+        "unknown": "अज्ञात",
+        "discovered": "खोजा गया",
+        "negotiated": "परिक्रामित",
+        "degraded": "अवनत",
+        "ready": "तैयार",
+        "backoff": "बैकऑफ़",
+        "loaded": "लोड किया गया"
+      },
+      "scope": {
+        "bundled": "बंडल",
+        "user": "उपयोगकर्ता",
+        "repo": "रिपॉज़िटरी",
+        "project": "प्रोजेक्ट",
+        "global": "ग्लोबल",
+        "local": "लोकल"
+      }
     },
     "search": {
       "ariaLabel": "बातचीत में खोजें",

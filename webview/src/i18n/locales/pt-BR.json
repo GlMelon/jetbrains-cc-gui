@@ -130,7 +130,37 @@
       "error": "Não foi possível carregar os recursos da sessão.",
       "updatedAt": "Atualizado {{time}}",
       "notUpdated": "Ainda não atualizado",
-      "refresh": "Atualizar"
+      "refresh": "Atualizar",
+      "runtime": {
+        "ariaLabel": "Capacidades de runtime",
+        "sessionState": "Estado da sessão",
+        "channel": "Canal",
+        "thinking": "Pensamento",
+        "tools": "Ferramentas",
+        "sessionMcp": "MCP da sessão"
+      },
+      "availability": {
+        "available": "disponível",
+        "unavailable": "indisponível",
+        "unknown": "desconhecido"
+      },
+      "state": {
+        "unknown": "desconhecido",
+        "discovered": "descoberto",
+        "negotiated": "negociado",
+        "degraded": "degradado",
+        "ready": "pronto",
+        "backoff": "backoff",
+        "loaded": "carregado"
+      },
+      "scope": {
+        "bundled": "integrado",
+        "user": "usuário",
+        "repo": "repositório",
+        "project": "projeto",
+        "global": "global",
+        "local": "local"
+      }
     },
     "search": {
       "ariaLabel": "Pesquisar na conversa",

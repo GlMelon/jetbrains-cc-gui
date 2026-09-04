@@ -142,7 +142,37 @@
       "error": "无法加载会话能力。",
       "updatedAt": "更新于 {{time}}",
       "notUpdated": "尚未更新",
-      "refresh": "刷新"
+      "refresh": "刷新",
+      "runtime": {
+        "ariaLabel": "运行时能力",
+        "sessionState": "会话状态",
+        "channel": "通道",
+        "thinking": "思考",
+        "tools": "工具",
+        "sessionMcp": "会话 MCP"
+      },
+      "availability": {
+        "available": "可用",
+        "unavailable": "不可用",
+        "unknown": "未知"
+      },
+      "state": {
+        "unknown": "未知",
+        "discovered": "已发现",
+        "negotiated": "已协商",
+        "degraded": "已降级",
+        "ready": "就绪",
+        "backoff": "退避中",
+        "loaded": "已加载"
+      },
+      "scope": {
+        "bundled": "内置",
+        "user": "用户",
+        "repo": "仓库",
+        "project": "项目",
+        "global": "全局",
+        "local": "本地"
+      }
     },
     "search": {
       "ariaLabel": "在对话中搜索",

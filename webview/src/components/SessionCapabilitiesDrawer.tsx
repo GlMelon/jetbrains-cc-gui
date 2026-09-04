@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { SpinLoader } from './react-bits/SpinLoader';
 import { AlertIcon, CloseIcon, RefreshIcon, ServerIcon, ToolsIcon } from './Icons';
 import type {
@@ -18,21 +19,26 @@ export interface SessionCapabilitiesDrawerProps {
   onRefresh: () => void;
 }
 
-function capabilityAvailabilityLabel(value: boolean | null): string {
-  if (value === null) return 'unknown';
-  return value ? 'available' : 'unavailable';
+function capabilityAvailabilityLabel(t: TFunction, value: boolean | null): string {
+  if (value === null) {
+    return t('chat.sessionCapabilities.availability.unknown', { defaultValue: 'unknown' });
+  }
+  return value
+    ? t('chat.sessionCapabilities.availability.available', { defaultValue: 'available' })
+    : t('chat.sessionCapabilities.availability.unavailable', { defaultValue: 'unavailable' });
 }
 
-function CapabilityState({ state }: { state: string }) {
+function CapabilityState({ state, t }: { state: string; t: TFunction }) {
+  const raw = state || 'unknown';
   return (
-    <span className={`session-capability-state is-${state || 'unknown'}`}>
+    <span className={`session-capability-state is-${raw}`}>
       <span className="session-capability-state-dot" aria-hidden="true" />
-      {state || 'unknown'}
+      {t(`chat.sessionCapabilities.state.${raw}`, { defaultValue: raw })}
     </span>
   );
 }
 
-function McpItem({ item }: { item: SessionMcpCapability }) {
+function McpItem({ item, t }: { item: SessionMcpCapability; t: TFunction }) {
   return (
     <li className="session-capability-item">
       <span className="session-capability-item-icon is-mcp" aria-hidden="true">
@@ -42,12 +48,13 @@ function McpItem({ item }: { item: SessionMcpCapability }) {
         <strong>{item.name || item.id}</strong>
         <span>{item.provider || item.state}</span>
       </span>
-      <CapabilityState state={item.state} />
+      <CapabilityState state={item.state} t={t} />
     </li>
   );
 }
 
-function SkillItem({ item }: { item: SessionSkillCapability }) {
+function SkillItem({ item, t }: { item: SessionSkillCapability; t: TFunction }) {
+  const scope = item.scope || item.source;
   return (
     <li className="session-capability-item">
       <span className="session-capability-item-icon is-skill" aria-hidden="true">
@@ -55,9 +62,9 @@ function SkillItem({ item }: { item: SessionSkillCapability }) {
       </span>
       <span className="session-capability-item-main">
         <strong>{item.name || item.id}</strong>
-        <span>{item.scope || item.source}</span>
+        <span>{t(`chat.sessionCapabilities.scope.${scope}`, { defaultValue: scope })}</span>
       </span>
-      <CapabilityState state={item.state} />
+      <CapabilityState state={item.state} t={t} />
     </li>
   );
 }
@@ -222,26 +229,45 @@ export function SessionCapabilitiesDrawer({
           )}
           {data && (
             <>
-              <section className="session-capabilities-runtime" aria-label="Runtime capabilities">
+              <section
+                className="session-capabilities-runtime"
+                aria-label={t('chat.sessionCapabilities.runtime.ariaLabel', {
+                  defaultValue: 'Runtime capabilities',
+                })}
+              >
                 <div className="session-capabilities-runtime-row">
-                  <span>Session state</span>
-                  <CapabilityState state={data.state} />
+                  <span>
+                    {t('chat.sessionCapabilities.runtime.sessionState', {
+                      defaultValue: 'Session state',
+                    })}
+                  </span>
+                  <CapabilityState state={data.state} t={t} />
                 </div>
                 <div className="session-capabilities-runtime-row">
-                  <span>Channel</span>
+                  <span>
+                    {t('chat.sessionCapabilities.runtime.channel', { defaultValue: 'Channel' })}
+                  </span>
                   <strong>{data.channel}</strong>
                 </div>
                 <div className="session-capabilities-runtime-row">
-                  <span>Thinking</span>
-                  <strong>{capabilityAvailabilityLabel(data.thinkingAvailable)}</strong>
+                  <span>
+                    {t('chat.sessionCapabilities.runtime.thinking', { defaultValue: 'Thinking' })}
+                  </span>
+                  <strong>{capabilityAvailabilityLabel(t, data.thinkingAvailable)}</strong>
                 </div>
                 <div className="session-capabilities-runtime-row">
-                  <span>Tools</span>
-                  <strong>{capabilityAvailabilityLabel(data.toolsAvailable)}</strong>
+                  <span>
+                    {t('chat.sessionCapabilities.runtime.tools', { defaultValue: 'Tools' })}
+                  </span>
+                  <strong>{capabilityAvailabilityLabel(t, data.toolsAvailable)}</strong>
                 </div>
                 <div className="session-capabilities-runtime-row">
-                  <span>Session MCP</span>
-                  <strong>{capabilityAvailabilityLabel(data.sessionMcpAvailable)}</strong>
+                  <span>
+                    {t('chat.sessionCapabilities.runtime.sessionMcp', {
+                      defaultValue: 'Session MCP',
+                    })}
+                  </span>
+                  <strong>{capabilityAvailabilityLabel(t, data.sessionMcpAvailable)}</strong>
                 </div>
                 {data.degraded && data.degradationReason && (
                   <div className="session-capabilities-notice" role="status">
@@ -267,7 +293,7 @@ export function SessionCapabilitiesDrawer({
                 emptyLabel={t('chat.sessionCapabilities.emptyMcp', {
                   defaultValue: 'No MCP servers observed.',
                 })}
-                renderItem={(item) => <McpItem key={item.id} item={item} />}
+                renderItem={(item) => <McpItem key={item.id} item={item} t={t} />}
               />
               <CapabilityGroup<SessionSkillCapability>
                 title={t('chat.sessionCapabilities.skills', { defaultValue: 'Skills' })}
@@ -276,7 +302,7 @@ export function SessionCapabilitiesDrawer({
                 emptyLabel={t('chat.sessionCapabilities.emptySkills', {
                   defaultValue: 'No skills observed.',
                 })}
-                renderItem={(item) => <SkillItem key={item.id} item={item} />}
+                renderItem={(item) => <SkillItem key={item.id} item={item} t={t} />}
               />
             </>
           )}

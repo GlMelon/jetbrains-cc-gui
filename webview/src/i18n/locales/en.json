@@ -140,7 +140,37 @@
       "error": "Unable to load session capabilities.",
       "updatedAt": "Updated {{time}}",
       "notUpdated": "Not updated yet",
-      "refresh": "Refresh"
+      "refresh": "Refresh",
+      "runtime": {
+        "ariaLabel": "Runtime capabilities",
+        "sessionState": "Session state",
+        "channel": "Channel",
+        "thinking": "Thinking",
+        "tools": "Tools",
+        "sessionMcp": "Session MCP"
+      },
+      "availability": {
+        "available": "available",
+        "unavailable": "unavailable",
+        "unknown": "unknown"
+      },
+      "state": {
+        "unknown": "unknown",
+        "discovered": "discovered",
+        "negotiated": "negotiated",
+        "degraded": "degraded",
+        "ready": "ready",
+        "backoff": "backoff",
+        "loaded": "loaded"
+      },
+      "scope": {
+        "bundled": "bundled",
+        "user": "user",
+        "repo": "repo",
+        "project": "project",
+        "global": "global",
+        "local": "local"
+      }
     },
     "search": {
       "ariaLabel": "Search in conversation",

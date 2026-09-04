@@ -130,7 +130,37 @@
       "error": "No se pudieron cargar las capacidades de la sesión.",
       "updatedAt": "Actualizado {{time}}",
       "notUpdated": "Aún no actualizado",
-      "refresh": "Actualizar"
+      "refresh": "Actualizar",
+      "runtime": {
+        "ariaLabel": "Capacidades en tiempo de ejecución",
+        "sessionState": "Estado de la sesión",
+        "channel": "Canal",
+        "thinking": "Razonamiento",
+        "tools": "Herramientas",
+        "sessionMcp": "MCP de sesión"
+      },
+      "availability": {
+        "available": "disponible",
+        "unavailable": "no disponible",
+        "unknown": "desconocido"
+      },
+      "state": {
+        "unknown": "desconocido",
+        "discovered": "descubierto",
+        "negotiated": "negociado",
+        "degraded": "degradado",
+        "ready": "listo",
+        "backoff": "retroceso",
+        "loaded": "cargado"
+      },
+      "scope": {
+        "bundled": "integrado",
+        "user": "usuario",
+        "repo": "repositorio",
+        "project": "proyecto",
+        "global": "global",
+        "local": "local"
+      }
     },
     "search": {
       "ariaLabel": "Buscar en la conversación",

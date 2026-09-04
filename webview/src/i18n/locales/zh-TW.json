@@ -132,7 +132,37 @@
       "error": "無法載入工作階段能力。",
       "updatedAt": "更新於 {{time}}",
       "notUpdated": "尚未更新",
-      "refresh": "重新整理"
+      "refresh": "重新整理",
+      "runtime": {
+        "ariaLabel": "執行時能力",
+        "sessionState": "會話狀態",
+        "channel": "通道",
+        "thinking": "思考",
+        "tools": "工具",
+        "sessionMcp": "會話 MCP"
+      },
+      "availability": {
+        "available": "可用",
+        "unavailable": "不可用",
+        "unknown": "未知"
+      },
+      "state": {
+        "unknown": "未知",
+        "discovered": "已發現",
+        "negotiated": "已協商",
+        "degraded": "已降級",
+        "ready": "就緒",
+        "backoff": "退避中",
+        "loaded": "已載入"
+      },
+      "scope": {
+        "bundled": "內建",
+        "user": "使用者",
+        "repo": "儲存庫",
+        "project": "專案",
+        "global": "全域",
+        "local": "本機"
+      }
     },
     "search": {
       "ariaLabel": "在對話中搜尋",

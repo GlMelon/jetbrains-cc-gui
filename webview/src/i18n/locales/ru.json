@@ -130,7 +130,37 @@
       "error": "Не удалось загрузить возможности сеанса.",
       "updatedAt": "Обновлено {{time}}",
       "notUpdated": "Ещё не обновлено",
-      "refresh": "Обновить"
+      "refresh": "Обновить",
+      "runtime": {
+        "ariaLabel": "Возможности среды выполнения",
+        "sessionState": "Состояние сеанса",
+        "channel": "Канал",
+        "thinking": "Размышления",
+        "tools": "Инструменты",
+        "sessionMcp": "MCP сеанса"
+      },
+      "availability": {
+        "available": "доступно",
+        "unavailable": "недоступно",
+        "unknown": "неизвестно"
+      },
+      "state": {
+        "unknown": "неизвестно",
+        "discovered": "обнаружено",
+        "negotiated": "согласовано",
+        "degraded": "деградировано",
+        "ready": "готово",
+        "backoff": "бэкофф",
+        "loaded": "загружено"
+      },
+      "scope": {
+        "bundled": "встроенный",
+        "user": "пользователь",
+        "repo": "репозиторий",
+        "project": "проект",
+        "global": "глобальный",
+        "local": "локальный"
+      }
     },
     "search": {
       "ariaLabel": "Поиск в беседе",

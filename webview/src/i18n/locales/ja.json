@@ -130,7 +130,37 @@
       "error": "セッションの機能を読み込めません。",
       "updatedAt": "更新日時 {{time}}",
       "notUpdated": "未更新",
-      "refresh": "更新"
+      "refresh": "更新",
+      "runtime": {
+        "ariaLabel": "ランタイム機能",
+        "sessionState": "セッション状態",
+        "channel": "チャネル",
+        "thinking": "思考",
+        "tools": "ツール",
+        "sessionMcp": "セッション MCP"
+      },
+      "availability": {
+        "available": "利用可能",
+        "unavailable": "利用不可",
+        "unknown": "不明"
+      },
+      "state": {
+        "unknown": "不明",
+        "discovered": "検出済み",
+        "negotiated": "交渉済み",
+        "degraded": "デグレード",
+        "ready": "準備完了",
+        "backoff": "バックオフ",
+        "loaded": "読み込み済み"
+      },
+      "scope": {
+        "bundled": "同梱",
+        "user": "ユーザー",
+        "repo": "リポジトリ",
+        "project": "プロジェクト",
+        "global": "グローバル",
+        "local": "ローカル"
+      }
     },
     "search": {
       "ariaLabel": "会話内を検索",

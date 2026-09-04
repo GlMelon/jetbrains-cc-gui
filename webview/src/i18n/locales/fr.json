@@ -130,7 +130,37 @@
       "error": "Impossible de charger les capacités de la session.",
       "updatedAt": "Mis à jour {{time}}",
       "notUpdated": "Pas encore mis à jour",
-      "refresh": "Actualiser"
+      "refresh": "Actualiser",
+      "runtime": {
+        "ariaLabel": "Capacités d'exécution",
+        "sessionState": "État de la session",
+        "channel": "Canal",
+        "thinking": "Réflexion",
+        "tools": "Outils",
+        "sessionMcp": "MCP de session"
+      },
+      "availability": {
+        "available": "disponible",
+        "unavailable": "indisponible",
+        "unknown": "inconnu"
+      },
+      "state": {
+        "unknown": "inconnu",
+        "discovered": "découvert",
+        "negotiated": "négocié",
+        "degraded": "dégradé",
+        "ready": "prêt",
+        "backoff": "backoff",
+        "loaded": "chargé"
+      },
+      "scope": {
+        "bundled": "intégré",
+        "user": "utilisateur",
+        "repo": "dépôt",
+        "project": "projet",
+        "global": "global",
+        "local": "local"
+      }
     },
     "search": {
       "ariaLabel": "Rechercher dans la conversation",
