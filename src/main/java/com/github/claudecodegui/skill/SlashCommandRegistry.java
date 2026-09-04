@@ -98,6 +98,13 @@ public final class SlashCommandRegistry {
             new SlashCommand("/review", "Review working tree changes", "builtin", SlashCommandKind.BUILTIN, "builtin")
     );
 
+    // Kimi built-in skills bundled with the CLI (userInvocable, work in GUI environment)
+    public static final List<SlashCommand> KIMI_BUILTIN = List.of(
+            new SlashCommand("/check-kimi-code-docs", "Answer questions about Kimi Code using the official documentation", "bundled", SlashCommandKind.SKILL, "bundled"),
+            new SlashCommand("/update-config", "Inspect or edit kimi-code's own config", "bundled", SlashCommandKind.SKILL, "bundled"),
+            new SlashCommand("/write-goal", "Help craft a well-specified /goal objective for goal mode", "bundled", SlashCommandKind.SKILL, "bundled")
+    );
+
     // Plugin-local commands: handled by the plugin itself (see LOCAL_ACTION_RULES), never sent to the CLI.
     // Merged into every provider's command list; /new /reset /continue are hidden aliases the
     // frontend accepts when typed but does not show in the completion dropdown.
@@ -233,11 +240,21 @@ public final class SlashCommandRegistry {
      * Gets the merged slash command list for a given provider and working directory.
      */
     public static List<SlashCommand> getCommands(String provider, String cwd, String currentFilePath) {
-        // codex 判定经 ProviderType SSOT(总则五·开闭 / E6):fromString 忽略大小写,消除裸 "codex" 字面量。
-        boolean isCodex = ProviderType.fromString(provider) == ProviderType.CODEX;
+        return getCommands(provider, cwd, currentFilePath, resolveUserHome());
+    }
 
-        List<SlashCommand> builtins = isCodex ? CODEX_BUILTIN : CLAUDE_BUILTIN;
-        String userHome = resolveUserHome();
+    /**
+     * Gets the merged slash command list with an explicit user home (package-private for tests).
+     */
+    static List<SlashCommand> getCommands(String provider, String cwd, String currentFilePath, String userHome) {
+        // Provider routing via ProviderType SSOT; unknown/null providers fall back to the Claude layout.
+        ProviderType providerType = ProviderType.fromString(provider);
+
+        List<SlashCommand> builtins = switch (providerType) {
+            case CODEX -> CODEX_BUILTIN;
+            case KIMI -> KIMI_BUILTIN;
+            default -> CLAUDE_BUILTIN;
+        };
         Path currentFile = SlashCommandPathPolicy.toNormalizedPath(currentFilePath);
 
         List<SlashCommand> globalCmdCommands;
@@ -250,42 +267,58 @@ public final class SlashCommandRegistry {
         List<SlashCommand> pluginSkillCommands = List.of();
         List<SlashCommand> pluginCmdCommands = List.of();
 
-        if (isCodex) {
-            if (userHome.isEmpty()) {
-                globalCmdCommands = List.of();
-            } else {
-                globalCmdCommands = PromptCommandScanner.scanPromptsAsCommands(
-                        userHome + File.separator + ".codex" + File.separator + "prompts");
-            }
-            globalSkillCommands = List.of();
-        } else {
-            if (userHome.isEmpty()) {
-                globalCmdCommands = List.of();
+        switch (providerType) {
+            case CODEX -> {
+                if (userHome.isEmpty()) {
+                    globalCmdCommands = List.of();
+                } else {
+                    globalCmdCommands = PromptCommandScanner.scanPromptsAsCommands(
+                            userHome + File.separator + ".codex" + File.separator + "prompts");
+                }
                 globalSkillCommands = List.of();
-            } else {
-                String claudeDir = userHome + File.separator + ".claude";
-                globalCmdCommands = scanCommandsAsCommands(
-                        claudeDir + File.separator + "commands", "user");
-                globalSkillCommands = scanSkillsAsCommands(
-                        claudeDir + File.separator + "skills", "user", null, currentFile, "user");
             }
-
-            if (cwd != null && !cwd.isEmpty()) {
-                List<SkillScanDir> cmdDirs = getCommandScanDirs(cwd);
-                List<SkillScanDir> skillDirs = getSkillsScanDirs(cwd);
-
-                localCmdCommands = scanCommandsFromDirs(cmdDirs, "local");
-                localSkillCommands = scanSkillsFromDirs(skillDirs, "local", null, currentFile);
-
-                List<String> additionalDirs = getAdditionalDirectories(cwd, userHome);
-                additionalCmdCommands = scanAdditionalCommands(additionalDirs);
-                additionalSkillCommands = scanAdditionalSkills(additionalDirs, currentFile);
+            case KIMI -> {
+                // Kimi CLI loads skills from .agents/skills dirs (cwd upward + user home);
+                // no commands dirs and no Claude-ecosystem managed/plugin/additional scanning.
+                globalCmdCommands = List.of();
+                Map<String, SlashCommand> skills = new LinkedHashMap<>();
+                for (SkillScanDir dir : CodexSkillService.getAgentSkillsScanDirs(cwd, userHome)) {
+                    for (SlashCommand cmd : scanSkillsAsCommands(
+                            dir.path(), dir.scope(), null, currentFile, dir.scope())) {
+                        skills.putIfAbsent(cmd.name(), cmd);
+                    }
+                }
+                globalSkillCommands = new ArrayList<>(skills.values());
             }
+            default -> {
+                if (userHome.isEmpty()) {
+                    globalCmdCommands = List.of();
+                    globalSkillCommands = List.of();
+                } else {
+                    String claudeDir = userHome + File.separator + ".claude";
+                    globalCmdCommands = scanCommandsAsCommands(
+                            claudeDir + File.separator + "commands", "user");
+                    globalSkillCommands = scanSkillsAsCommands(
+                            claudeDir + File.separator + "skills", "user", null, currentFile, "user");
+                }
 
-            managedSkillCommands = ManagedSkillScanner.scanManagedSkills(getManagedDirectory(), currentFilePath);
-            List<PluginPath> allPluginPaths = PluginCommandScanner.getPluginPaths(cwd, userHome);
-            pluginSkillCommands = PluginCommandScanner.scanPluginSkills(allPluginPaths, currentFilePath);
-            pluginCmdCommands = PluginCommandScanner.scanPluginCommands(allPluginPaths);
+                if (cwd != null && !cwd.isEmpty()) {
+                    List<SkillScanDir> cmdDirs = getCommandScanDirs(cwd);
+                    List<SkillScanDir> skillDirs = getSkillsScanDirs(cwd);
+
+                    localCmdCommands = scanCommandsFromDirs(cmdDirs, "local");
+                    localSkillCommands = scanSkillsFromDirs(skillDirs, "local", null, currentFile);
+
+                    List<String> additionalDirs = getAdditionalDirectories(cwd, userHome);
+                    additionalCmdCommands = scanAdditionalCommands(additionalDirs);
+                    additionalSkillCommands = scanAdditionalSkills(additionalDirs, currentFile);
+                }
+
+                managedSkillCommands = ManagedSkillScanner.scanManagedSkills(getManagedDirectory(), currentFilePath);
+                List<PluginPath> allPluginPaths = PluginCommandScanner.getPluginPaths(cwd, userHome);
+                pluginSkillCommands = PluginCommandScanner.scanPluginSkills(allPluginPaths, currentFilePath);
+                pluginCmdCommands = PluginCommandScanner.scanPluginCommands(allPluginPaths);
+            }
         }
 
         List<SlashCommand> merged = mergeCommandsInOrder(
@@ -301,7 +334,7 @@ public final class SlashCommandRegistry {
                 pluginCmdCommands,
                 pluginSkillCommands
         );
-        return annotateLocalActions(merged, ProviderType.fromString(provider));
+        return annotateLocalActions(merged, providerType);
     }
 
     /**
