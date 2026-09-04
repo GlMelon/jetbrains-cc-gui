@@ -404,7 +404,7 @@ export const ChatScreen = ({
             setCurrentView('settings');
           }}
           onOpenModelSettings={() => {
-            setSettingsInitialTab('providers');
+            setSettingsInitialTab('models');
             setCurrentView('settings');
           }}
           hasMessages={messages.length > 0}
