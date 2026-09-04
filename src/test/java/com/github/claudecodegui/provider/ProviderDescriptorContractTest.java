@@ -36,9 +36,11 @@ public class ProviderDescriptorContractTest {
                         ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
                 ProviderDescriptor.grok().capabilities());
         // kimi:CLI_SESSION + STREAMING + REASONING_THINKING(ACP 通道 agent_thought_chunk)+ HISTORY
+        // + MCP(2026-09-03 起 gateway 经 ACP session/new 注入 melon_gateway 实测生效)
         assertEquals("expected kimi capabilities",
                 EnumSet.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
-                        ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY),
+                        ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY,
+                        ProviderCapability.MCP),
                 ProviderDescriptor.kimi().capabilities());
         assertTrue("kimi declares thinking via ACP channel (agent_thought_chunk)",
                 ProviderDescriptor.kimi().supports(ProviderCapability.REASONING_THINKING));
@@ -135,9 +137,10 @@ public class ProviderDescriptorContractTest {
                 EnumSet.of(ProviderCapability.CLI_SESSION));
         ProviderDescriptorRegistry registry = new ProviderDescriptorRegistry(List.of(acme));
 
-        // claude/codex/opencode 声明 MCP(全能力);cliBuiltin 与 acme 只声明 CLI_SESSION
+        // claude/codex/opencode/kimi 声明 MCP(kimi 经 ACP session/new 注入 gateway);
+        // 其余 cliBuiltin 与 acme 只声明 CLI_SESSION
         List<ProviderDescriptor> mcpProviders = registry.withCapability(ProviderCapability.MCP);
-        assertEquals(3, mcpProviders.size());
+        assertEquals(4, mcpProviders.size());
         // 8 内置(全部声明 CLI_SESSION)+ acme = 9
         List<ProviderDescriptor> cliOnlyProviders = registry.withCapability(ProviderCapability.CLI_SESSION);
         assertEquals(9, cliOnlyProviders.size());

@@ -10,7 +10,10 @@ import java.util.function.BiFunction;
  * 纯 CLI marker provider(Grok / Kimi / Pi / OMP / DSH)的通用轻量适配器。
  *
  * <p>这几家 provider 仅支持 CLI(marker 协议流式,经各自 {@code *CliSession} 把上游 CLI 输出
- * 归一为 MSG_*),<b>不</b>提供 mcp / rewind / skills 等横切能力。历史读取是可选项:
+ * 归一为 MSG_*),默认<b>不</b>提供 mcp / rewind / skills 等横切能力;个别已落地的能力
+ * (如 kimi 的 MCP——gateway 经 ACP {@code session/new} 注入)经
+ * {@link #CliOnlyProviderAdapter(ProviderId, String, SessionMessagesLoader, SessionHistoryLoader, Set)}
+ * 的 {@code extraCapabilities} 按需声明。历史读取是可选项:
  * <ul>
  *   <li>注入 {@code sessionMessagesLoader} 的 provider(如 kimi/grok/pi,各自 HistoryReader
  *       读上游 CLI 本地会话落盘)声明 {@link ProviderCapability#HISTORY},
@@ -38,6 +41,8 @@ public final class CliOnlyProviderAdapter implements ProviderAdapter {
     private final ProviderViewModel viewModel;
     private final SessionMessagesLoader sessionMessagesLoader;
     private final SessionHistoryLoader sessionHistoryLoader;
+    /** 额外横切能力声明(如 kimi 的 MCP——gateway 注入已落地);默认空集,其余纯 CLI provider 不受影响。 */
+    private final Set<ProviderCapability> extraCapabilities;
 
     public CliOnlyProviderAdapter(ProviderId providerId, String displayLabel) {
         this(providerId, displayLabel, null);
@@ -51,10 +56,18 @@ public final class CliOnlyProviderAdapter implements ProviderAdapter {
     public CliOnlyProviderAdapter(ProviderId providerId, String displayLabel,
                                   SessionMessagesLoader sessionMessagesLoader,
                                   SessionHistoryLoader sessionHistoryLoader) {
+        this(providerId, displayLabel, sessionMessagesLoader, sessionHistoryLoader, Set.of());
+    }
+
+    public CliOnlyProviderAdapter(ProviderId providerId, String displayLabel,
+                                  SessionMessagesLoader sessionMessagesLoader,
+                                  SessionHistoryLoader sessionHistoryLoader,
+                                  Set<ProviderCapability> extraCapabilities) {
         this.providerId = providerId;
         this.viewModel = new ProviderViewModel(providerId, displayLabel);
         this.sessionMessagesLoader = sessionMessagesLoader;
         this.sessionHistoryLoader = sessionHistoryLoader;
+        this.extraCapabilities = extraCapabilities == null ? Set.of() : Set.copyOf(extraCapabilities);
     }
 
     @Override
@@ -72,11 +85,15 @@ public final class CliOnlyProviderAdapter implements ProviderAdapter {
         // REASONING_THINKING 无条件声明:五家思考区均已落地(grok/kimi/pi native、omp/dsh marker),
         // 与 ProviderDescriptor.cliBuiltin 描述符层保持同集,消除两套 SSOT 漂移。
         // HISTORY 按历史 loader 有无(kimi/grok/pi/omp/dsh 有;dsh 走 host RPC 亦有)。
-        return sessionMessagesLoader != null
+        // extraCapabilities 并入(如 kimi 的 MCP:gateway ACP session/new 注入已落地),
+        // 与 ProviderDescriptor 对应 builtin 的 extras 声明保持一致。
+        Set<ProviderCapability> capabilities = new java.util.HashSet<>(sessionMessagesLoader != null
                 ? Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
                          ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY)
                 : Set.of(ProviderCapability.CLI_SESSION, ProviderCapability.STREAMING,
-                         ProviderCapability.REASONING_THINKING);
+                         ProviderCapability.REASONING_THINKING));
+        capabilities.addAll(extraCapabilities);
+        return Set.copyOf(capabilities);
     }
 
     @Override

@@ -16,6 +16,7 @@ import com.github.claudecodegui.provider.opencode.OpenCodeProviderAdapter;
 import com.google.gson.JsonObject;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Centralizes provider-specific bridge routing for session operations.
@@ -61,7 +62,11 @@ public class SessionProviderRouter {
                 new CodexProviderAdapter(),
                 new OpenCodeProviderAdapter(),
                 new CliOnlyProviderAdapter(ProviderId.GROK, "Grok", grokLoader, grokPage::loadInitialPage),
-                new CliOnlyProviderAdapter(ProviderId.KIMI, "Kimi", kimiLoader, kimiPage::loadInitialPage),
+                // Kimi 追加 MCP 声明:gateway 经 ACP session/new 注入 melon_gateway 已落地
+                // (2026-09-03 实测 kimi 0.38.0 http 形态生效),能力面板门禁据此放开;
+                // 与 ProviderDescriptor.kimi() 的 extras 保持同集。
+                new CliOnlyProviderAdapter(ProviderId.KIMI, "Kimi", kimiLoader, kimiPage::loadInitialPage,
+                        Set.of(ProviderCapability.MCP)),
                 new CliOnlyProviderAdapter(ProviderId.PI, "Pi", piLoader, piPage::loadInitialPage),
                 // OMP:本地 JSONL 落盘(OmpHistoryReader);DSH:host 侧历史经 bridge RPC 拉取
                 new CliOnlyProviderAdapter(ProviderId.OMP, "OMP", (sessionId, cwd) -> {
