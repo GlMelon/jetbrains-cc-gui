@@ -4,7 +4,6 @@ import { ServerToolsPanel } from './ServerToolsPanel';
 
 const baseProps = {
   isConnected: true,
-  isCodexMode: false,
   t: (key: string) => key,
   onLoadTools: vi.fn(),
   onToolHover: vi.fn(),

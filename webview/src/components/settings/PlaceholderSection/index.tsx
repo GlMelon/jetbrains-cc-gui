@@ -46,7 +46,7 @@ const PlaceholderSection = ({ type, currentProvider }: PlaceholderSectionProps) 
       <p className={styles.sectionDesc}>{config.desc}</p>
 
       {type === 'mcp' ? (
-        <McpSettingsSection currentProvider={currentProvider} />
+        <McpSettingsSection />
       ) : (
         <div className={styles.tempNotice}>
           <config.IconComponent size={16} />

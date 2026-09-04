@@ -29,8 +29,6 @@ const onLog = vi.fn();
 
 function renderServerData() {
   return renderHook(() => useServerData({
-    isCodexMode: false,
-    messagePrefix: '',
     cacheKeys,
     t: translate,
     onLog,
@@ -46,8 +44,6 @@ beforeEach(() => {
 afterEach(() => {
   delete window.updateMcpServers;
   delete window.updateMcpServerStatus;
-  delete window.updateCodexMcpServers;
-  delete window.updateCodexMcpServerStatus;
 });
 
 describe('useServerData terminal MCP status handling', () => {

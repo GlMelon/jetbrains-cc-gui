@@ -15,10 +15,9 @@ import { HoverLift } from '../react-bits';
 /** 状态 → pill 修饰类(ok/err/warn/muted),用于常驻状态 pill */
 function getStatusPillClass(
   server: McpServer,
-  status: McpServerStatusInfo['status'] | undefined,
-  isCodexMode: boolean
+  status: McpServerStatusInfo['status'] | undefined
 ): string {
-  if (!isServerEnabled(server, isCodexMode)) return 'muted';
+  if (!isServerEnabled(server)) return 'muted';
   switch (status) {
     case MCP_SERVER_STATUS.CONNECTED: return 'ok';
     case MCP_SERVER_STATUS.FAILED: return 'err';
@@ -32,7 +31,6 @@ function getStatusPillClass(
 export function ServerCard({
   server,
   isExpanded,
-  isCodexMode,
   serverStatus,
   toolsInfo,
   t,
@@ -46,11 +44,9 @@ export function ServerCard({
   onToolHover,
   animationIndex = 0,
   readOnly = false,
-  showTools = true,
 }: {
   server: McpServer;
   isExpanded: boolean;
-  isCodexMode: boolean;
   serverStatus: Map<string, McpServerStatusInfo>;
   refreshState?: ServerRefreshState[string];
   toolsInfo?: ServerToolsState[string];
@@ -66,8 +62,6 @@ export function ServerCard({
   onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;
   animationIndex?: number;
   readOnly?: boolean;
-  /** 无工具列能力时隐藏工具面板(OpenCode:无列工具 API,空回调会渲染死按钮) */
-  showTools?: boolean;
 }) {
   const statusInfo = getServerStatusInfo(server, serverStatus);
   const status = statusInfo?.status;
@@ -75,12 +69,12 @@ export function ServerCard({
     status === MCP_SERVER_STATUS.PENDING && (toolsInfo?.tools?.length ?? 0) > 0
       ? MCP_SERVER_STATUS.CONNECTED
       : status;
-  const enabled = isServerEnabled(server, isCodexMode);
+  const enabled = isServerEnabled(server);
   const isConnected = effectiveStatus === MCP_SERVER_STATUS.CONNECTED;
 
   const iconStyle: React.CSSProperties = { background: getIconColor(server.id) };
-  const statusPillClass = getStatusPillClass(server, effectiveStatus, isCodexMode);
-  const statusText = getStatusText(server, effectiveStatus, isCodexMode, t);
+  const statusPillClass = getStatusPillClass(server, effectiveStatus);
+  const statusText = getStatusText(server, effectiveStatus, t);
 
   const hasUrl = !!server.server.url;
   const hasCommand = !!server.server.command;
@@ -187,13 +181,11 @@ export function ServerCard({
             )}
           </div>
 
-          {/* 工具 chip 流(替换原侧边栏布局)。无工具列能力的面板(OpenCode)用 showTools=false
-              跳过渲染,以免出现「点击加载工具」死按钮(空回调 + 无 toolsInfo)。 */}
-          {!readOnly && showTools && (
+          {/* 工具 chip 流(替换原侧边栏布局) */}
+          {!readOnly && (
             <ServerToolsPanel
               toolsInfo={toolsInfo}
               isConnected={isConnected}
-              isCodexMode={isCodexMode}
               t={t}
               onLoadTools={onLoadTools}
               onToolHover={onToolHover}

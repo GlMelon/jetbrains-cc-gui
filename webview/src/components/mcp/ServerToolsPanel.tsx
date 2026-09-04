@@ -21,7 +21,6 @@ export function ServerToolsPanel({
 }: {
   toolsInfo?: ServerToolsState[string];
   isConnected: boolean;
-  isCodexMode: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
   onLoadTools: (forceRefresh: boolean) => void;
   onToolHover: (tool: McpTool | null, position?: { x: number; y: number }) => void;

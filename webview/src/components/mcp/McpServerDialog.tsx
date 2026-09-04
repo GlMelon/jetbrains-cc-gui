@@ -10,22 +10,20 @@ import { ClickSpark } from '../react-bits';
 interface McpServerDialogProps {
   server?: McpServer | null;
   existingIds?: string[];
-  currentProvider?: 'claude' | 'codex' | string;
   isPreset?: boolean;
   onClose: () => void;
   onSave: (server: McpServer) => void;
 }
 
-export function McpServerDialog({ server, existingIds = [], currentProvider = 'claude', isPreset = false, onClose, onSave }: McpServerDialogProps) {
+export function McpServerDialog({ server, existingIds = [], isPreset = false, onClose, onSave }: McpServerDialogProps) {
   const { t } = useTranslation();
-  const isCodexMode = currentProvider === 'codex';
   const [saving, setSaving] = useState(false);
   const [jsonContent, setJsonContent] = useState('');
   const [parseError, setParseError] = useState('');
   const editorRef = useRef<HTMLTextAreaElement>(null);
 
   // 示例占位符中的 runner 词取自生成常量(插值),与后端 KNOWN_RUNNERS 词表同源。
-  const claudePlaceholder = `// demo:
+  const placeholder = `// demo:
 // {
 //   "mcpServers": {
 //     "example-server": {
@@ -38,22 +36,6 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
 //   }
 // }`;
 
-  const codexPlaceholder = `// Codex MCP Server Example:
-// {
-//   "mcpServers": {
-//     "context7": {
-//       "command": "${MCP_PACKAGE_RUNNER.NPX}",
-//       "args": ["-y", "@upstash/context7-mcp"],
-//       "env": {
-//         "CONTEXT7_API_KEY": "your-api-key"
-//       },
-//       "startup_timeout_sec": 20,
-//       "tool_timeout_sec": 60
-//     }
-//   }
-// }`;
-
-  const placeholder = isCodexMode ? codexPlaceholder : claudePlaceholder;
   const lineCount = Math.max((jsonContent || placeholder).split('\n').length, 12);
 
   const isValid = useCallback(() => {
@@ -124,7 +106,6 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
             id,
             name: serverConfig.name || id,
             server: serverSpec as McpServerSpec,
-            apps: { claude: !isCodexMode, codex: isCodexMode },
             enabled: true,
           });
         }
@@ -136,7 +117,6 @@ export function McpServerDialog({ server, existingIds = [], currentProvider = 'c
           id,
           name: parsed.name || id,
           server: serverSpec as McpServerSpec,
-          apps: { claude: !isCodexMode, codex: isCodexMode },
           enabled: true,
         });
       }
