@@ -19,7 +19,7 @@ import java.util.List;
  * <p>Parses an external MCP configuration (GitHub Copilot format) into internal server entries
  * via {@link McpServerImportService} and sends them back to the webview as an import preview
  * ({@link DownstreamEvent#MCP_IMPORT_PREVIEW}). Persisting the previewed servers stays on the
- * existing add/save path in the webview ({@code ADD_MCP_SERVER}/{@code ADD_CODEX_MCP_SERVER}) —
+ * existing add/save path in the webview ({@code ADD_MCP_SERVER}) —
  * the backend only does the format mapping, the frontend only pastes / previews / confirms.
  */
 public final class McpServerImportHandler implements FrontendActionHandler<String> {
