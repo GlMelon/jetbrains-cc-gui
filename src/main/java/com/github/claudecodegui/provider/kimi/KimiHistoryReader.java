@@ -35,6 +35,9 @@ public class KimiHistoryReader {
     private static final String[] CWD_KEYS = {"workDir", "workdir", "cwd", "projectDir", "projectPath"};
     private static final String[] TITLE_KEYS = {"title", "name", "summary"};
 
+    /** kimi CLI 自读的 MCP 配置文件名($KIMI_CODE_HOME 下),CLI 侧约定,单点定义。 */
+    public static final String MCP_CONFIG_FILE_NAME = "mcp.json";
+
     /** 测试/非默认根注入(null=默认 KIMI_CODE_HOME 或 ~/.kimi-code)。 */
     private final Path baseOverride;
 
