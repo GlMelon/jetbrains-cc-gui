@@ -98,6 +98,32 @@ export function clearMessageKeyAliases(): void {
 }
 
 /**
+ * Whether a message is a genuine human user turn start (not a tool_result
+ * carrier or other synthetic user message). Used by turn-boundary logic in
+ * MessageList pagination and by message retention trimming.
+ */
+export function isHumanUserMessage(message: ClaudeMessage): boolean {
+  if (message.type !== 'user') return false;
+
+  const raw = typeof message.raw === 'object' && message.raw !== null ? message.raw : null;
+  const nestedMessage = raw?.message;
+  const rawContent =
+    raw?.content ??
+    (typeof nestedMessage === 'object' && nestedMessage !== null
+      ? nestedMessage.content
+      : undefined);
+
+  if (Array.isArray(rawContent)) {
+    return rawContent.some(
+      (block) =>
+        block && typeof block === 'object' && (block.type === 'text' || block.type === 'image'),
+    );
+  }
+
+  return message.content !== '[tool_result]';
+}
+
+/**
  * Generate a stable key for a message, used for React list keys and anchor navigation.
  * Prefer raw.uuid > __turnId > type-timestamp > fallback to type-index.
  * The computed key is resolved through the alias registry so a message whose

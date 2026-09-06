@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ClaudeMessage, SubagentHistoryResponse } from '../types';
+import { trimMessagesToRetentionLimit } from '../utils/messageRetention';
 
 export const DEFAULT_STATUS = 'ready';
 export type QueueDisplayState = 'NONE' | 'QUEUED' | 'PROCESSING' | 'COMPLETED';
@@ -50,10 +51,41 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [streamingActive, setStreamingActive] = useState<boolean>(false);
 
+  // streamingActive 的同步镜像:setStreamingActive 是 React state,同批次内
+  // setMessages updater 执行时读不到新值;streamingMessageIndexRef 等持有数组下标,
+  // 流式期间 head-crop 会使其失配,因此裁剪以这个同步 ref 为闸门。
+  const streamingActiveRef = useRef(false);
+  const setStreamingActiveGuarded = useCallback<React.Dispatch<React.SetStateAction<boolean>>>(
+    (value) => {
+      streamingActiveRef.current =
+        typeof value === 'function'
+          ? (value as (prev: boolean) => boolean)(streamingActiveRef.current)
+          : value;
+      setStreamingActive(value);
+    },
+    [],
+  );
+
+  // 驻留上限裁剪(展示层资源管理):在唯一出口收口,所有 setMessages 写入路径
+  // 统一经过。未超限 / 流式中时原样透传,引用与行为均不变。
+  const setMessagesCapped = useCallback<React.Dispatch<React.SetStateAction<ClaudeMessage[]>>>(
+    (value) => {
+      setMessages((prev) => {
+        const next =
+          typeof value === 'function'
+            ? (value as (p: ClaudeMessage[]) => ClaudeMessage[])(prev)
+            : value;
+        if (streamingActiveRef.current) return next;
+        return trimMessagesToRetentionLimit(next);
+      });
+    },
+    [],
+  );
+
   const value = useMemo<MessagesContextValue>(
     () => ({
       messages,
-      setMessages,
+      setMessages: setMessagesCapped,
       subagentHistories,
       setSubagentHistories,
       status,
@@ -69,9 +101,9 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
       isThinking,
       setIsThinking,
       streamingActive,
-      setStreamingActive,
+      setStreamingActive: setStreamingActiveGuarded,
     }),
-    [messages, subagentHistories, status, loading, loadingStartTime, queueDisplayState, queueAheadCount, isThinking, streamingActive],
+    [messages, setMessagesCapped, subagentHistories, status, loading, loadingStartTime, queueDisplayState, queueAheadCount, isThinking, streamingActive, setStreamingActiveGuarded],
   );
 
   return <MessagesContext.Provider value={value}>{children}</MessagesContext.Provider>;

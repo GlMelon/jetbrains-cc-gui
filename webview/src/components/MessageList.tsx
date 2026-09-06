@@ -11,7 +11,7 @@ import {
 import type { TFunction } from 'i18next';
 import type { ClaudeMessage, ClaudeContentBlock, ToolResultBlock } from '../types';
 import type { QueueDisplayState } from '../contexts/MessagesContext';
-import { clearMessageKeyAliases, getMessageKey } from '../utils/messageUtils';
+import { clearMessageKeyAliases, getMessageKey, isHumanUserMessage } from '../utils/messageUtils';
 import { extractMessageUsage } from '../utils/messageUsage';
 import { MessageItem, CopyButton } from './MessageItem';
 import { FadeContent } from './react-bits';
@@ -53,27 +53,6 @@ function parseBridgePayload<T>(payload: unknown): T | null {
     return payload as T;
   }
   return null;
-}
-
-function isHumanUserMessage(message: ClaudeMessage): boolean {
-  if (message.type !== 'user') return false;
-
-  const raw = typeof message.raw === 'object' && message.raw !== null ? message.raw : null;
-  const nestedMessage = raw?.message;
-  const rawContent =
-    raw?.content ??
-    (typeof nestedMessage === 'object' && nestedMessage !== null
-      ? nestedMessage.content
-      : undefined);
-
-  if (Array.isArray(rawContent)) {
-    return rawContent.some(
-      (block) =>
-        block && typeof block === 'object' && (block.type === 'text' || block.type === 'image'),
-    );
-  }
-
-  return message.content !== '[tool_result]';
 }
 
 function getFirstMessageBoundaryKey(message: ClaudeMessage | undefined): string | undefined {
