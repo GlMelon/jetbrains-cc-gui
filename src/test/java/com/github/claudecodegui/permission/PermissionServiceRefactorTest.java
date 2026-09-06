@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -188,6 +189,40 @@ public class PermissionServiceRefactorTest {
                 PermissionService.PermissionResponse.ALLOW_ALWAYS,
                 store.getParameterDecision("Bash", first)
         );
+    }
+
+    @Test
+    public void permissionServiceEvictsFromRegistryOnProjectDisposal() throws IOException {
+        // Platform-coupled (Disposer/Project) — guarded via source check, per AGENTS.md §6.
+        String service = readSource("src/main/java/com/github/claudecodegui/permission/PermissionService.java");
+        assertTrue(service.contains("Disposer.register(project,"));
+        assertTrue(service.contains("PermissionSessionRegistry.evict(this)"));
+        // stop() must be idempotent: tab dispose and project disposal can both stop.
+        assertTrue(service.contains("stopped.compareAndSet(false, true)"));
+
+        String registry = readSource("src/main/java/com/github/claudecodegui/permission/PermissionSessionRegistry.java");
+        assertTrue(registry.contains("static synchronized void evict(PermissionService service)"));
+        // Legacy singleton path must be covered too.
+        assertTrue(registry.contains("legacyInstance == service"));
+    }
+
+    @Test
+    public void dialogRouterDropsShowersOnProjectDisposal() throws IOException {
+        // Platform-coupled (Disposer/Project) — guarded via source check, per AGENTS.md §6.
+        String router = readSource("src/main/java/com/github/claudecodegui/permission/PermissionDialogRouter.java");
+        assertTrue(router.contains("Disposer.register(project,"));
+        assertTrue(router.contains("private void handleProjectDisposed(Project project)"));
+        assertTrue(router.contains("permissionDialogShowers.remove(project)"));
+        assertTrue(router.contains("askUserQuestionDialogShowers.remove(project)"));
+        assertTrue(router.contains("planApprovalDialogShowers.remove(project)"));
+        // lastActiveProject must be cleared when it points at the disposed project.
+        assertTrue(router.contains("if (lastActiveProject == project)"));
+        // Lazy cleanup remains as fallback.
+        assertTrue(router.contains("cleanupDisposedProjects"));
+    }
+
+    private String readSource(String path) throws IOException {
+        return Files.readString(Path.of(path), StandardCharsets.UTF_8);
     }
 
     @Test

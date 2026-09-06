@@ -2,12 +2,15 @@ package com.github.claudecodegui.permission;
 
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.google.gson.JsonObject;
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
+import com.intellij.openapi.util.Disposer;
 
 import java.nio.file.Paths;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 
@@ -19,6 +22,9 @@ class PermissionDialogRouter {
     private final Map<Project, PermissionService.PermissionDialogShower> permissionDialogShowers = new ConcurrentHashMap<>();
     private final Map<Project, PermissionService.AskUserQuestionDialogShower> askUserQuestionDialogShowers = new ConcurrentHashMap<>();
     private final Map<Project, PermissionService.PlanApprovalDialogShower> planApprovalDialogShowers = new ConcurrentHashMap<>();
+    // Projects that already have a disposal hook registered; guards against piling up
+    // duplicate Disposer children when showers are re-registered for the same project.
+    private final Set<Project> disposalHookRegisteredProjects = ConcurrentHashMap.newKeySet();
     private final BiConsumer<String, String> debugLog;
 
     private volatile Project lastActiveProject;
@@ -31,6 +37,7 @@ class PermissionDialogRouter {
         if (project == null || shower == null) {
             return;
         }
+        registerDisposalHook(project);
         permissionDialogShowers.put(project, shower);
         lastActiveProject = project;
         debugLog.accept("CONFIG", "Dialog shower registered for project: " + project.getName()
@@ -50,6 +57,7 @@ class PermissionDialogRouter {
         if (project == null || shower == null) {
             return;
         }
+        registerDisposalHook(project);
         askUserQuestionDialogShowers.put(project, shower);
         lastActiveProject = project;
         debugLog.accept("CONFIG", "AskUserQuestion dialog shower registered for project: " + project.getName()
@@ -69,6 +77,7 @@ class PermissionDialogRouter {
         if (project == null || shower == null) {
             return;
         }
+        registerDisposalHook(project);
         planApprovalDialogShowers.put(project, shower);
         lastActiveProject = project;
         debugLog.accept("CONFIG", "PlanApproval dialog shower registered for project: " + project.getName()
@@ -148,6 +157,37 @@ class PermissionDialogRouter {
 
     int getPermissionDialogCount() {
         return permissionDialogShowers.size();
+    }
+
+    /**
+     * Eagerly drop every shower entry (and lastActiveProject) for a project as soon as the
+     * project is disposed, instead of waiting for the next permission request to trigger
+     * the lazy cleanupDisposedProjects fallback. One hook per project per router.
+     */
+    private void registerDisposalHook(Project project) {
+        if (!disposalHookRegisteredProjects.add(project)) {
+            return;
+        }
+        try {
+            Disposer.register(project, (Disposable) () -> handleProjectDisposed(project));
+        } catch (Exception e) {
+            disposalHookRegisteredProjects.remove(project);
+            if (project.isDisposed()) {
+                handleProjectDisposed(project);
+            }
+            debugLog.accept("CLEANUP", "Failed to register disposal hook for project: " + project.getName());
+        }
+    }
+
+    private void handleProjectDisposed(Project project) {
+        permissionDialogShowers.remove(project);
+        askUserQuestionDialogShowers.remove(project);
+        planApprovalDialogShowers.remove(project);
+        disposalHookRegisteredProjects.remove(project);
+        if (lastActiveProject == project) {
+            lastActiveProject = null;
+        }
+        debugLog.accept("CLEANUP", "Project disposed, removed its dialog showers: " + project.getName());
     }
 
     private <T> T findDialogShowerByCwd(JsonObject request, Map<Project, T> dialogShowers, String logPrefix) {

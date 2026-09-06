@@ -74,6 +74,36 @@ class PermissionSessionRegistry {
         }
     }
 
+    /**
+     * Evict a specific service instance when its owning project is disposed.
+     * Covers both the session-keyed map and the legacy singleton. stop() is
+     * idempotent, so racing with the tab-dispose removeInstance path is safe.
+     */
+    static synchronized void evict(PermissionService service) {
+        if (service == null) {
+            return;
+        }
+        if (legacyInstance == service) {
+            legacyInstance = null;
+            service.stop();
+            LOG.info("Legacy PermissionService instance evicted on project disposal");
+            return;
+        }
+        String matchedKey = null;
+        for (Map.Entry<String, PermissionService> entry : INSTANCES_BY_SESSION_ID.entrySet()) {
+            if (entry.getValue() == service) {
+                matchedKey = entry.getKey();
+                break;
+            }
+        }
+        if (matchedKey != null && INSTANCES_BY_SESSION_ID.remove(matchedKey, service)) {
+            service.stop();
+            LOG.info(String.format(
+                    "PermissionService instance evicted on project disposal: sessionId=%s, remaining instances=%d",
+                    matchedKey, INSTANCES_BY_SESSION_ID.size()));
+        }
+    }
+
     private static synchronized void cleanupStaleInstancesIfNeeded() {
         long now = System.currentTimeMillis();
         if (now - lastCleanupTime < SESSION_CLEANUP_INTERVAL_MS) {

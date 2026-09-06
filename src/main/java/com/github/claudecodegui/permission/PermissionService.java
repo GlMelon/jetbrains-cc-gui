@@ -6,11 +6,13 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Disposer;
 
 import javax.swing.*;
 import java.nio.file.*;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.GsonHolder;
 
@@ -38,6 +40,10 @@ public class PermissionService implements Disposable {
 
     // Track request files currently being processed to avoid duplicate handling
     private final Set<String> processingRequests = ConcurrentHashMap.newKeySet();
+
+    // stop() is reachable from tab dispose, project disposal hook, and lazy stale
+    // cleanup; this guard makes it idempotent so double-stop is a no-op.
+    private final AtomicBoolean stopped = new AtomicBoolean(false);
 
     private void debugLog(String tag, String message) {
         LOG.debug(String.format("[%s] %s", tag, message));
@@ -136,6 +142,25 @@ public class PermissionService implements Disposable {
         this.fileProtocol = new PermissionFileProtocol(permissionDir, sessionId, gson, (tag, message) -> debugLog(tag, message));
         this.requestWatcher = new PermissionRequestWatcher(
                 permissionDir, sessionId, fileProtocol, (tag, message) -> debugLog(tag, message));
+
+        registerProjectDisposalHook(project);
+    }
+
+    /**
+     * Proactively evict this service from PermissionSessionRegistry when its project is
+     * disposed, so a skipped tab dispose cannot pin a dead Project (and the watcher
+     * thread) in the static registry map until the 24h lazy cleanup fires.
+     */
+    private void registerProjectDisposalHook(Project project) {
+        if (project == null || project.isDisposed()) {
+            return;
+        }
+        try {
+            Disposer.register(project, (Disposable) () -> PermissionSessionRegistry.evict(this));
+        } catch (Exception e) {
+            LOG.warn("Failed to register project disposal hook for permission session "
+                    + sessionId + ": " + e.getMessage());
+        }
     }
 
     public String getSessionId() { return this.sessionId; }
@@ -205,6 +230,9 @@ public class PermissionService implements Disposable {
     }
 
     public void stop() {
+        if (!stopped.compareAndSet(false, true)) {
+            return;
+        }
         requestWatcher.stop();
         fileProtocol.cleanupSessionFiles();
         processingRequests.clear();
