@@ -422,10 +422,13 @@ public class ProcessManager {
     }
 
     /**
-     * Starts the stale-channel ledger sweeper: every {@value #STALE_CHANNEL_SWEEP_PERIOD_MINUTES}
-     * minutes, {@link #cleanupStaleChannelProcesses(long, long)} reaps channel processes whose
-     * owning thread died without unregistering. Idempotent; cancelled by
-     * {@link #cleanupAllProcesses()} at lifecycle end.
+     * Starts the stale-ledger sweeper: every {@value #STALE_CHANNEL_SWEEP_PERIOD_MINUTES}
+     * minutes, {@link #sweepStaleChannelsQuietly()} reaps channel processes whose
+     * owning thread died without unregistering ({@link #cleanupStaleChannelProcesses(long, long)}),
+     * lazily drops dead-process entries from the runtime / auxiliary ledgers
+     * ({@link #reapDeadRuntimeProcesses()} / {@link #reapDeadAuxiliaryProcesses()}),
+     * and prunes orphaned interrupt markers ({@link #pruneStaleInterruptMarkers()}).
+     * Idempotent; cancelled by {@link #cleanupAllProcesses()} at lifecycle end.
      */
     public synchronized void startStaleChannelSweeper() {
         if (disposed.get() || staleChannelSweeperFuture != null) {
@@ -438,13 +441,29 @@ public class ProcessManager {
 
     /**
      * 周期包装:共享调度器上抛出的异常会被静默吞掉并取消后续执行,故这里兜住一切 Throwable,
-     * 保证 sweeper 周期任务永不因单次失败而停摆。
+     * 保证 sweeper 周期任务永不因单次失败而停摆。三本账(channel / runtime / auxiliary)与
+     * interrupt 标记的扫描各自独立 try/catch,一本出错不影响其他账本当周期的兜底。
      */
     private void sweepStaleChannelsQuietly() {
         try {
             cleanupStaleChannelProcesses(STALE_CHANNEL_MAX_AGE_MS, System.currentTimeMillis());
         } catch (Throwable t) {
             LOG.debug("[ProcessManager] Stale-channel sweep failed (will retry next cycle): " + t.getMessage());
+        }
+        try {
+            reapDeadRuntimeProcesses();
+        } catch (Throwable t) {
+            LOG.debug("[ProcessManager] Runtime-ledger sweep failed (will retry next cycle): " + t.getMessage());
+        }
+        try {
+            reapDeadAuxiliaryProcesses();
+        } catch (Throwable t) {
+            LOG.debug("[ProcessManager] Auxiliary-ledger sweep failed (will retry next cycle): " + t.getMessage());
+        }
+        try {
+            pruneStaleInterruptMarkers();
+        } catch (Throwable t) {
+            LOG.debug("[ProcessManager] Interrupt-marker sweep failed (will retry next cycle): " + t.getMessage());
         }
     }
 
@@ -780,5 +799,59 @@ public class ProcessManager {
             }
         }
         return cleaned;
+    }
+
+    /**
+     * runtime 账本的死进程惰性摘除:只移除进程已死的条目,不主动 kill 存活进程
+     * (runtime 生命周期由 cleanupRuntime/cleanupTab 管理,channel 侧的超龄上限语义
+     * 不适用于长驻 runtime,故不复制)。正常注册点均在 finally/关闭路径 unregister;
+     * 此兜底只针对漏 unregister 的注册点,摘除时记 debug 日志(含注册键)以便定位泄漏源。
+     */
+    void reapDeadRuntimeProcesses() {
+        for (Map.Entry<RuntimeKey, Process> entry : activeRuntimeProcesses.entrySet()) {
+            RuntimeKey key = entry.getKey();
+            Process process = entry.getValue();
+            if (process != null && !process.isAlive() && activeRuntimeProcesses.remove(key, process)) {
+                runtimeMetadata.remove(key);
+                LOG.debug("[ProcessManager] Sweeper reaped dead runtime ledger entry "
+                        + "(owning code path missed unregisterProcess): " + key);
+            }
+        }
+    }
+
+    /**
+     * auxiliary 账本的死进程惰性摘除,与 runtime 对称:只移除已死进程条目,不 kill 存活进程
+     * (auxiliary 为短生命周期 helper 进程,无超龄上限语义)。摘除时记 debug 日志(含注册键)。
+     */
+    void reapDeadAuxiliaryProcesses() {
+        for (Map.Entry<String, Process> entry : auxiliaryProcesses.entrySet()) {
+            String token = entry.getKey();
+            Process process = entry.getValue();
+            if (process != null && !process.isAlive() && auxiliaryProcesses.remove(token, process)) {
+                LOG.debug("[ProcessManager] Sweeper reaped dead auxiliary ledger entry "
+                        + "(owning code path missed unregisterAuxiliaryProcess): " + token);
+            }
+        }
+    }
+
+    /**
+     * interrupt 标记兜底清理:取消写入的标记若对应账本条目已不存在(channel 还需不在
+     * startingChannels 待注册窗口内——registerProcess 的预注册取消检查仍可能消费它),
+     * 则再无消费者,永久驻留只会缓慢累积,由 sweeper 摘除。只摘标记、不动进程;
+     * 与进行中 interrupt 的极小竞争窗口下,丢失的仅是一个已无消费者的标记,
+     * 不影响进程终止本身。重新注册同 key 时 registerProcess 本就会清除旧标记。
+     */
+    void pruneStaleInterruptMarkers() {
+        for (String channelId : interruptedChannels) {
+            if (!activeChannelProcesses.containsKey(channelId) && !startingChannels.contains(channelId)
+                    && interruptedChannels.remove(channelId)) {
+                LOG.debug("[ProcessManager] Sweeper pruned stale interrupt marker for channel: " + channelId);
+            }
+        }
+        for (RuntimeKey key : interruptedRuntimes) {
+            if (!activeRuntimeProcesses.containsKey(key) && interruptedRuntimes.remove(key)) {
+                LOG.debug("[ProcessManager] Sweeper pruned stale interrupt marker for runtime: " + key);
+            }
+        }
     }
 }

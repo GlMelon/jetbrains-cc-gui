@@ -1,9 +1,12 @@
 package com.github.claudecodegui.bridge;
 
+import com.github.claudecodegui.session.runtime.RuntimeKey;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -120,6 +123,112 @@ public class ProcessManagerStaleChannelTest {
 
         assertEquals(1, cleaned);
         // PlatformUtils.terminateProcess 在测试中不设 destroyed 标志,故不验证 destroyed
+    }
+
+    @Test
+    public void reapDeadRuntimeProcessesRemovesOnlyDeadEntries() {
+        ProcessManager manager = new ProcessManager();
+        RuntimeKey deadKey = new RuntimeKey("claude", "channel-a", "tab-a", "epoch-a");
+        RuntimeKey aliveKey = new RuntimeKey("claude", "channel-b", "tab-b", "epoch-b");
+        FakeProcess deadProc = new FakeProcess(false);
+        FakeProcess aliveProc = new FakeProcess(true);
+
+        manager.registerProcess(deadKey, deadProc);
+        manager.registerProcess(aliveKey, aliveProc);
+        int sizeBefore = manager.getTrackedStateSizeForTest();
+
+        manager.reapDeadRuntimeProcesses();
+
+        // 已死条目被摘除,存活条目保留(不主动 kill)
+        assertNull(manager.getProcess(deadKey));
+        assertSame(aliveProc, manager.getProcess(aliveKey));
+        assertTrue(aliveProc.isAlive());
+        assertEquals(sizeBefore - 1, manager.getTrackedStateSizeForTest());
+        // 幂等:再次摘除无变化
+        manager.reapDeadRuntimeProcesses();
+        assertEquals(sizeBefore - 1, manager.getTrackedStateSizeForTest());
+    }
+
+    @Test
+    public void reapDeadAuxiliaryProcessesRemovesOnlyDeadEntries() {
+        ProcessManager manager = new ProcessManager();
+        FakeProcess deadProc = new FakeProcess(false);
+        FakeProcess aliveProc = new FakeProcess(true);
+
+        String deadToken = manager.registerAuxiliaryProcess(deadProc);
+        String aliveToken = manager.registerAuxiliaryProcess(aliveProc);
+        int sizeBefore = manager.getTrackedStateSizeForTest();
+
+        manager.reapDeadAuxiliaryProcesses();
+
+        assertEquals(sizeBefore - 1, manager.getTrackedStateSizeForTest());
+        assertTrue(aliveProc.isAlive());
+        // 存活条目仍可被正常 unregister(条件 remove 未被兜底误摘)
+        manager.unregisterAuxiliaryProcess(aliveToken, aliveProc);
+        assertEquals(sizeBefore - 2, manager.getTrackedStateSizeForTest());
+    }
+
+    @Test
+    public void pruneStaleInterruptMarkersRemovesOrphanedChannelMarker() {
+        ProcessManager manager = new ProcessManager();
+        String channelId = "orphaned-interrupt";
+
+        manager.beginChannelPreservingInterrupt(channelId);
+        manager.interruptChannel(channelId);
+        // 启动尚未失败也未注册即结束(startupFailed=false 保留标记)→ 标记成为孤儿
+        manager.finishChannelStart(channelId, false);
+
+        manager.pruneStaleInterruptMarkers();
+
+        assertFalse(manager.wasInterrupted(channelId));
+    }
+
+    @Test
+    public void pruneStaleInterruptMarkersKeepsStartingChannelMarker() {
+        ProcessManager manager = new ProcessManager();
+        String channelId = "starting-interrupt";
+
+        manager.beginChannelPreservingInterrupt(channelId);
+        manager.interruptChannel(channelId);
+
+        // 仍在 startingChannels 待注册窗口内:registerProcess 的预注册取消检查仍可能消费该标记,不摘
+        manager.pruneStaleInterruptMarkers();
+
+        assertTrue(manager.wasInterrupted(channelId));
+        manager.finishChannelStart(channelId, false);
+    }
+
+    @Test
+    public void pruneStaleInterruptMarkersKeepsMarkerForRegisteredChannel() {
+        ProcessManager manager = new ProcessManager();
+        String channelId = "registered-interrupt";
+        FakeProcess process = new FakeProcess(true);
+
+        manager.beginChannelPreservingInterrupt(channelId);
+        manager.interruptChannel(channelId);
+        manager.registerProcess(channelId, process);
+
+        // 账本条目仍在(进程已注册):标记保留,不摘
+        manager.pruneStaleInterruptMarkers();
+
+        assertTrue(manager.wasInterrupted(channelId));
+        manager.unregisterProcess(channelId, process);
+    }
+
+    @Test
+    public void pruneStaleInterruptMarkersRemovesOrphanedRuntimeMarker() {
+        ProcessManager manager = new ProcessManager();
+        RuntimeKey key = new RuntimeKey("claude", "channel-a", "tab-a", "epoch-a");
+        FakeProcess process = new FakeProcess(true);
+
+        manager.registerProcess(key, process);
+        // interruptRuntime 终止进程并移除账本条目;若 owner 不再调用 cleanupRuntime /
+        // wasInterrupted,标记将永久驻留
+        manager.interruptRuntime(key);
+
+        manager.pruneStaleInterruptMarkers();
+
+        assertFalse(manager.wasInterrupted(key));
     }
 
     /** 最小 Process 实现,支持存活/死亡状态模拟。 */
