@@ -50,6 +50,15 @@ public class OpenCodeServeSymmetryTest {
     }
 
     @Test
+    public void clientSharesStaticHttpClient() throws Exception {
+        String source = read(SERVE_DIR + "OpenCodeServeClient.java");
+        // HttpClient 静态共享:Java 17 无 close(),每实例自带 SelectorManager 守护线程,
+        // 反复重建场景线程短暂堆积;baseUrl 按请求拼接,builder 配置无 per-实例状态
+        assertTrue(source.contains("static final HttpClient HTTP_CLIENT"));
+        assertFalse(source.contains("this.httpClient ="));
+    }
+
+    @Test
     public void sessionImplementsInterruptAndDegradationSemantics() throws Exception {
         String source = read(SERVE_DIR + "OpenCodeServeSession.java");
         // interrupt = abort API 确定性取消 + 杀树兜底

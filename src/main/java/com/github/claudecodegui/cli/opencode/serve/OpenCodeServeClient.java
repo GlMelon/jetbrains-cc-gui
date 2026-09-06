@@ -90,9 +90,22 @@ public final class OpenCodeServeClient implements Closeable {
         void onStreamClosed(String reason);
     }
 
+    /**
+     * 静态共享 HttpClient:baseUrl 按请求拼接,builder 配置无 per-实例状态;
+     * Java 17 HttpClient 无 close(),每实例自带 SelectorManager 守护线程,
+     * serve 反复重建场景会短暂堆积线程,故全实例共享一个。
+     * 必须 HTTP/1.1:默认 HTTP_2 偏好对明文 http 会走 h2c upgrade 流程,
+     * opencode serve(bun)对带 body 的 upgrade POST 不应答 → 挂死至超时
+     * (本机 Java 17 + opencode 1.18.26 实测:POST /session 挂 15s 超时,
+     * 强制 1.1 后 12ms 返回;SSE GET 无 body 本就走 1.1 语义,不受影响)。
+     */
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(2))
+            .build();
+
     private final Gson gson = GsonHolder.GSON;
     private final String baseUrl;
-    private final HttpClient httpClient;
     private final ConcurrentHashMap<String, TurnEventHandler> turnHandlers = new ConcurrentHashMap<>();
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private volatile Thread sseThread;
@@ -102,14 +115,6 @@ public final class OpenCodeServeClient implements Closeable {
 
     public OpenCodeServeClient(String baseUrl) {
         this.baseUrl = baseUrl;
-        this.httpClient = HttpClient.newBuilder()
-                // 必须 HTTP/1.1:默认 HTTP_2 偏好对明文 http 会走 h2c upgrade 流程,
-                // opencode serve(bun)对带 body 的 upgrade POST 不应答 → 挂死至超时
-                // (本机 Java 17 + opencode 1.18.26 实测:POST /session 挂 15s 超时,
-                // 强制 1.1 后 12ms 返回;SSE GET 无 body 本就走 1.1 语义,不受影响)。
-                .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(Duration.ofSeconds(2))
-                .build();
     }
 
     /** 当前在册轮监听器的只读视图(管理器关停时逐个通知用)。 */
@@ -194,7 +199,7 @@ public final class OpenCodeServeClient implements Closeable {
                     .GET()
                     .build();
             HttpResponse<Stream<String>> response =
-                    httpClient.send(request, HttpResponse.BodyHandlers.ofLines());
+                    HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofLines());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 closeReason = "SSE connect failed: HTTP " + response.statusCode();
                 return;
@@ -303,7 +308,7 @@ public final class OpenCodeServeClient implements Closeable {
                 .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body), StandardCharsets.UTF_8))
                 .build();
         HttpResponse<String> response =
-                httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new ServeApiException(response.statusCode(), path, response.body());
         }
