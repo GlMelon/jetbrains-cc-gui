@@ -9,9 +9,16 @@ import com.github.claudecodegui.cli.common.McpErrorMatcher;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
+
+import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.asObject;
+import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.buildToolResultBlock;
+import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.buildToolUseBlock;
+import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.buildUsage;
+import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.deltaOf;
+import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.extractErrorMessage;
+import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.getString;
 
 /**
  * §15.4 / §7.3:OpenCode {@code opencode run --format json} 事件流解析器。
@@ -19,6 +26,8 @@ import com.intellij.openapi.diagnostic.Logger;
  * 按真实事件 schema 解析(样本实捕自 opencode v1.17.11),输出统一 MSG_* 协议,
  * 经 {@link com.github.claudecodegui.session.CodexMessageHandler} 消费。
  * 每次发送(含 B13 失效重试)构造新实例,持有本次运行的全部可变状态。
+ * 事件 → 协议块 / usage / 增量去重的纯函数映射统一在 {@link OpenCodeEventMapper}
+ * (serve SSE 通道复用同一份,总则四);本类只持有轮级可变状态与事件分流。
  * <p>
  * 事件映射(详见设计 §7.3):
  * <ul>
@@ -213,6 +222,7 @@ public class OpenCodeCliStreamParser implements CliStreamParser {
      * 处理 reasoning 事件(需 {@code opencode run} 带 {@code --thinking} flag)。opencode 把推理文本
      * 以累积式输出(同 part.id,text 逐次增长),此处增量去重后下发,对称 SDK 路径
      * {@code ai-bridge/services/opencode/event-mapper.js} 的 reasoning→thinking_delta 映射。
+     * 增量去重函数已下沉 {@link OpenCodeEventMapper#deltaOf}(serve part.updated 复用同函数)。
      * <p>
      * 首个 reasoning 事件(即使 text 空)发 {@link CommonConstants#MSG_TYPE_THINKING} 激活思考态
      * (对称 CLI thinkingStart → CodexMessageHandler 点亮"思考中"指示灯);后续仅发增量 delta。
@@ -234,52 +244,14 @@ public class OpenCodeCliStreamParser implements CliStreamParser {
         }
     }
 
-    /**
-     * reasoning 增量去重:累积式 text 取前缀差为增量;新文本不以旧为前缀(非累积/重置)则整体下发。
-     * 返回 null 表示无新增(空或与旧值相同,不发 delta)。对称 event-mapper.js delta()。
-     */
-    private static String deltaOf(String previous, String next) {
-        String oldText = previous == null ? "" : previous;
-        String newText = next == null ? "" : next;
-        if (newText.isEmpty() || newText.equals(oldText)) {
-            return null;
-        }
-        if (oldText.isEmpty()) {
-            return newText;
-        }
-        if (newText.startsWith(oldText)) {
-            return newText.substring(oldText.length());
-        }
-        return newText;
-    }
-
     private void handleToolUse(JsonObject event) {
         JsonObject part = asObject(event, "part");
         if (part == null) {
             return;
         }
-        String tool = firstNonBlank(getString(part, "tool"), getString(part, "name"), "unknown");
-        String callId = firstNonBlank(getString(part, "callID"), getString(part, "id"), "call_" + System.nanoTime());
-        JsonObject state = asObject(part, "state");
-        JsonObject input = asObject(state, "input");
-        String output = getString(state, "output");
-        boolean isError = isErrorState(state);
-
-        // tool_use 原始块(Anthropic schema,CodexMessageHandler.handleToolUse 经 wrapAsAssistantRaw 包装)
-        JsonObject toolUseBlock = new JsonObject();
-        toolUseBlock.addProperty("type", "tool_use");
-        toolUseBlock.addProperty("id", callId);
-        toolUseBlock.addProperty("name", tool);
-        toolUseBlock.add("input", input);
-        emitter.toolUse(toolUseBlock);
-
-        // tool_result 原始块(CodexMessageHandler.handleToolResult 经 wrapAsUserRaw 包装)
-        JsonObject toolResultBlock = new JsonObject();
-        toolResultBlock.addProperty("type", "tool_result");
-        toolResultBlock.addProperty("tool_use_id", callId);
-        toolResultBlock.addProperty("is_error", isError);
-        toolResultBlock.addProperty("content", output != null ? output : "(running)");
-        emitter.toolResult(toolResultBlock);
+        // tool_use / tool_result 原始块构造统一走 OpenCodeEventMapper(serve 通道同函数)
+        emitter.toolUse(buildToolUseBlock(part));
+        emitter.toolResult(buildToolResultBlock(part));
     }
 
     private void handleStepFinish(JsonObject event) {
@@ -303,23 +275,7 @@ public class OpenCodeCliStreamParser implements CliStreamParser {
     }
 
     private void handleError(JsonObject event) {
-        String message = null;
-        JsonObject err = asObject(event, "error");
-        if (err != null) {
-            JsonObject data = asObject(err, "data");
-            if (data != null) {
-                message = getString(data, "message");
-            }
-            if (message == null) {
-                message = getString(err, "message");
-            }
-        }
-        if (message == null) {
-            message = getString(event, "message");
-        }
-        if (message == null) {
-            message = event.toString();
-        }
+        String message = extractErrorMessage(event);
         // MCP 连接失败(本地 server 未启动):降级为非阻塞提示,不标记 hasError/缓冲为回合错误。
         // 镜像 Codex CLI 诊断分支的降级处理(Principle 6 对称)。
         if (emitMcpNoticeIfMatched(message)) {
@@ -334,75 +290,5 @@ public class OpenCodeCliStreamParser implements CliStreamParser {
         }
         CliOutputLimits.appendBounded(
                 errorDiagnostic, message, CliOutputLimits.MAX_DIAGNOSTIC_CHARS);
-    }
-
-    private JsonObject buildUsage(JsonObject tokens) {
-        JsonObject cache = asObject(tokens, "cache");
-        JsonObject usage = new JsonObject();
-        usage.addProperty("input_tokens", getInt(tokens, "input"));
-        usage.addProperty("output_tokens", getInt(tokens, "output"));
-        usage.addProperty("cache_read_input_tokens", getInt(cache, "read"));
-        usage.addProperty("cache_creation_input_tokens", getInt(cache, "write"));
-        return usage;
-    }
-
-    private static boolean isErrorState(JsonObject state) {
-        if (state == null) {
-            return false;
-        }
-        String status = getString(state, "status");
-        if ("error".equalsIgnoreCase(status) || "failed".equalsIgnoreCase(status)) {
-            return true;
-        }
-        if (state.has("error") && !state.get("error").isJsonNull()) {
-            return true;
-        }
-        JsonObject metadata = asObject(state, "metadata");
-        if (metadata != null && metadata.has("exit") && metadata.get("exit").isJsonPrimitive()) {
-            try {
-                return metadata.get("exit").getAsInt() != 0;
-            } catch (Exception ignored) {
-                return false;
-            }
-        }
-        return false;
-    }
-
-    private static JsonObject asObject(JsonObject parent, String key) {
-        if (parent == null || !parent.has(key) || !parent.get(key).isJsonObject()) {
-            return null;
-        }
-        return parent.getAsJsonObject(key);
-    }
-
-    private static String firstNonBlank(String... values) {
-        if (values == null) {
-            return null;
-        }
-        for (String v : values) {
-            if (v != null && !v.isBlank()) {
-                return v;
-            }
-        }
-        return null;
-    }
-
-    private static String getString(JsonObject obj, String key) {
-        if (obj == null || !obj.has(key) || obj.get(key).isJsonNull()) {
-            return null;
-        }
-        JsonElement el = obj.get(key);
-        return el.isJsonPrimitive() ? el.getAsString() : el.toString();
-    }
-
-    private static int getInt(JsonObject obj, String key) {
-        if (obj == null || !obj.has(key) || obj.get(key).isJsonNull()) {
-            return 0;
-        }
-        try {
-            return obj.get(key).getAsInt();
-        } catch (Exception ignored) {
-            return 0;
-        }
     }
 }

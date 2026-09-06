@@ -18,7 +18,6 @@ import com.github.claudecodegui.util.PlatformUtils;
 import com.github.claudecodegui.service.lifecycle.LifecycleEventType;
 import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.service.lifecycle.LifecycleProcessKind;
-import com.google.gson.Gson;
 import com.intellij.openapi.diagnostic.Logger;
 
 import java.io.File;
@@ -71,7 +70,6 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
 
     protected final String tabId;
     protected final ProviderType providerType;
-    private final Gson gson = GsonHolder.GSON;
     private final CliAttachmentHandler attachmentHandler = new CliAttachmentHandler();
     private final McpGatewayService gatewayService;
     private final LifecycleObservabilityService lifecycleService;
@@ -554,8 +552,9 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     /**
      * reasoningEffort → --variant(设计 §7.2,四 provider 一致):
      * low→minimal, medium→省略(默认), high→high, xhigh/max→max。
+     * serve 通道(prompt_async 的 variant 字段)复用同一映射。
      */
-    static String mapReasoningVariant(String reasoningEffort) {
+    public static String mapReasoningVariant(String reasoningEffort) {
         if (reasoningEffort == null || reasoningEffort.isBlank()) {
             return null;
         }
@@ -569,13 +568,13 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     }
 
     /**
-     * prompt 位置参数文本组合(消息 + 打开文件 + @文件引用 + agent 角色),
-     * 由各方言 {@code buildRunCommand} 复用(opencode 默认布局与 grok/kimi/pi 方言共用)。
+     * prompt 文本组合(消息 + 打开文件 + @文件引用 + agent 角色),
+     * 由各方言 {@code buildRunCommand} 与 serve 通道(prompt_async text part)复用。
      */
-    protected String buildPromptText(CliSendRequest request) {
+    public static String buildPromptText(CliSendRequest request) {
         StringBuilder sb = new StringBuilder(request.message());
         if (request.openedFiles() != null && !request.openedFiles().isJsonNull() && request.openedFiles().size() > 0) {
-            sb.append(CliConstants.PROMPT_OPENED_FILES).append(gson.toJson(request.openedFiles()));
+            sb.append(CliConstants.PROMPT_OPENED_FILES).append(GsonHolder.GSON.toJson(request.openedFiles()));
         }
         if (!request.fileTagPaths().isEmpty()) {
             sb.append(CliConstants.PROMPT_REFERENCED);
