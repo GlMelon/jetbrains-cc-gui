@@ -136,8 +136,10 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     }
 
     /**
-     * 辅助监视器停止钩子:await 返回后、结果判定(timeout/interrupt/成功补发流结束)前调用,
-     * 保证尾部信号先于流结束判定进入解析器。实现必须幂等(异常路径可能未 start)。
+     * 辅助监视器停止钩子:正常路径在 await 返回后、结果判定(timeout/interrupt/成功补发流结束)前调用,
+     * 保证尾部信号先于流结束判定进入解析器;runOnce 的 finally 中再兜底调用一次,
+     * 覆盖 await/drain 抛异常的泄漏路径(如 grok-tool-tail-* 轮询线程)。
+     * 实现必须幂等(异常路径可能未 start,正常路径会重复调用)。
      */
     protected void onStopAuxiliary() {
         // 默认无辅助监视器
@@ -424,6 +426,12 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
             callback.onComplete(false, parser.accumulatedText(), err);
             return false;
         } finally {
+            // 异常路径兜底停辅助监视器(正常路径已在上面调过一次,钩子实现必须幂等)。
+            try {
+                onStopAuxiliary();
+            } catch (Exception e) {
+                LOG.warn("[" + sessionTag() + "][" + tabId + "] onStopAuxiliary failed in finally", e);
+            }
             if (process.isAlive()) {
                 recordLifecycle(LifecycleEventType.TERMINATE, process, request, processGeneration,
                         "one-shot process terminated");
