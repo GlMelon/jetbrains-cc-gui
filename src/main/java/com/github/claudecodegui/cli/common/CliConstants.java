@@ -298,6 +298,11 @@ public final class CliConstants {
     public static final String OPENCODE_ARG_HOSTNAME = "--hostname";
     /** serve 固定监听回环地址(无认证 HTTP 服务,禁止绑非回环)。 */
     public static final String OPENCODE_SERVE_HOSTNAME = "127.0.0.1";
+    /** serve SSE 活性阈值:/event 流约每 30s 一帧 server.heartbeat(opencode 契约),
+     * 超过此时长无任何 SSE 行即判定半开(进程活着但事件流已死),关闭流走既有重建路径。 */
+    public static final long OPENCODE_SERVE_SSE_STALE_TIMEOUT_MS = 90_000L;
+    /** serve SSE 活性看门狗巡检间隔。 */
+    public static final long OPENCODE_SERVE_SSE_WATCHDOG_INTERVAL_MS = 30_000L;
     /** npm 全局结构下 opencode 的包目录名(one-shot resolver 与 serve manager 共用,禁重复定义)。 */
     public static final String OPENCODE_NPM_DIR = "opencode-ai";
 

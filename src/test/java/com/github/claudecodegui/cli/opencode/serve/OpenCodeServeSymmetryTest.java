@@ -63,6 +63,16 @@ public class OpenCodeServeSymmetryTest {
     }
 
     @Test
+    public void clientDetectsHalfOpenStreamViaHeartbeatWatchdog() throws Exception {
+        String source = read(SERVE_DIR + "OpenCodeServeClient.java");
+        // SSE 半开活性探测:server.heartbeat(~30s 一帧)超时看门狗关流,
+        // 走既有 notifyStreamClosed → 摘句柄 → 下次 acquire 重建路径
+        assertTrue(source.contains("lastActivityAt"));
+        assertTrue(source.contains("OPENCODE_SERVE_SSE_STALE_TIMEOUT_MS"));
+        assertTrue(source.contains("OPENCODE_SERVE_SSE_WATCHDOG_INTERVAL_MS"));
+    }
+
+    @Test
     public void sessionImplementsInterruptAndDegradationSemantics() throws Exception {
         String source = read(SERVE_DIR + "OpenCodeServeSession.java");
         // interrupt = abort API 确定性取消 + 杀树兜底

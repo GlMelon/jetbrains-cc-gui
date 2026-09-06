@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.asObject;
@@ -34,7 +35,8 @@ import static com.github.claudecodegui.cli.opencode.OpenCodeEventMapper.getStrin
  *       POST /session/{id}/permissions/{pid}(权限应答);</li>
  *   <li>GET /event SSE 长连接:永久读行线程(对称 CliPersistentProcess 模式)解析
  *       {@code data: {id, type, properties}} 帧,按 {@code properties.sessionID} 解复用
- *       路由到对应轮的监听器(一个 serve 服务多 tab)。断线即当轮失败,不重连。</li>
+ *       路由到对应轮的监听器(一个 serve 服务多 tab)。断线即当轮失败,不重连;
+ *       半开(进程活着但流死)由 server.heartbeat 活性看门狗超时关流,同断线路径。</li>
  * </ol>
  * serve 无认证,baseUrl 必须绑回环({@link CliConstants#OPENCODE_SERVE_HOSTNAME}),
  * 由 {@link OpenCodeServeManager} spawn 时保证。
@@ -108,7 +110,10 @@ public final class OpenCodeServeClient implements Closeable {
     private final String baseUrl;
     private final ConcurrentHashMap<String, TurnEventHandler> turnHandlers = new ConcurrentHashMap<>();
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    /** 最近一次 SSE 行到达时间(心跳即活性,看门狗据此判定半开)。 */
+    private final AtomicLong lastActivityAt = new AtomicLong(System.currentTimeMillis());
     private volatile Thread sseThread;
+    private volatile Thread watchdogThread;
     private volatile Stream<String> sseLines;
     /** 流关闭回调(管理器摘除死句柄用;轮级通知走 TurnEventHandler.onStreamClosed)。 */
     private volatile Runnable streamClosedListener;
@@ -190,6 +195,10 @@ public final class OpenCodeServeClient implements Closeable {
         thread.setDaemon(true);
         sseThread = thread;
         thread.start();
+        Thread watchdog = new Thread(this::runStaleWatchdog, "AICG-OpenCode-Serve-SSE-Watchdog");
+        watchdog.setDaemon(true);
+        watchdogThread = watchdog;
+        watchdog.start();
     }
 
     private void runSseLoop() {
@@ -204,10 +213,12 @@ public final class OpenCodeServeClient implements Closeable {
                 closeReason = "SSE connect failed: HTTP " + response.statusCode();
                 return;
             }
+            lastActivityAt.set(System.currentTimeMillis());
             Stream<String> lines = response.body();
             sseLines = lines;
             StringBuilder dataBuffer = new StringBuilder();
             for (String line : (Iterable<String>) lines::iterator) {
+                lastActivityAt.set(System.currentTimeMillis());
                 if (closed.get()) {
                     closeReason = "client closed";
                     return;
@@ -231,6 +242,45 @@ public final class OpenCodeServeClient implements Closeable {
         } finally {
             sseLines = null;
             notifyStreamClosed(closeReason);
+        }
+    }
+
+    /**
+     * SSE 活性看门狗:/event 流约每 30s 一帧 server.heartbeat(opencode 契约,
+     * 见 OpenCodeServeTurn 噪声白名单),超过 {@link CliConstants#OPENCODE_SERVE_SSE_STALE_TIMEOUT_MS}
+     * 无任何 SSE 行即判定半开(TCP half-open:serve 进程活着但事件流已死)——关闭流触发
+     * notifyStreamClosed,走既有「摘除句柄 + 当轮流关闭收尾 + 下次 acquire 重建」路径,
+     * 不再等到 15min 轮超时才发现。空闲无轮时不误伤:健康连接心跳持续刷新活性;
+     * 死连接只摘句柄,重建延迟到下次 acquire。
+     */
+    private void runStaleWatchdog() {
+        try {
+            while (!closed.get()) {
+                Thread.sleep(CliConstants.OPENCODE_SERVE_SSE_WATCHDOG_INTERVAL_MS);
+                Thread stream = sseThread;
+                if (closed.get() || stream == null || !stream.isAlive()) {
+                    return;
+                }
+                long idleMs = System.currentTimeMillis() - lastActivityAt.get();
+                if (idleMs <= CliConstants.OPENCODE_SERVE_SSE_STALE_TIMEOUT_MS) {
+                    continue;
+                }
+                LOG.warn("[OpenCodeServeClient] SSE stream stale (no data for " + idleMs
+                        + "ms, heartbeat expected ~30s), closing half-open stream: " + baseUrl);
+                Stream<String> lines = sseLines;
+                if (lines != null) {
+                    try {
+                        lines.close();
+                    } catch (Exception ignored) {
+                        // 关闭路径异常尽数吞掉
+                    }
+                }
+                // 兜底:close 未唤醒阻塞读时,interrupt 促读行线程异常退出
+                stream.interrupt();
+                return;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -295,6 +345,10 @@ public final class OpenCodeServeClient implements Closeable {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+        }
+        Thread watchdog = watchdogThread;
+        if (watchdog != null && watchdog != Thread.currentThread()) {
+            watchdog.interrupt();
         }
         turnHandlers.clear();
     }
