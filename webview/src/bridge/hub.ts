@@ -33,6 +33,12 @@ import type {
 type RawListeners = Set<BridgeListener>;
 
 /**
+ * 就绪前缓冲队列上限。若 bootstrap JS 崩溃导致 markReady 永不发生,
+ * 后端推送(含大快照 payload)会无限累积 —— 超限后丢弃最旧条目。
+ */
+const BUFFER_LIMIT = 256;
+
+/**
  * 缓冲队列条目。复刻原 pendingSlots 的两种语义:
  *  - 单值覆盖型(last-wins):多次入队只保留最后一条。对应原 __pendingXxx 单值槽。
  *  - 数组累加型(全保留):每次入队都追加,按序消费。对应原 __pending*DialogRequests。
@@ -62,6 +68,8 @@ class BridgeHub {
   private ready = true;
   /** 缓冲队列:就绪前的 dispatch 按到达顺序保留全部(消费时按 type 语义取最后/全部)。 */
   private readonly buffer: BufferedEntry[] = [];
+  /** 缓冲溢出告警只打一次(避免刷屏);reset 后重新允许告警。 */
+  private bufferOverflowWarned = false;
 
   /** RPC: requestId → cancel 回调(仅供 reset 时批量取消,不参与路由)。 */
   private readonly pendingRequests = new Map<string, () => void>();
@@ -217,6 +225,16 @@ class BridgeHub {
    */
   dispatch(type: string, payloadJson?: string): void {
     if (!this.ready) {
+      if (this.buffer.length >= BUFFER_LIMIT) {
+        this.buffer.shift();
+        if (!this.bufferOverflowWarned) {
+          this.bufferOverflowWarned = true;
+          console.warn(
+            `[bridge] Pre-ready buffer overflow (> ${BUFFER_LIMIT} entries); ` +
+            'dropping oldest dispatches. Did markReady() ever run?',
+          );
+        }
+      }
       this.buffer.push({ type, payloadJson });
       return;
     }
@@ -281,6 +299,7 @@ class BridgeHub {
   reset(): void {
     this.ready = false;
     this.buffer.length = 0;
+    this.bufferOverflowWarned = false;
     // 待处理 RPC 全部取消(避免泄漏)。cancel 回调内部会 clearTimeout + 拒绝 promise。
     this.pendingRequests.forEach((cancel) => {
       try { cancel(); } catch { /* ignore */ }

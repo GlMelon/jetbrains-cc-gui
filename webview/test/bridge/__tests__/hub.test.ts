@@ -135,6 +135,27 @@ describe('bridgeHub — buffering until markReady (pending replacement)', () => 
     bridgeHub.reset();
     expect(bridgeHub.bufferedCount()).toBe(0);
   });
+
+  it('caps the pre-ready buffer at 256, dropping oldest and warning once', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      for (let i = 0; i < 300; i++) {
+        bridgeHub.dispatch('cfg', `"v${i}"`);
+      }
+      expect(bridgeHub.bufferedCount()).toBe(256);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+
+      const spy = vi.fn();
+      bridgeHub.subscribe('cfg', spy);
+      bridgeHub.markReady();
+      // 最旧的 44 条(v0..v43)被丢弃,回放从 v44 开始
+      expect(spy).toHaveBeenCalledTimes(256);
+      expect(spy).toHaveBeenNthCalledWith(1, '"v44"');
+      expect(spy).toHaveBeenLastCalledWith('"v299"');
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });
 
 describe('bridgeHub — RPC request/response', () => {
