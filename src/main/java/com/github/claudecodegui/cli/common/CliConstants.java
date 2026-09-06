@@ -288,6 +288,19 @@ public final class CliConstants {
      *  早期误用此 flag 已修正为 --auto。 */
     public static final String OPENCODE_ARG_AUTO = "--auto";
 
+    // ── OpenCode serve(HTTP/SSE 托管流式通道,实测 opencode v1.18.26) ────────────
+
+    /** opencode 子命令:长驻 HTTP/SSE 服务(无认证,必须绑回环)。 */
+    public static final String OPENCODE_ARG_SERVE = "serve";
+    /** --port:serve 监听端口(插件取空闲端口传入)。 */
+    public static final String OPENCODE_ARG_PORT = "--port";
+    /** --hostname:serve 监听地址(固定回环,见 OPENCODE_SERVE_HOSTNAME)。 */
+    public static final String OPENCODE_ARG_HOSTNAME = "--hostname";
+    /** serve 固定监听回环地址(无认证 HTTP 服务,禁止绑非回环)。 */
+    public static final String OPENCODE_SERVE_HOSTNAME = "127.0.0.1";
+    /** npm 全局结构下 opencode 的包目录名(one-shot resolver 与 serve manager 共用,禁重复定义)。 */
+    public static final String OPENCODE_NPM_DIR = "opencode-ai";
+
     // ── OpenCode 环境变量 ───────────────────────────────────────────────────────
 
     /** opencode 权限配置（内联 JSON），映射本项目 permissionMode。 */

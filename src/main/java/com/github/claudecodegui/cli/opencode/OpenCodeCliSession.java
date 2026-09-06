@@ -49,7 +49,7 @@ public class OpenCodeCliSession extends AbstractRunOnceCliSession {
 
     @Override
     protected String npmDir() {
-        return "opencode-ai";
+        return CliConstants.OPENCODE_NPM_DIR;
     }
 
     /**

@@ -1,0 +1,124 @@
+package com.github.claudecodegui.cli.opencode.serve;
+
+import org.junit.Test;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+/**
+ * opencode serve 通道的总则六横切对称性源码检查(Platform 耦合、无法纯单测的部分兜底,
+ * 对称 CliMcpGatewaySymmetryTest / CliTerminationSymmetryTest 范式)。
+ */
+public class OpenCodeServeSymmetryTest {
+
+    private static final String SERVE_DIR = "src/main/java/com/github/claudecodegui/cli/opencode/serve/";
+
+    private static String read(String file) throws Exception {
+        return Files.readString(Path.of(file));
+    }
+
+    @Test
+    public void managerImplementsPersistentCrossCuttingItems() throws Exception {
+        String source = read(SERVE_DIR + "OpenCodeServeManager.java");
+        // stdout drain(防管道满阻塞)
+        assertTrue(source.contains("startStdoutDrain"));
+        // env:buildBaseEnvironment + applyExtraEnv + gateway 注入(三 provider 对称)
+        assertTrue(source.contains("CliEnvironmentBuilder.buildBaseEnvironment"));
+        assertTrue(source.contains("CliEnvironmentBuilder.applyExtraEnv"));
+        assertTrue(source.contains("buildCliConfig"));
+        // 指纹含 CLI 版本 + gateway endpoint + 注入 env 内容(漂移重建)
+        assertTrue(source.contains("getCachedVersion"));
+        assertTrue(source.contains("gatewayConfig.endpoint()"));
+        // ProcessManager 注册 / 注销 + terminateProcess 兜底
+        assertTrue(source.contains("registerAuxiliaryProcess"));
+        assertTrue(source.contains("unregisterAuxiliaryProcess"));
+        assertTrue(source.contains("PlatformUtils.terminateProcess"));
+        // 连续失败熔断(防无限重启)
+        assertTrue(source.contains("MAX_CONSECUTIVE_SPAWN_FAILURES"));
+        // provider 引用走枚举 SSOT,禁 provider 字面量 / 重复 npm 目录常量
+        assertTrue(source.contains("ProviderType.OPENCODE"));
+        assertTrue(source.contains("CliConstants.OPENCODE_NPM_DIR"));
+        assertFalse(source.contains("\"opencode-ai\""));
+        // serve 命令行参数走 CliConstants,禁硬编码 flag 字面量
+        assertTrue(source.contains("CliConstants.OPENCODE_ARG_SERVE"));
+        assertTrue(source.contains("CliConstants.OPENCODE_SERVE_HOSTNAME"));
+        assertFalse(source.contains("\"serve\""));
+        assertFalse(source.contains("\"127.0.0.1\""));
+    }
+
+    @Test
+    public void sessionImplementsInterruptAndDegradationSemantics() throws Exception {
+        String source = read(SERVE_DIR + "OpenCodeServeSession.java");
+        // interrupt = abort API 确定性取消 + 杀树兜底
+        assertTrue(source.contains(".abort("));
+        assertTrue(source.contains("CLI_INTERRUPT_FALLBACK_MS"));
+        assertTrue(source.contains("terminateServe"));
+        // B13 等价:续接 4xx → 清 sessionId 建新会话重试一次
+        assertTrue(source.contains("isClientError()"));
+        assertTrue(source.contains("sessionId = null"));
+        // prompt 递交前失败当轮降级 one-shot(按「是否递交」分派,不按异常类型)
+        assertTrue(source.contains("promptSubmitted"));
+        assertTrue(source.contains("fallbackSession()"));
+        // 权限 MVP 映射(bypass→always,其他→reject,有意差异)
+        assertTrue(source.contains("PERMISSION_MODE_BYPASS"));
+        // reasoningEffort→variant 复用 one-shot 映射(总则四,不双写)
+        assertTrue(source.contains("AbstractRunOnceCliSession.mapReasoningVariant"));
+        // capabilities 对齐 one-shot
+        assertTrue(source.contains("SessionNegotiatedCapabilities.cli(true, true, false)"));
+    }
+
+    @Test
+    public void turnMapperReusesOneShotPureFunctions() throws Exception {
+        String source = read(SERVE_DIR + "OpenCodeServeTurn.java");
+        // 纯函数映射复用 OpenCodeEventMapper(总则四,禁复制粘贴两套)
+        assertTrue(source.contains("OpenCodeEventMapper"));
+        assertTrue(source.contains("deltaOf"));
+        assertTrue(source.contains("buildUsage"));
+        assertTrue(source.contains("buildToolUseBlock"));
+        assertTrue(source.contains("buildToolResultBlock"));
+    }
+
+    @Test
+    public void clientPinsHttp11ToAvoidH2cUpgradeHang() throws Exception {
+        String source = read(SERVE_DIR + "OpenCodeServeClient.java");
+        // 防回归:默认 HTTP_2 偏好对明文 http 走 h2c upgrade,bun serve 对带 body 的
+        // upgrade POST 不应答 → 挂死超时(已实测),必须固定 HTTP/1.1
+        assertTrue(source.contains("HttpClient.Version.HTTP_1_1"));
+    }
+
+    @Test
+    public void factoryRoutesByFeatureFlagAndManagerAvailability() throws Exception {
+        String source = read("src/main/java/com/github/claudecodegui/cli/opencode/OpenCodeCliSessionFactory.java");
+        assertTrue(source.contains("CliPersistentFeatureFlags.isOpenCodeServeEnabled()"));
+        assertTrue(source.contains("serveManager != null"));
+        assertTrue(source.contains("new OpenCodeServeSession("));
+        assertTrue(source.contains("new OpenCodeCliSession("));
+
+        String manager = read("src/main/java/com/github/claudecodegui/cli/CliSessionManager.java");
+        assertTrue(manager.contains("OpenCodeServeManager.getInstance(project)"));
+    }
+
+    @Test
+    public void featureFlagFollowsThreeLayerGate() throws Exception {
+        String source = read("src/main/java/com/github/claudecodegui/cli/common/CliPersistentFeatureFlags.java");
+        assertTrue(source.contains("FEATURE_OPENCODE_SERVE_ENABLED_KEY"));
+        assertTrue(source.contains("isOpenCodeServeEnabled"));
+        // 第三层子开关与 claude 子开关同构(总开关 AND user 开关 AND 子开关)
+        assertTrue(source.contains("isSystemEnabled()"));
+        assertTrue(source.contains("isUserEnabled()"));
+    }
+
+    @Test
+    public void oneShotParserDelegatesToSharedMapper() throws Exception {
+        String source = read("src/main/java/com/github/claudecodegui/cli/opencode/OpenCodeCliStreamParser.java");
+        // parser 不再自带映射实现,统一委托 OpenCodeEventMapper
+        assertTrue(source.contains("OpenCodeEventMapper"));
+        assertFalse(source.contains("private static String deltaOf"));
+        assertFalse(source.contains("private JsonObject buildUsage"));
+        assertFalse(source.contains("private static boolean isErrorState"));
+        assertFalse(source.contains("private static String getString"));
+    }
+}

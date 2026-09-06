@@ -21,6 +21,8 @@ public final class CliPersistentFeatureFlags {
     public static final String FEATURE_ENABLED_KEY = "cliPersistent.enabled";
     /** -D claude 子开关(默认 true)。 */
     public static final String FEATURE_CLAUDE_ENABLED_KEY = "cliPersistent.claude.enabled";
+    /** -D opencode serve 通道子开关(默认 true):关停后 opencode 回 one-shot 纯路径。 */
+    public static final String FEATURE_OPENCODE_SERVE_ENABLED_KEY = "cliPersistent.opencode.serve.enabled";
 
     /**
      * 测试专用覆盖钩子。非 null 时绕过 {@link CodemossSettingsService} 读取(单测环境无
@@ -55,5 +57,12 @@ public final class CliPersistentFeatureFlags {
         return isSystemEnabled()
                 && isUserEnabled()
                 && Boolean.parseBoolean(System.getProperty(FEATURE_CLAUDE_ENABLED_KEY, "true"));
+    }
+
+    /** opencode serve 托管流式通道是否启用(总开关 AND user 开关 AND serve 子开关)。 */
+    public static boolean isOpenCodeServeEnabled() {
+        return isSystemEnabled()
+                && isUserEnabled()
+                && Boolean.parseBoolean(System.getProperty(FEATURE_OPENCODE_SERVE_ENABLED_KEY, "true"));
     }
 }
