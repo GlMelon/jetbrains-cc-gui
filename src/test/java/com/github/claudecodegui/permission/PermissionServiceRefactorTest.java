@@ -122,6 +122,75 @@ public class PermissionServiceRefactorTest {
     }
 
     @Test
+    public void longInputsAreHashedButStillMatchExactly() {
+        // Memory-key guard: the full inputs JSON (multi-KB Edit/Write content) must not be
+        // pinned verbatim as a map key. Long inputs are keyed by SHA-256, which preserves
+        // exact-match semantics — identical inputs hit, distinct inputs miss.
+        PermissionDecisionStore store = new PermissionDecisionStore();
+
+        String bigContent = "x".repeat(4096);
+        JsonObject first = new JsonObject();
+        first.addProperty("file_path", "/tmp/big.txt");
+        first.addProperty("content", bigContent);
+        store.rememberParameterDecision("Write", first, PermissionService.PermissionResponse.ALLOW_ALWAYS);
+
+        // Equal content in a fresh JsonObject must hit the remembered decision.
+        JsonObject second = new JsonObject();
+        second.addProperty("file_path", "/tmp/big.txt");
+        second.addProperty("content", bigContent);
+        assertEquals(
+                PermissionService.PermissionResponse.ALLOW_ALWAYS,
+                store.getParameterDecision("Write", second)
+        );
+
+        // A genuinely different long payload must NOT hit it.
+        JsonObject other = new JsonObject();
+        other.addProperty("file_path", "/tmp/big.txt");
+        other.addProperty("content", "y".repeat(4096));
+        assertEquals(null, store.getParameterDecision("Write", other));
+
+        // The stored key is bounded (hash), not the full 4KB+ JSON.
+        String key = store.buildMemoryKey("Write", first);
+        assertTrue("memory key must be hash-bounded, got length " + key.length(), key.length() < 128);
+    }
+
+    @Test
+    public void parameterMemoryIsBoundedAndEvictsLeastRecentlyUsed() {
+        // Bounded-LRU guard: parameterDecisionMemory caps at 256 entries; beyond that the
+        // least recently used entries are evicted, and a lookup refreshes recency.
+        PermissionDecisionStore store = new PermissionDecisionStore();
+
+        for (int i = 0; i < 256; i++) {
+            JsonObject inputs = new JsonObject();
+            inputs.addProperty("command", "cmd-" + i);
+            store.rememberParameterDecision("Bash", inputs, PermissionService.PermissionResponse.ALLOW_ALWAYS);
+        }
+        assertEquals(256, store.getParameterMemorySize());
+
+        // Refresh entry 0 so it is no longer the eldest.
+        JsonObject first = new JsonObject();
+        first.addProperty("command", "cmd-0");
+        assertEquals(
+                PermissionService.PermissionResponse.ALLOW_ALWAYS,
+                store.getParameterDecision("Bash", first)
+        );
+
+        // One more insertion must evict cmd-1 (now the LRU), not the refreshed cmd-0.
+        JsonObject extra = new JsonObject();
+        extra.addProperty("command", "cmd-extra");
+        store.rememberParameterDecision("Bash", extra, PermissionService.PermissionResponse.ALLOW_ALWAYS);
+        assertEquals(256, store.getParameterMemorySize());
+
+        JsonObject evicted = new JsonObject();
+        evicted.addProperty("command", "cmd-1");
+        assertEquals(null, store.getParameterDecision("Bash", evicted));
+        assertEquals(
+                PermissionService.PermissionResponse.ALLOW_ALWAYS,
+                store.getParameterDecision("Bash", first)
+        );
+    }
+
+    @Test
     public void fileProtocolCleanupRemovesOnlyCurrentSessionFiles() throws IOException {
         Path permissionDir = Files.createTempDirectory("permission-protocol-cleanup");
         try {
