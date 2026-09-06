@@ -47,6 +47,10 @@ public class OpenCodeServeSymmetryTest {
         assertTrue(source.contains("CliConstants.OPENCODE_SERVE_HOSTNAME"));
         assertFalse(source.contains("\"serve\""));
         assertFalse(source.contains("\"127.0.0.1\""));
+        // 重建 / terminateServe 的旧句柄 teardown 异步化(调用线程不阻塞 waitFor),
+        // dispose 保持同步(平台共享执行器,对齐同仓 AppExecutorUtil 异步清理惯例)
+        assertTrue(source.contains("closeHandleAsync"));
+        assertTrue(source.contains("AppExecutorUtil.getAppExecutorService()"));
     }
 
     @Test

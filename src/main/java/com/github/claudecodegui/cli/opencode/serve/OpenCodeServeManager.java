@@ -16,6 +16,7 @@ import com.intellij.openapi.Disposable;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,10 +44,12 @@ import java.util.concurrent.TimeUnit;
  * <ul>
  *   <li>进程注册 {@link ProcessManager}(项目关闭可确定性终止进程树);</li>
  *   <li>指纹 = CLI 版本 + gateway endpoint + gateway 注入 env 内容;指纹漂移 / 进程崩溃 /
- *       SSE 断线 → 摘除旧句柄重建,当轮由调用方降级 one-shot(对齐 acquire 未命中的静默降级);</li>
+ *       SSE 断线(含半开:client 侧 server.heartbeat 活性看门狗超时关流)→ 摘除旧句柄重建,
+ *       当轮由调用方降级 one-shot(对齐 acquire 未命中的静默降级);</li>
  *   <li>连续 spawn 失败 {@value #MAX_CONSECUTIVE_SPAWN_FAILURES} 次熔断,本次运行内不再尝试
  *       (全走 one-shot),防坏环境无限重启;</li>
- *   <li>dispose 同步优雅关闭(client.close → terminateProcess 兜底)。</li>
+ *   <li>重建 / terminateServe 的旧句柄 teardown 异步化(平台共享执行器,调用线程不阻塞
+ *       waitFor);dispose 同步优雅关闭(client.close → terminateProcess 兜底)。</li>
  * </ul>
  * MVP 显式简化(有意差异,勿视为遗漏):请求级 extraEnv 仅在 spawn 时注入一次,
  * 不进指纹——serve 为 project 级共享进程,per-request env 漂移不触发重建。
@@ -112,8 +115,9 @@ public final class OpenCodeServeManager implements Disposable {
                 return existing.client();
             }
             LOG.info("[OpenCodeServeManager] serve handle stale (dead or fingerprint drift), rebuilding: tab=" + tabId);
-            closeHandle(existing);
+            // 先摘除再异步关:旧句柄与后续 spawn 无竞争,acquire 线程不阻塞 waitFor
             handle = null;
+            closeHandleAsync(existing);
         }
         ServeHandle spawned = spawn(cwd, extraEnv, gatewayConfig, fingerprint);
         if (spawned == null) {
@@ -138,7 +142,7 @@ public final class OpenCodeServeManager implements Disposable {
         handle = null;
         if (current != null) {
             LOG.warn("[OpenCodeServeManager] terminating serve: " + reason);
-            closeHandle(current);
+            closeHandleAsync(current);
         }
     }
 
@@ -304,6 +308,22 @@ public final class OpenCodeServeManager implements Disposable {
         thread.setDaemon(true);
         thread.start();
         return thread;
+    }
+
+    /**
+     * 重建 / terminateServe 路径的异步 teardown:句柄已摘除(与后续 spawn 无竞争),
+     * 旧句柄关闭(client.close → terminateProcess → waitFor 最长 PROCESS_WAIT_TIMEOUT_MS)
+     * 提交平台共享执行器(对齐同仓 AppExecutorUtil 异步清理惯例),调用线程
+     * (acquire 派发线程 / interrupt 兜底调度线程)不阻塞。dispose 保持同步,
+     * 保证 IDE 退出前资源回收。
+     */
+    private void closeHandleAsync(ServeHandle target) {
+        try {
+            AppExecutorUtil.getAppExecutorService().execute(() -> closeHandle(target));
+        } catch (RuntimeException e) {
+            // 执行器不可用(IDE 关停中):尽力同步收尾,防孤儿进程
+            closeHandle(target);
+        }
     }
 
     private void closeHandle(ServeHandle target) {
