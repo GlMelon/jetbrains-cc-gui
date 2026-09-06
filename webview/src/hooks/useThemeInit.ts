@@ -37,7 +37,7 @@ export function useThemeInit() {
   useEffect(() => {
     // [归一化] onIdeThemeReceived → theme.received / onIdeThemeChanged → theme.changed
     registerLegacyAlias('onIdeThemeReceived', DOWNSTREAM.THEME_RECEIVED);
-    subscribeEvent(DOWNSTREAM.THEME_RECEIVED, (jsonStr) => {
+    const unsubscribeThemeReceived = subscribeEvent(DOWNSTREAM.THEME_RECEIVED, (jsonStr) => {
       try {
         const themeData = JSON.parse(jsonStr as string);
         const theme = themeData.isDark ? 'dark' : 'light';
@@ -48,7 +48,7 @@ export function useThemeInit() {
     });
 
     registerLegacyAlias('onIdeThemeChanged', DOWNSTREAM.THEME_CHANGED);
-    subscribeEvent(DOWNSTREAM.THEME_CHANGED, (jsonStr) => {
+    const unsubscribeThemeChanged = subscribeEvent(DOWNSTREAM.THEME_CHANGED, (jsonStr) => {
       try {
         const themeData = JSON.parse(jsonStr as string);
         const theme = themeData.isDark ? 'dark' : 'light';
@@ -100,7 +100,10 @@ export function useThemeInit() {
     });
 
     if (!token) {
-      return;
+      return () => {
+        unsubscribeThemeReceived();
+        unsubscribeThemeChanged();
+      };
     }
 
     const requestIdeTheme = () => {
@@ -130,7 +133,11 @@ export function useThemeInit() {
     // Delay 100ms before requesting, giving the bridge time to initialize.
     bootstrapLifecycle.schedule(scope, requestIdeTheme, 100, token);
 
-    return () => bootstrapLifecycle.cancel(scope, token);
+    return () => {
+      unsubscribeThemeReceived();
+      unsubscribeThemeChanged();
+      bootstrapLifecycle.cancel(scope, token);
+    };
   }, []);
 
   // Re-apply theme when IDE theme changes (if user chose "Follow IDE")
