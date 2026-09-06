@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { FramedReader, writeMessage } from '../framing.js';
 import { killChildTree } from '../../utils/kill-tree.js';
+import { appendBounded } from '../../utils/bounded-buffer.js';
 
 /**
  * @typedef {{ command?: string; args?: string[]; cwd?: string; env?: Record<string, string>; request_timeout_ms?: number }} StdioMcpConfig
@@ -31,6 +32,9 @@ export class StdioMcpClient {
   // 15s 会在外腿(gateway TOOLS_CALL_TIMEOUT_MS=60s)远未到时先误杀慢工具。与外腿对齐并留 5s
   // 转发余量;用户显式配置的 config.request_timeout_ms 仍最优先。
   static CALL_TOOL_TIMEOUT_MS = 55000;
+  // stderr 滚动 tail 上限(字符数):stderr 健谈的 server(npx 下载日志、warning 刷屏)必须 drain,
+  // 否则写满管道缓冲后阻塞挂死;但只保留最近一段用于失败诊断,不无界累积。
+  static STDERR_TAIL_CHARS = 4096;
 
   /** @type {StdioMcpSpec} */ spec;
   /** @type {Map<number, PendingRequest>} */ pending;
@@ -39,6 +43,8 @@ export class StdioMcpClient {
   /** @type {import('node:child_process').ChildProcess} */ process;
   /** @type {FramedReader} */ reader;
   /** @type {Promise<void> | null} */ closePromise;
+  /** 子进程 stderr 的有界滚动 tail(诊断用,见 STDERR_TAIL_CHARS)。 @type {string} */
+  stderrTail;
   /** server 推送 notifications/tools/list_changed 时的回调(由 ServerSupervisor 注入,标脏工具缓存)。 @type {(() => void) | null} */
   onToolsListChanged;
 
@@ -55,6 +61,7 @@ export class StdioMcpClient {
     // 杀掉整个 gateway 进程(单个坏 MCP 不应波及 gateway,见 plan §10 故障隔离)。
     this.errored = null;
     this.onToolsListChanged = null;
+    this.stderrTail = '';
     const config = spec.config ?? {};
     this.requestTimeoutMs = typeof config.request_timeout_ms === 'number'
       ? config.request_timeout_ms
@@ -76,6 +83,21 @@ export class StdioMcpClient {
     const stdout = /** @type {import('node:stream').Readable} */ (this.process.stdout);
     const stdin = /** @type {import('node:stream').Writable & { __mcpFrameFormat?: string }} */ (this.process.stdin);
     this.reader = new FramedReader(stdout);
+    // stderr 必须 drain:健谈的 server(npx 下载日志、warning 刷屏)写满管道缓冲后会阻塞挂死,
+    // 表现为 initialize/listTools 15s 超时 → 退避重试再 spawn 再挂死。这里只攒有界滚动 tail
+    // 供失败诊断(超时 / 进程退出时打进日志),不逐行转发,避免灌爆 gateway 自身 stderr。
+    // 注入的 fake 进程(测试)可能无 stderr 流,显式判空(总则六边界防御)。
+    const stderr = /** @type {import('node:stream').Readable | null} */ (this.process.stderr);
+    if (stderr) {
+      const onStderrData = (/** @type {Buffer} */ chunk) => {
+        this.stderrTail = appendBounded(this.stderrTail, chunk.toString(), StdioMcpClient.STDERR_TAIL_CHARS);
+      };
+      stderr.on('data', onStderrData);
+      // 进程 close 后摘除 data 监听,避免监听器悬挂;tail 字符串保留供诊断日志使用。
+      this.process.once('close', () => {
+        stderr.off('data', onStderrData);
+      });
+    }
     // 真实 MCP server 探测到的帧格式同步到其 stdin,后续写给它的请求帧自适应跟随
     // (多数 server=ndjson/MCP spec 标准;首个 initialize 在探测前发出,默认 ndjson)。
     // 机制详见 framing.js 文档。
@@ -94,7 +116,27 @@ export class StdioMcpClient {
     // 进程退出须置 errored(STAB-02):否则 supervisor 持有的死 client 仍非 null,后续 catalog refresh
     // 复用死 client 调 listTools 写已关闭 stdin,等满 DEFAULT_REQUEST_TIMEOUT_MS=15s 才超时;坏 MCP 反复
     // 触发持续拖慢首屏。置 errored 后 request() 立即抛、supervisor 检测死 client 即重建重连。
-    this.process.on('exit', () => this.markDead(new Error(`MCP process exited: ${spec.serverId}`)));
+    this.process.on('exit', () => {
+      this.logStderrTail('MCP process exited');
+      this.markDead(new Error(`MCP process exited: ${spec.serverId}${this.stderrSnippet()}`));
+    });
+  }
+
+  /** @returns {string} stderr tail 末尾片段(拼进错误消息),无 stderr 输出时为空串 */
+  stderrSnippet() {
+    const tail = this.stderrTail.trim();
+    return tail ? `; stderr tail: ${tail.slice(-500)}` : '';
+  }
+
+  /**
+   * 把 stderr 滚动 tail 打进 gateway 自身 stderr(诊断日志),仅在有内容时输出。
+   * 与 shutdown-controller 的 `[WARN][mcp-gateway]` 前缀约定一致。
+   * @param {string} reason 触发日志的原因(如 'MCP request timeout: initialize')
+   */
+  logStderrTail(reason) {
+    const tail = this.stderrTail.trim();
+    if (!tail) return;
+    console.error(`[WARN][mcp-gateway] ${reason} (${this.spec.serverId}); stderr tail:\n${tail.slice(-2000)}`);
   }
 
   async initialize() {
@@ -143,7 +185,9 @@ export class StdioMcpClient {
       const timer = setTimeout(() => {
         if (this.pending.has(id)) {
           this.pending.delete(id);
-          reject(new Error(`MCP request timeout: ${method} (${this.spec.serverId}) after ${timeout}ms`));
+          // 超时常因 stderr 健谈挂死;把 tail 打进日志并拼进错误消息,保留诊断现场。
+          this.logStderrTail(`MCP request timeout: ${method}`);
+          reject(new Error(`MCP request timeout: ${method} (${this.spec.serverId}) after ${timeout}ms${this.stderrSnippet()}`));
         }
       }, timeout);
       this.pending.set(id, { resolve, reject, timer });

@@ -233,3 +233,68 @@ test('notifications/tools/list_changed fires onToolsListChanged; other notificat
   assert.equal(fired, 1, '其他通知不得触发回调');
   client.close();
 });
+
+// stderr drain(修复:健谈 server 写满管道缓冲阻塞挂死):stderr 必须以有界滚动 tail 消费,
+// 超限时只保留末尾;超时 / 进程退出时 tail 拼进错误消息保留诊断现场。
+// 既有 fake 进程无 stderr 流,上面全部用例同时覆盖「stderr 缺省不崩」的边界。
+
+test('chatty stderr is drained into a bounded rolling tail (no unbounded growth)', async () => {
+  const fakeProcess = createFakeProcess();
+  fakeProcess.stderr = new EventEmitter();
+  const client = new StdioMcpClient(
+    { serverId: 'chatty', sourceProvider: 'claude', config: { command: 'fake', args: [] } },
+    { spawnFn: () => fakeProcess },
+  );
+  // 写入远超 4KB 上限的内容(模拟 npx 下载日志刷屏)
+  fakeProcess.stderr.emit('data', Buffer.from('x'.repeat(StdioMcpClient.STDERR_TAIL_CHARS * 3)));
+  fakeProcess.stderr.emit('data', Buffer.from('tail-marker'));
+  assert.ok(
+    client.stderrTail.length <= StdioMcpClient.STDERR_TAIL_CHARS,
+    `stderrTail 应有界,实际 ${client.stderrTail.length}`,
+  );
+  assert.ok(client.stderrTail.endsWith('tail-marker'), '应保留最近的 stderr 内容');
+  client.close();
+});
+
+test('request timeout error message includes the recent stderr tail', async () => {
+  const fakeProcess = createFakeProcess();
+  fakeProcess.stderr = new EventEmitter();
+  const client = new StdioMcpClient(
+    { serverId: 'hang', sourceProvider: 'claude', config: { command: 'fake', args: [] } },
+    { spawnFn: () => fakeProcess },
+  );
+  fakeProcess.stderr.emit('data', Buffer.from('npm warn something noisy\nfatal: server stuck'));
+  await assert.rejects(
+    client.request('initialize', { protocolVersion: '2024-11-05' }, 100),
+    /timeout[\s\S]*server stuck/,
+    '超时错误应携带 stderr tail 诊断',
+  );
+  client.close();
+});
+
+test('process exit error message includes the recent stderr tail', async () => {
+  const fakeProcess = createFakeProcess();
+  fakeProcess.stderr = new EventEmitter();
+  const client = new StdioMcpClient(
+    { serverId: 'crash', sourceProvider: 'claude', config: { command: 'fake', args: [] } },
+    { spawnFn: () => fakeProcess },
+  );
+  fakeProcess.stderr.emit('data', Buffer.from('boom: port already in use'));
+  fakeProcess.emit('exit', 1, null);
+  assert.ok(client.errored, 'exit 应置 errored');
+  await assert.rejects(client.request('tools/list', {}), /port already in use/);
+  client.close();
+});
+
+test('stderr data listener is removed after process close (no listener leak)', async () => {
+  const fakeProcess = createFakeProcess();
+  fakeProcess.stderr = new EventEmitter();
+  const client = new StdioMcpClient(
+    { serverId: 'leak', sourceProvider: 'claude', config: { command: 'fake', args: [] } },
+    { spawnFn: () => fakeProcess },
+  );
+  assert.equal(fakeProcess.stderr.listenerCount('data'), 1, '构造后应挂一个 stderr data 监听');
+  fakeProcess.emit('close', 0, null);
+  assert.equal(fakeProcess.stderr.listenerCount('data'), 0, 'close 后应摘除 stderr data 监听');
+  client.close();
+});
