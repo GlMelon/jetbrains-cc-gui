@@ -13,6 +13,7 @@ import { resolveModelFromSettings } from '../utils/model-utils.js';
 import { getClaudeDir, getCodemossDir } from '../utils/path-utils.js';
 import { getClaudeCliPathOverride } from '../utils/claude-cli-path.js';
 import { isWindowsCmdShim } from '../utils/cli-path.js';
+import { appendBounded } from '../utils/bounded-buffer.js';
 import { pathToFileURL } from 'node:url';
 
 const DEFAULT_HAIKU_MODEL = 'claude-haiku-4-5-20251001';
@@ -23,6 +24,10 @@ const MAX_SANITIZED_LENGTH = 200;
 const SESSION_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 // Safety net for Haiku calls — avoids hung requests holding bridge resources.
 const HAIKU_API_TIMEOUT_MS = 15000;
+// 标题本应是短文本:stdout 累积到此上限即停,异常 CLI 持续输出也不在超时窗口内涨数 MB。
+const MAX_TITLE_STDOUT_CHARS = 8192;
+// stderr 只保留有界滚动 tail 供失败诊断(同 mcp-gateway stdio-client 做法)。
+const TITLE_STDERR_TAIL_CHARS = 4096;
 
 /**
  * @param {string | undefined} sessionId
@@ -286,11 +291,14 @@ Return ONLY the title text, no JSON formatting, no quotes.`;
     let stderr = '';
 
     child.stdout?.on('data', (chunk) => {
-      stdout += chunk.toString();
+      // 封顶累积:标题是短文本,超限部分对解析无用;异常 CLI 刷屏不再无界涨内存。
+      if (stdout.length >= MAX_TITLE_STDOUT_CHARS) return;
+      stdout = (stdout + chunk.toString()).slice(0, MAX_TITLE_STDOUT_CHARS);
     });
 
     child.stderr?.on('data', (chunk) => {
-      stderr += chunk.toString();
+      // 有界滚动 tail(诊断用),替代无界 +=。
+      stderr = appendBounded(stderr, chunk.toString(), TITLE_STDERR_TAIL_CHARS);
     });
 
     child.on('error', (error) => {
@@ -308,7 +316,7 @@ Return ONLY the title text, no JSON formatting, no quotes.`;
         if (timeoutId) clearTimeout(timeoutId);
 
         if (code !== 0) {
-          logTitleEvent('warn', 'Claude CLI exited with code ' + code + ', stderr: ' + stderr.substring(0, 200));
+          logTitleEvent('warn', 'Claude CLI exited with code ' + code + ', stderr: ' + stderr.trim().slice(-200));
           resolve(null);
           return;
         }
