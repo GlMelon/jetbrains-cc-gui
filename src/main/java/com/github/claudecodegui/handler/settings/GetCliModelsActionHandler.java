@@ -48,6 +48,8 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
     private static final long TIMEOUT_SECONDS = 50L;
     /** Cap on captured stdout — a model list is small; this stops memory exhaustion. */
     private static final int MAX_OUTPUT_CHARS = 64_000;
+    /** stderr 滚动 tail 上限:保留末段诊断,防止 verbose 子进程耗尽内存。 */
+    private static final int MAX_STDERR_CHARS = 8_192;
 
     /** 与前端 useCliModels#supportsDynamicModels 对齐(codex + CLI-only providers)。 */
     private static final Set<String> SUPPORTED_PROVIDERS = Set.of(
@@ -104,7 +106,9 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
 
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(bridgeDir);
-            pb.redirectErrorStream(true);
+            // stderr 独立 drain(对称 DshHistoryReader):合并进 stdout 会让噪声占用
+            // MAX_OUTPUT_CHARS 截断真正的模型 JSON,且失败时拿不到 stderr 诊断。
+            pb.redirectErrorStream(false);
             Map<String, String> env = pb.environment();
             envConfigurator.updateProcessEnvironment(pb, node);
             if ("dsh".equals(provider)) {
@@ -125,6 +129,7 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
             // Drain stdout on a daemon thread (bounded) so a verbose child cannot
             // deadlock on a full pipe buffer while this thread enforces the timeout.
             StringBuilder output = new StringBuilder();
+            StringBuilder stderrTail = new StringBuilder();
             Process finalProcess = process;
             Thread readerThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(
@@ -139,22 +144,25 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
                     }
                 } catch (Exception ignored) {
                 }
-            });
+            }, "cli-models-stdout-reader");
             readerThread.setDaemon(true);
             readerThread.start();
+            Thread stderrDrainer = startStderrDrainer(process, stderrTail);
 
             boolean finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
-                pushError(ctx, provider, "Timed out listing " + provider + " models");
+                pushError(ctx, provider, "Timed out listing " + provider + " models" + stderrSuffix(stderrTail));
                 return;
             }
-            // Process exited; the reader hits EOF promptly — join for the final lines.
+            // Process exited; the readers hit EOF promptly — join for the final lines.
             readerThread.join(2000L);
+            stderrDrainer.join(2000L);
 
             JsonObject payload = extractJsonObject(output.toString());
             if (payload == null) {
-                pushError(ctx, provider, "No model list JSON in " + provider + " listModels output");
+                pushError(ctx, provider,
+                        "No model list JSON in " + provider + " listModels output" + stderrSuffix(stderrTail));
                 return;
             }
             if (payload.has("debug") && payload.get("debug").isJsonObject()) {
@@ -175,6 +183,42 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
             if (process != null && process.isAlive()) {
                 process.destroyForcibly();
             }
+        }
+    }
+
+    /**
+     * Drain the child stderr on a named daemon thread, keeping only the last
+     * {@link #MAX_STDERR_CHARS} chars(对称 DshHistoryReader.startStderrDrainer)。
+     * Without this the child blocks once its stderr pipe buffer fills (~64KB),
+     * which previously surfaced as a timeout with all failure diagnostics lost.
+     */
+    private Thread startStderrDrainer(Process process, StringBuilder stderrTail) {
+        Thread thread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    synchronized (stderrTail) {
+                        stderrTail.append(line).append('\n');
+                        if (stderrTail.length() > MAX_STDERR_CHARS) {
+                            stderrTail.delete(0, stderrTail.length() - MAX_STDERR_CHARS);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                LOG.debug("[CliModels] stderr drainer stopped: " + e.getMessage());
+            }
+        }, "cli-models-stderr-drainer");
+        thread.setDaemon(true);
+        thread.start();
+        return thread;
+    }
+
+    /** stderr tail 渲染为错误消息后缀,无输出时为空串。 */
+    private String stderrSuffix(StringBuilder stderrTail) {
+        synchronized (stderrTail) {
+            String tail = stderrTail.toString().trim();
+            return tail.isEmpty() ? "" : " (stderr: " + tail + ")";
         }
     }
 
