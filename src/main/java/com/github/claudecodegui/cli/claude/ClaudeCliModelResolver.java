@@ -99,8 +99,11 @@ final class ClaudeCliModelResolver {
     }
 
     private static Capabilities resolveCapabilities(String selectedModel, String resolvedModel, JsonObject env) {
-        boolean canonicalClaude = isCanonicalClaudeModel(resolvedModel);
-        boolean supportsEffort = canonicalClaude;
+        // --effort 是 CLI 会话级 flag(官方 CLI reference:"Available levels depend on the
+        // model"),档位可用性由 CLI 按模型侧协商,并非仅 canonical claude-* 可用;2026-09-07
+        // probe 实测 glm 路由接受且生效(high 出 thinking 块、low 时 thinking_tokens=0)。
+        // 默认全模型放行;个别不支持的路由用 ANTHROPIC_MODEL_CAPABILITIES=no-effort 关闭。
+        boolean supportsEffort = true;
         boolean supportsPartialMessages = true;
         boolean supportsMcp = true;
         boolean supportsAddDir = true;

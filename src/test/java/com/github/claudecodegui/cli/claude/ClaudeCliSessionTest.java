@@ -52,7 +52,9 @@ public class ClaudeCliSessionTest {
     }
 
     @Test
-    public void buildCommandDoesNotSendEffortForUnknownCustomModels() throws Exception {
+    public void buildCommandSendsEffortForCustomModelsByDefault() throws Exception {
+        // --effort 是 CLI 会话级 flag,档位可用性由 CLI 按模型协商(官方 CLI reference);
+        // 非 canonical 模型默认也放行(glm 路由实测生效),不再按模型名前缀门控。
         ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(
                 "mimo-v2.5-pro", new JsonObject());
 
@@ -60,8 +62,21 @@ public class ClaudeCliSessionTest {
 
         assertTrue(command.contains("--model"));
         assertTrue(command.contains("mimo-v2.5-pro"));
+        assertTrue(command.contains("--effort"));
+        assertTrue(command.contains("high"));
+    }
+
+    @Test
+    public void buildCommandOmitsEffortWhenCapabilitiesDeclareNoEffort() throws Exception {
+        JsonObject env = new JsonObject();
+        env.addProperty("ANTHROPIC_MODEL_CAPABILITIES", "no-effort");
+        ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(
+                "mimo-v2.5-pro", env);
+
+        List<String> command = buildCommand(request("mimo-v2.5-pro", "high"), profile);
+
+        assertTrue(command.contains("--model"));
         assertFalse(command.contains("--effort"));
-        assertFalse(command.contains("high"));
     }
 
     @Test

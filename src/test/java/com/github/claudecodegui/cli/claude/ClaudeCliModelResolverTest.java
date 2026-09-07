@@ -83,7 +83,10 @@ public class ClaudeCliModelResolverTest {
     }
 
     @Test
-    public void shouldDisableOptionalCapabilitiesForMappedThirdPartyModelsByDefault() {
+    public void shouldEnableEffortForMappedThirdPartyModelsByDefault() {
+        // --effort 为 CLI 会话级 flag,不再按 canonical 前缀门控(官方 CLI reference:
+        // 档位可用性由 CLI 按模型协商;glm 路由实测生效)。不支持的路由走
+        // ANTHROPIC_MODEL_CAPABILITIES=no-effort 覆盖关闭。
         JsonObject env = new JsonObject();
         env.addProperty("ANTHROPIC_DEFAULT_SONNET_MODEL", "mimo-v2.5-pro");
 
@@ -91,7 +94,7 @@ public class ClaudeCliModelResolverTest {
                 "claude-role-sonnet", env);
 
         assertEquals("mimo-v2.5-pro", resolved.model());
-        assertFalse(resolved.capabilities().supportsEffort());
+        assertTrue(resolved.capabilities().supportsEffort());
     }
 
     @Test
