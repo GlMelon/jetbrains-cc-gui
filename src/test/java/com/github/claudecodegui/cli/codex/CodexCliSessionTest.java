@@ -1155,6 +1155,62 @@ public class CodexCliSessionTest {
         ));
     }
 
+    @Test
+    public void modelFlagPrefersActualModelForExecAndResume() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-actual-model");
+        var request = new com.github.claudecodegui.cli.CliSendRequest(
+                "tab-actual-model",
+                "codex",
+                "hello",
+                null,
+                "D:\\project\\jetbrains-melon-cc-gui",
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "acceptEdits",
+                "gpt-role-id",
+                "gpt-6-astra",
+                null,
+                null,
+                java.util.Map.of()
+        );
+
+        List<String> execCommand = buildCommand(session, request);
+        assertEquals("gpt-6-astra", execCommand.get(execCommand.indexOf(CliConstants.CODEX_ARG_M) + 1));
+        assertFalse(execCommand.contains("gpt-role-id"));
+
+        setThreadId(session, "thread-1");
+        List<String> resumeCommand = buildCommand(session, request);
+        assertEquals("gpt-6-astra", resumeCommand.get(resumeCommand.indexOf(CliConstants.CODEX_ARG_M) + 1));
+        assertFalse(resumeCommand.contains("gpt-role-id"));
+    }
+
+    @Test
+    public void modelFlagFallsBackToModelWhenActualModelBlank() throws Exception {
+        CodexCliSession session = new CodexCliSession("tab-model-fallback");
+        var request = new com.github.claudecodegui.cli.CliSendRequest(
+                "tab-model-fallback",
+                "codex",
+                "hello",
+                null,
+                "D:\\project\\jetbrains-melon-cc-gui",
+                List.of(),
+                null,
+                List.of(),
+                null,
+                "acceptEdits",
+                "gpt-5.3-codex",
+                "  ",
+                null,
+                null,
+                java.util.Map.of()
+        );
+
+        List<String> command = buildCommand(session, request);
+        assertEquals("gpt-5.3-codex", command.get(command.indexOf(CliConstants.CODEX_ARG_M) + 1));
+    }
+
     private static com.github.claudecodegui.cli.CliSendRequest requestWithSessionId(
             String tabId,
             String sessionId

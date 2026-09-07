@@ -1294,9 +1294,10 @@ public class CodexCliSession implements CliSession {
             cmd.add(CliConstants.CODEX_ARG_C);
             cmd.add(request.cwd());
         }
-        if (request.model() != null && !request.model().isBlank()) {
+        String effectiveModel = firstNonBlank(request.actualModel(), request.model());
+        if (effectiveModel != null && !effectiveModel.isBlank()) {
             cmd.add(CliConstants.CODEX_ARG_M);
-            cmd.add(request.model());
+            cmd.add(effectiveModel);
         }
         if (request.reasoningEffort() != null && !request.reasoningEffort().isBlank()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
@@ -1339,9 +1340,10 @@ public class CodexCliSession implements CliSession {
         if (requestedTier == null || requestedTier.isBlank()) {
             return;
         }
-        if (!serviceTierPolicy.supports(request.model(), requestedTier)) {
+        String effectiveModel = firstNonBlank(request.actualModel(), request.model());
+        if (!serviceTierPolicy.supports(effectiveModel, requestedTier)) {
             LOG.info("[Codex] Service tier override ignored because the selected model does not advertise it"
-                    + ": model=" + (request.model() != null ? request.model() : "(default)")
+                    + ": model=" + (effectiveModel != null ? effectiveModel : "(default)")
                     + ", tier=" + requestedTier);
             return;
         }
@@ -1359,9 +1361,10 @@ public class CodexCliSession implements CliSession {
         cmd.add(resumeThreadId);
         cmd.add(CliConstants.CODEX_ARG_JSON);
 
-        if (request.model() != null && !request.model().isBlank()) {
+        String effectiveModel = firstNonBlank(request.actualModel(), request.model());
+        if (effectiveModel != null && !effectiveModel.isBlank()) {
             cmd.add(CliConstants.CODEX_ARG_M);
-            cmd.add(request.model());
+            cmd.add(effectiveModel);
         }
         if (request.reasoningEffort() != null && !request.reasoningEffort().isBlank()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
