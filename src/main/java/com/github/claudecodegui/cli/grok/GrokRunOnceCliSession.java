@@ -258,6 +258,11 @@ public class GrokRunOnceCliSession extends AbstractRunOnceCliSession {
         return trimmed;
     }
 
+    /**
+     * reasoningEffort → {@code --reasoning-effort}(对齐 opencode {@code mapReasoningVariant}
+     * 的就近降级语义):low/medium/high 原样,xhigh/max → high(grok CLI 上限档),
+     * null/空/未知 → null(flag 整个省略)。
+     */
     static String normalizeEffort(String effort) {
         if (effort == null) {
             return null;
@@ -265,6 +270,7 @@ public class GrokRunOnceCliSession extends AbstractRunOnceCliSession {
         String trimmed = effort.trim().toLowerCase(Locale.ROOT);
         return switch (trimmed) {
             case "low", "medium", "high" -> trimmed;
+            case "xhigh", "max" -> "high";
             default -> null;
         };
     }
