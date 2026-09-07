@@ -98,8 +98,10 @@ public class OpenCodeServeSymmetryTest {
         // prompt 递交前失败当轮降级 one-shot(按「是否递交」分派,不按异常类型)
         assertTrue(source.contains("promptSubmitted"));
         assertTrue(source.contains("fallbackSession()"));
-        // 权限 MVP 映射(bypass→always,其他→reject,有意差异)
+        // 权限:bypass→always 直通;非 bypass 经 ServePermissionGate 交互式授权(异常兜底 reject)
         assertTrue(source.contains("PERMISSION_MODE_BYPASS"));
+        assertTrue(source.contains("ServePermissionGate"));
+        assertTrue(source.contains("respondPermissionQuietly"));
         // reasoningEffort→variant 复用 one-shot 映射(总则四,不双写)
         assertTrue(source.contains("AbstractRunOnceCliSession.mapReasoningVariant"));
         // model 无 '/' 拆分失败时显式告警(不再静默丢弃用户模型选择)
@@ -135,6 +137,9 @@ public class OpenCodeServeSymmetryTest {
         assertTrue(source.contains("serveManager != null"));
         assertTrue(source.contains("new OpenCodeServeSession("));
         assertTrue(source.contains("new OpenCodeCliSession("));
+        // serve 交互式权限闸口接线:经 PermissionService 决策,保守 reject 兜底
+        assertTrue(source.contains("buildServePermissionGate"));
+        assertTrue(source.contains("PermissionService.getInstance"));
 
         String manager = read("src/main/java/com/github/claudecodegui/cli/CliSessionManager.java");
         assertTrue(manager.contains("OpenCodeServeManager.getInstance(project)"));
