@@ -334,19 +334,22 @@ public class OpenCodeServeSession implements CliSession {
 
     /**
      * prompt_async 请求体:{model:{providerID, modelID}, variant?, parts:[text + file...]}。
-     * model 把插件的 "provider/model" 串拆两段(无 '/' 时省略 model,用 serve 会话默认);
+     * model 把插件的 "provider/model" 串拆两段(无 '/' 时告警并省略 model,用 serve 会话默认);
      * variant 复用 one-shot 的 reasoningEffort→variant 映射(SSOT,总则四)。
      */
     JsonObject buildPromptBody(CliSendRequest request, List<File> tempFiles) {
         JsonObject body = new JsonObject();
         String model = firstNonBlank(request.actualModel(), request.model());
         if (model != null) {
-            int slash = model.indexOf('/');
-            if (slash > 0 && slash < model.length() - 1) {
-                JsonObject modelRef = new JsonObject();
-                modelRef.addProperty("providerID", model.substring(0, slash));
-                modelRef.addProperty("modelID", model.substring(slash + 1));
+            JsonObject modelRef = splitModelRef(model);
+            if (modelRef != null) {
                 body.add("model", modelRef);
+            } else {
+                // 无 '/' 无法拆 providerID/modelID(serve API 要求双段),此前静默丢弃
+                // 用户模型选择;显式告警,行为仍为省略(用 serve 会话默认模型)。
+                LOG.warn("[OpenCodeServeSession][" + tabId + "] model '" + model
+                        + "' is not in 'provider/model' form; model selection dropped,"
+                        + " using serve session default model");
             }
         }
         String variant = AbstractRunOnceCliSession.mapReasoningVariant(request.reasoningEffort());
@@ -369,6 +372,24 @@ public class OpenCodeServeSession implements CliSession {
         }
         body.add("parts", parts);
         return body;
+    }
+
+    /**
+     * "provider/model" → serve 双段 modelRef;无 '/' 或段为空返回 null
+     * (serve API 要求 providerID + modelID 双段,单段无安全回退)。
+     */
+    static JsonObject splitModelRef(String model) {
+        if (model == null) {
+            return null;
+        }
+        int slash = model.indexOf('/');
+        if (slash <= 0 || slash >= model.length() - 1) {
+            return null;
+        }
+        JsonObject modelRef = new JsonObject();
+        modelRef.addProperty("providerID", model.substring(0, slash));
+        modelRef.addProperty("modelID", model.substring(slash + 1));
+        return modelRef;
     }
 
     /** 图片附件物化为磁盘文件(与 one-shot 同一处理函数);失败降级为空列表,不阻塞主消息。 */

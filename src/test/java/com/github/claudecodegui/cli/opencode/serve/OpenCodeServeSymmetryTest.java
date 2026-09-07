@@ -89,6 +89,9 @@ public class OpenCodeServeSymmetryTest {
         assertTrue(source.contains("PERMISSION_MODE_BYPASS"));
         // reasoningEffort→variant 复用 one-shot 映射(总则四,不双写)
         assertTrue(source.contains("AbstractRunOnceCliSession.mapReasoningVariant"));
+        // model 无 '/' 拆分失败时显式告警(不再静默丢弃用户模型选择)
+        assertTrue(source.contains("splitModelRef"));
+        assertTrue(source.contains("model selection dropped"));
         // capabilities 对齐 one-shot
         assertTrue(source.contains("SessionNegotiatedCapabilities.cli(true, true, false)"));
     }
