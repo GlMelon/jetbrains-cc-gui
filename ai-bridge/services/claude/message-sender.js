@@ -93,7 +93,7 @@ function probeCliBin(bin) {
  * @param {number} [params.maxTurns]
  * @returns {string[]}
  */
-function buildCliArgs({ message, sessionId, model, reasoningEffort, permissionMode, maxTurns }) {
+export function buildCliArgs({ message, sessionId, model, reasoningEffort, permissionMode, maxTurns }) {
   const args = [
     '-p', message || '',
     '--output-format', 'stream-json',
@@ -108,7 +108,8 @@ function buildCliArgs({ message, sessionId, model, reasoningEffort, permissionMo
   }
 
   if (reasoningEffort) {
-    args.push('--reasoning-effort', reasoningEffort);
+    // Flag name aligned with the Java CLI path (CliConstants.ARG_EFFORT).
+    args.push('--effort', reasoningEffort);
   }
 
   if (permissionMode === 'bypassPermissions') {
@@ -603,15 +604,16 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
 // ========== Internal Helpers ==========
 
 /**
- * Normalize reasoning effort level.
+ * Normalize reasoning effort level for the Claude CLI `--effort` flag.
+ * Known levels (including xhigh/max) pass through verbatim — tier
+ * availability is negotiated by the CLI per model, same as the Java CLI
+ * path. Unknown values are dropped (empty string).
  * @param {string|null} effort
  * @returns {string}
  */
-function normalizeReasoningEffort(effort) {
+export function normalizeReasoningEffort(effort) {
   if (!effort || typeof effort !== 'string') return '';
   const normalized = effort.trim().toLowerCase();
   if (!SUPPORTED_EFFORT_LEVELS.has(normalized)) return '';
-  // Map xhigh/max to high for CLI compatibility
-  if (normalized === 'xhigh' || normalized === 'max') return 'high';
   return normalized;
 }
