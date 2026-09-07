@@ -30,6 +30,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -78,6 +79,16 @@ public final class OpenCodeServeManager implements Disposable {
     private final LifecycleObservabilityService lifecycleService;
     /** 当前句柄(全部访问在 synchronized 块内)。 */
     private ServeHandle handle;
+    /**
+     * 进行中的 spawn(全部访问在 synchronized 块内):并发 acquire 共享同一 future,
+     * 同一时刻至多一个 spawn;spawn 在锁外执行,多 tab 并发首轮不再互相阻塞。
+     */
+    private CompletableFuture<ServeHandle> spawnFuture;
+    /**
+     * teardown 代际(全部访问在 synchronized 块内):terminateServe / SSE 断线摘句柄 / dispose
+     * 时递增;in-flight spawn 完成时若代际已变,说明期间发生过终止,安装取消(异步关闭)。
+     */
+    private int teardownGeneration;
     private int consecutiveSpawnFailures;
     private volatile boolean disposed;
 
@@ -97,40 +108,86 @@ public final class OpenCodeServeManager implements Disposable {
 
     /**
      * 获取可用 serve 客户端。命中(进程存活且指纹匹配)直接返回;未命中(首次 / 指纹漂移 /
-     * 崩溃 / SSE 断线后)同步重建一次;重建失败或熔断中返回 null——调用方当轮降级 one-shot。
+     * 崩溃 / SSE 断线后)重建一次;重建失败或熔断中返回 null——调用方当轮降级 one-shot。
+     *
+     * <p>锁外 spawn:spawn + TCP 就绪轮询(上限 5s)经 {@link #spawnFuture} 在共享执行器上
+     * 异步执行,锁内只做快路径检查与结果安装,多 tab 并发首轮共享同一 future 而不互相阻塞;
+     * 熔断计数 / 句柄安装 / dispose 竞态均在 synchronized 块内复核。
      */
-    public synchronized @Nullable OpenCodeServeClient acquire(String tabId, String cwd,
-                                                              Map<String, String> extraEnv) {
-        if (disposed) {
-            return null;
-        }
-        if (consecutiveSpawnFailures >= MAX_CONSECUTIVE_SPAWN_FAILURES) {
-            return null;
-        }
+    public @Nullable OpenCodeServeClient acquire(String tabId, String cwd,
+                                                 Map<String, String> extraEnv) {
         McpGatewayCliConfig gatewayConfig = buildGatewayConfig(tabId, cwd);
         String fingerprint = computeFingerprint(gatewayConfig);
-        ServeHandle existing = handle;
-        if (existing != null) {
-            if (existing.process().isAlive() && existing.fingerprint().equals(fingerprint)) {
-                return existing.client();
+        CompletableFuture<ServeHandle> future;
+        synchronized (this) {
+            if (disposed) {
+                return null;
             }
-            LOG.info("[OpenCodeServeManager] serve handle stale (dead or fingerprint drift), rebuilding: tab=" + tabId);
-            // 先摘除再异步关:旧句柄与后续 spawn 无竞争,acquire 线程不阻塞 waitFor
-            handle = null;
-            closeHandleAsync(existing);
-        }
-        ServeHandle spawned = spawn(cwd, extraEnv, gatewayConfig, fingerprint);
-        if (spawned == null) {
-            consecutiveSpawnFailures++;
             if (consecutiveSpawnFailures >= MAX_CONSECUTIVE_SPAWN_FAILURES) {
-                LOG.warn("[OpenCodeServeManager] serve spawn circuit breaker opened (consecutiveFailures="
-                        + consecutiveSpawnFailures + "), one-shot for the rest of this run");
+                return null;
             }
+            ServeHandle existing = handle;
+            if (existing != null) {
+                if (existing.process().isAlive() && existing.fingerprint().equals(fingerprint)) {
+                    return existing.client();
+                }
+                LOG.info("[OpenCodeServeManager] serve handle stale (dead or fingerprint drift), rebuilding: tab=" + tabId);
+                // 先摘除再异步关:旧句柄与后续 spawn 无竞争,acquire 线程不阻塞 waitFor
+                handle = null;
+                closeHandleAsync(existing);
+            }
+            if (spawnFuture == null) {
+                final int generation = teardownGeneration;
+                CompletableFuture<ServeHandle> created = CompletableFuture
+                        .supplyAsync(() -> spawn(cwd, extraEnv, gatewayConfig, fingerprint),
+                                AppExecutorUtil.getAppExecutorService())
+                        .exceptionally(e -> {
+                            LOG.warn("[OpenCodeServeManager] serve spawn failed unexpectedly", e);
+                            return null;
+                        });
+                spawnFuture = created;
+                created.whenComplete((spawned, ignored) -> installSpawned(created, spawned, generation));
+            }
+            future = spawnFuture;
+        }
+        // 锁外等待 spawn 完成(不持监视器,快路径 acquire 不被阻塞)
+        future.join();
+        synchronized (this) {
+            ServeHandle current = handle;
+            if (current != null && current.process().isAlive() && current.fingerprint().equals(fingerprint)) {
+                return current.client();
+            }
+            // spawn 失败 / 被 terminate / 指纹在等待期间再次漂移:当轮降级 one-shot
             return null;
         }
-        consecutiveSpawnFailures = 0;
-        handle = spawned;
-        return spawned.client();
+    }
+
+    /**
+     * spawn 完成回调(锁内):摘除 future 引用并按结果记账 / 安装句柄。
+     * 失败 → 熔断计数;disposed / 进程已死 / 期间发生过 teardown(代际漂移)→ 异步关闭,
+     * 不留孤儿进程。
+     */
+    private void installSpawned(CompletableFuture<ServeHandle> source, ServeHandle spawned, int generation) {
+        synchronized (this) {
+            if (spawnFuture == source) {
+                spawnFuture = null;
+            }
+            if (spawned == null) {
+                consecutiveSpawnFailures++;
+                if (consecutiveSpawnFailures >= MAX_CONSECUTIVE_SPAWN_FAILURES) {
+                    LOG.warn("[OpenCodeServeManager] serve spawn circuit breaker opened (consecutiveFailures="
+                            + consecutiveSpawnFailures + "), one-shot for the rest of this run");
+                }
+                return;
+            }
+            if (disposed || generation != teardownGeneration
+                    || !spawned.process().isAlive() || handle != null) {
+                closeHandleAsync(spawned);
+                return;
+            }
+            consecutiveSpawnFailures = 0;
+            handle = spawned;
+        }
     }
 
     /**
@@ -140,6 +197,7 @@ public final class OpenCodeServeManager implements Disposable {
     public synchronized void terminateServe(String reason) {
         ServeHandle current = handle;
         handle = null;
+        teardownGeneration++;
         if (current != null) {
             LOG.warn("[OpenCodeServeManager] terminating serve: " + reason);
             closeHandleAsync(current);
@@ -150,6 +208,7 @@ public final class OpenCodeServeManager implements Disposable {
     private synchronized void onStreamClosed(ServeHandle source) {
         if (handle == source) {
             handle = null;
+            teardownGeneration++;
             LOG.info("[OpenCodeServeManager] serve SSE stream closed, handle dropped (next acquire rebuilds)");
         }
     }
@@ -158,6 +217,7 @@ public final class OpenCodeServeManager implements Disposable {
     @Override
     public synchronized void dispose() {
         disposed = true;
+        teardownGeneration++;
         ServeHandle current = handle;
         handle = null;
         if (current != null) {

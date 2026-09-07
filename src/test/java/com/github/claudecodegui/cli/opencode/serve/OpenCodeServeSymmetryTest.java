@@ -54,6 +54,19 @@ public class OpenCodeServeSymmetryTest {
     }
 
     @Test
+    public void acquireSpawnsOutsideLockWithFutureDeduplication() throws Exception {
+        String source = read(SERVE_DIR + "OpenCodeServeManager.java");
+        // §5.4:acquire 不再整方法 synchronized,spawn + TCP 轮询移出锁(共享执行器),
+        // 并发 acquire 经 spawnFuture 去重共享同一 spawn,多 tab 首轮不互相阻塞
+        assertFalse(source.contains("public synchronized @Nullable OpenCodeServeClient acquire"));
+        assertTrue(source.contains("spawnFuture"));
+        assertTrue(source.contains("CompletableFuture"));
+        assertTrue(source.contains("future.join()"));
+        // terminate 与 in-flight spawn 竞态:代际防护,终止期间的 spawn 结果不安装
+        assertTrue(source.contains("teardownGeneration"));
+    }
+
+    @Test
     public void clientSharesStaticHttpClient() throws Exception {
         String source = read(SERVE_DIR + "OpenCodeServeClient.java");
         // HttpClient 静态共享:Java 17 无 close(),每实例自带 SelectorManager 守护线程,
