@@ -40,8 +40,7 @@ import java.util.Set;
  */
 public class KimiRunOnceCliSession extends AbstractRunOnceCliSession {
 
-    private static final Set<String> MODEL_SENTINELS = Set.of(
-            "__config_default__", "auto", "default", "(default)", "config-default", "config_default");
+    private static final Set<String> MODEL_SENTINELS = CliConstants.KIMI_MODEL_SENTINELS;
 
     private final SessionCapabilityDegradationReason degradationReason;
 

@@ -69,6 +69,8 @@ final class KimiAcpProtocol {
 
     /** configOption id:思考档位(category=thought_level)。默认 off,需显式开启。0.29.0+ 支持。 */
     static final String CONFIG_ID_THINKING = "thinking";
+    /** configOption id:模型选择(session/new 响应 configOptions 中的 select 项,档位动态下发)。 */
+    static final String CONFIG_ID_MODEL = "model";
     /** configOption 分组:思考档位所在 category(set_config_option 校验按模型目录动态定)。 */
     static final String CONFIG_CATEGORY_THOUGHT_LEVEL = "thought_level";
 

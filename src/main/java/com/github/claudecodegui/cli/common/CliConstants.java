@@ -353,6 +353,13 @@ public final class CliConstants {
     /** --session/-S：续接指定 session id（--continue 互斥）。 */
     public static final String KIMI_ARG_SESSION = "--session";
 
+    /**
+     * kimi 模型哨兵值（小写比较）:表示"用 CLI 配置默认模型",不透传 --model / ACP model。
+     * legacy(stream-json)与 ACP 两通道共用 SSOT(总则四)。
+     */
+    public static final Set<String> KIMI_MODEL_SENTINELS = Set.of(
+            "__config_default__", "auto", "default", "(default)", "config-default", "config_default");
+
     // ── Pi CLI 参数（print + JSON 事件流模式,对齐 pi.dev/docs usage/json） ──────
     // 真实命令：pi --print --mode json "<positional-message>" [--model <pattern>]
     //          [--session-id <id>] [--thinking off..max]

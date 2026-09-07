@@ -101,6 +101,10 @@ public class KimiAcpCliSession implements CliSession {
     private volatile String persistentProcessToken;
     /** 当前 session 的思考档位目录(session/new 或 load 的 configOptions 解析),随 clearPersistent 清空。 */
     private volatile ThinkingOptions thinkingOptions;
+    /** 当前 session 的模型目录(session/new 或 load 的 configOptions 解析),随 clearPersistent 清空。 */
+    private volatile ModelOptions modelOptions;
+    /** 本长驻连接已成功下发的 model 值(去重:档位未变不重发 RPC),随 clearPersistent 清空。 */
+    private volatile String lastAppliedModel;
     /**
      * 当前 session 是否配置了 MCP(ACP session/new 注入非空,或 ~/.kimi-code/mcp.json 存在),
      * 在 establishSession 时算定,随 clearPersistent 重置。
@@ -397,6 +401,35 @@ public class KimiAcpCliSession implements CliSession {
                 // 思考配置失败不致命,继续(prompt 仍可用,只是无 thought chunk)
             }
 
+            // 下发模型选择(若用户显式选模型)。档位经 configOptions 协商:合法值是
+            // ACP 动态下发的模型目录,词表外的值不发(避免 RPC 报错);未变不重发。
+            try {
+                String desiredModel = resolveDesiredModel(request);
+                String negotiatedModel = negotiateModelValue(desiredModel, modelOptions);
+                if (negotiatedModel == null) {
+                    if (desiredModel != null) {
+                        LOG.warn("[KimiAcpCliSession][" + tabId + "] model '" + desiredModel
+                                + "' not in ACP model catalog; keeping session default model");
+                    }
+                } else if (!negotiatedModel.equals(lastAppliedModel)) {
+                    String currentCatalogModel = modelOptions != null ? modelOptions.currentValue() : null;
+                    if (lastAppliedModel != null || !negotiatedModel.equals(currentCatalogModel)) {
+                        if (desiredModel != null && !desiredModel.equals(negotiatedModel)) {
+                            LOG.info("[KimiAcpCliSession][" + tabId + "] model '" + desiredModel
+                                    + "' negotiated to '" + negotiatedModel + "'");
+                        }
+                        setModelConfig(conn, resolvedSessionId, negotiatedModel);
+                        lastAppliedModel = negotiatedModel;
+                    } else {
+                        // 目录当前值已是期望值:视为已生效,记录去重基准
+                        lastAppliedModel = negotiatedModel;
+                    }
+                }
+            } catch (Exception e) {
+                // 模型配置失败不致命:继续使用 serve 会话默认模型
+                LOG.warn("[KimiAcpCliSession][" + tabId + "] set model config failed (non-fatal)", e);
+            }
+
             // 开启重放门控 + 流开始
             parser.beginLiveTurn();
             callback.onMessage(CliConstants.MSG_STREAM_START, "");
@@ -631,6 +664,9 @@ public class KimiAcpCliSession implements CliSession {
         // thinking 档位目录:合法值由当前模型决定(KimiAcpProtocol 取值说明),
         // 从 configOptions 解析供 set_config_option 前协商,避免发不支持的档位。
         this.thinkingOptions = parseThinkingOptions(sessionResult);
+        // 模型目录:configId="model" 的 select 项(k3 / K2.7 等档位动态下发),
+        // 供模型选择协商,避免发词表外的模型值。
+        this.modelOptions = parseModelOptions(sessionResult);
         updateNegotiatedCapabilities(SessionCapabilityState.NEGOTIATED, null);
         this.sessionId = resolved;
         parser.attachSessionId(resolved);
@@ -653,6 +689,15 @@ public class KimiAcpCliSession implements CliSession {
             params.addProperty(KimiAcpProtocol.FIELD_VALUE, "on");
             conn.request(KimiAcpProtocol.METHOD_SET_CONFIG_OPTION, params, SET_CONFIG_TIMEOUT_MS);
         }
+    }
+
+    /** 下发模型选择(configId="model";值已经 negotiateModelValue 协商,失败由调用方按非致命处理)。 */
+    private void setModelConfig(KimiAcpConnection conn, String sessionId, String value) throws Exception {
+        JsonObject params = new JsonObject();
+        params.addProperty(KimiAcpProtocol.FIELD_SESSION_ID, sessionId);
+        params.addProperty(KimiAcpProtocol.FIELD_CONFIG_ID, KimiAcpProtocol.CONFIG_ID_MODEL);
+        params.addProperty(KimiAcpProtocol.FIELD_VALUE, value);
+        conn.request(KimiAcpProtocol.METHOD_SET_CONFIG_OPTION, params, SET_CONFIG_TIMEOUT_MS);
     }
 
     // ── server 请求处理(权限兜底) ──────────────────────────────────────────────
@@ -799,6 +844,84 @@ public class KimiAcpCliSession implements CliSession {
 
     /** 当前 session 的思考档位目录(session/new、load 响应 configOptions 中 category=thought_level 项)。 */
     record ThinkingOptions(List<String> supportedValues, String currentValue) {
+    }
+
+    /** 当前 session 的模型目录(session/new、load 响应 configOptions 中 id=model 项)。 */
+    record ModelOptions(List<String> supportedValues, String currentValue) {
+    }
+
+    /**
+     * 从 session/new / session/load 响应解析模型目录(configId="model" 的 select 项)。
+     * configOptions 缺失或无 model 项(旧版 kimi / 字段可省)时返回 null,协商跳过下发。
+     */
+    static ModelOptions parseModelOptions(JsonObject sessionResult) {
+        if (sessionResult == null || !sessionResult.has(KimiAcpProtocol.FIELD_CONFIG_OPTIONS)
+                || !sessionResult.get(KimiAcpProtocol.FIELD_CONFIG_OPTIONS).isJsonArray()) {
+            return null;
+        }
+        for (var element : sessionResult.getAsJsonArray(KimiAcpProtocol.FIELD_CONFIG_OPTIONS)) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject option = element.getAsJsonObject();
+            if (!KimiAcpProtocol.CONFIG_ID_MODEL.equals(getString(option, KimiAcpProtocol.FIELD_ID))
+                    || !option.has(KimiAcpProtocol.FIELD_OPTIONS)
+                    || !option.get(KimiAcpProtocol.FIELD_OPTIONS).isJsonArray()) {
+                continue;
+            }
+            List<String> values = new ArrayList<>();
+            for (var v : option.getAsJsonArray(KimiAcpProtocol.FIELD_OPTIONS)) {
+                if (v.isJsonObject()) {
+                    String value = getString(v.getAsJsonObject(), KimiAcpProtocol.FIELD_VALUE);
+                    if (value != null && !value.isBlank()) {
+                        values.add(value);
+                    }
+                }
+            }
+            if (!values.isEmpty()) {
+                return new ModelOptions(values, getString(option, KimiAcpProtocol.FIELD_CURRENT_VALUE));
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 期望模型:actualModel 优先(SessionSendService 已解析),回退 model;
+     * 哨兵值(用 CLI 配置默认模型)归一为 null(与 legacy 通道 resolveModelFlag 同 SSOT)。
+     */
+    static String resolveDesiredModel(CliSendRequest request) {
+        if (request == null) {
+            return null;
+        }
+        String model = request.actualModel() != null && !request.actualModel().isBlank()
+                ? request.actualModel() : request.model();
+        if (model == null || model.isBlank()) {
+            return null;
+        }
+        String trimmed = model.trim();
+        return CliConstants.KIMI_MODEL_SENTINELS.contains(trimmed.toLowerCase(Locale.ROOT)) ? null : trimmed;
+    }
+
+    /**
+     * 期望模型 → 当前 session 模型目录协商(与 thinking 协商同范式,不硬编码词表):
+     * <ol>
+     *   <li>desired 为 null(未选/哨兵)→ null(不发,用 CLI 配置默认);</li>
+     *   <li>目录未知(旧版 kimi 无 model configOption)→ null(保守不发,避免 RPC 报错);</li>
+     *   <li>在目录中(忽略大小写)→ 返回目录词形直发;</li>
+     *   <li>不在目录 → null(调用方 warn,继续使用会话默认模型)。</li>
+     * </ol>
+     */
+    static String negotiateModelValue(String desired, ModelOptions options) {
+        if (desired == null || options == null
+                || options.supportedValues() == null || options.supportedValues().isEmpty()) {
+            return null;
+        }
+        for (String candidate : options.supportedValues()) {
+            if (candidate != null && candidate.equalsIgnoreCase(desired)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     /**
@@ -1037,6 +1160,8 @@ public class KimiAcpCliSession implements CliSession {
         persistentProcessGeneration = null;
         persistentProcessToken = null;
         thinkingOptions = null;
+        modelOptions = null;
+        lastAppliedModel = null;
         mcpConfigured = false;
         if (old != null) {
             try {
