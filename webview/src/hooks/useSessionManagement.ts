@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TFunction } from 'i18next';
 import type { ClaudeMessage, HistoryData, SubagentHistoryResponse, TaskEventMap } from '../types';
 import { sendBridgeEvent } from '../utils/bridge';
@@ -101,7 +101,9 @@ export function useSessionManagement({
   const suppressNextStatusToastRef = useRef(false);
   const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyDataRef = useRef(historyData);
-  historyDataRef.current = historyData;
+  useEffect(() => {
+    historyDataRef.current = historyData;
+  }, [historyData]);
   const showSessionDeletedToast = useCallback((afterSessionTransition = false) => {
     const toast = { message: t('history.sessionDeleted'), type: 'success' as const };
     if (afterSessionTransition) {

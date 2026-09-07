@@ -597,25 +597,24 @@ export function UsageOverview({
                 })}
                 className="mt-2"
               >
-                {providers
-                  .filter((p) => p.label === activeProvider)
-                  .map((provider) => {
-                    const color = getProviderColor(provider.label, 0);
-                    const sortedModels = [...provider.models].sort(
-                      (a, b) => (b.share || 0) - (a.share || 0)
-                    );
+                {providers.flatMap((provider) => {
+                  if (provider.label !== activeProvider) return [];
+                  const color = getProviderColor(provider.label, 0);
+                  const sortedModels = [...provider.models].sort(
+                    (a, b) => (b.share || 0) - (a.share || 0)
+                  );
 
-                    const providerHeading = formatProviderDisplayName(provider.label);
-                    return (
-                      <ProviderExpandedSection
-                        key={provider.label}
-                        provider={provider}
-                        color={color}
-                        providerHeading={providerHeading}
-                        sortedModels={sortedModels}
-                      />
-                    );
-                  })}
+                  const providerHeading = formatProviderDisplayName(provider.label);
+                  return [
+                    <ProviderExpandedSection
+                      key={provider.label}
+                      provider={provider}
+                      color={color}
+                      providerHeading={providerHeading}
+                      sortedModels={sortedModels}
+                    />,
+                  ];
+                })}
               </div>
             )}
 

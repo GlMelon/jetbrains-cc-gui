@@ -255,9 +255,11 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
               </div>
             )}
 
-            {Object.entries(rest)
-              .filter(([key]) => !isSpawnAgent || !['message', 'items', 'task_name', 'taskName'].includes(key))
-              .map(([key, value]) => (
+            {Object.entries(rest).flatMap(([key, value]) => {
+              if (isSpawnAgent && ['message', 'items', 'task_name', 'taskName'].includes(key)) {
+                return [];
+              }
+              return [
               <div key={key} className="task-field">
                 <div className="task-field-label">{key}</div>
                 <div className="task-field-content">
@@ -265,8 +267,9 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
                     ? JSON.stringify(value, null, 2)
                     : String(value)}
                 </div>
-              </div>
-              ))}
+              </div>,
+              ];
+            })}
           </div>
         </div>
       )}

@@ -33,10 +33,13 @@ function getTerminalServerIds(servers: McpServer[], terminalStatusNames: Set<str
     return [];
   }
 
-  return servers
-    .filter((server) => terminalStatusNames.has(normalizeServerKey(server.id))
-      || terminalStatusNames.has(normalizeServerKey(server.name)))
-    .map((server) => server.id);
+  return servers.flatMap((server) => {
+    if (terminalStatusNames.has(normalizeServerKey(server.id))
+      || terminalStatusNames.has(normalizeServerKey(server.name))) {
+      return [server.id];
+    }
+    return [];
+  });
 }
 
 export interface UseServerDataOptions {
@@ -92,17 +95,11 @@ export function useServerData({
   const terminalStatusNamesRef = useRef<Set<string>>(new Set());
 
   const setServers = useCallback((value: React.SetStateAction<McpServer[]>) => {
-    if (typeof value !== 'function') {
-      serversRef.current = value;
-      setServersState(value);
-      return;
-    }
-
-    setServersState((previous) => {
-      const next = value(previous);
-      serversRef.current = next;
-      return next;
-    });
+    // serversRef always holds the latest list, so functional updates can be
+    // resolved synchronously here instead of inside the state updater.
+    const next = typeof value === 'function' ? value(serversRef.current) : value;
+    serversRef.current = next;
+    setServersState(next);
   }, []);
 
   const clearToolsForTerminalStatuses = useCallback((

@@ -417,19 +417,17 @@ export const MessageItem = memo(function MessageItem({
   const [manuallyExpandedThinking, setManuallyExpandedThinking] = useState<Record<number, boolean>>({});
 
   const toggleThinking = useCallback((blockIndex: number) => {
-    setExpandedThinking((prev) => {
-      const newExpanded = !prev[blockIndex];
-      // Mark this block as manually toggled by the user
-      setManuallyExpandedThinking((manualPrev) => ({
-        ...manualPrev,
-        [blockIndex]: newExpanded,
-      }));
-      return {
-        ...prev,
-        [blockIndex]: newExpanded,
-      };
-    });
-  }, []);
+    const newExpanded = !expandedThinking[blockIndex];
+    setExpandedThinking((prev) => ({
+      ...prev,
+      [blockIndex]: !prev[blockIndex],
+    }));
+    // Mark this block as manually toggled by the user
+    setManuallyExpandedThinking((manualPrev) => ({
+      ...manualPrev,
+      [blockIndex]: newExpanded,
+    }));
+  }, [expandedThinking]);
 
   const isThinkingExpanded = useCallback(
     (blockIndex: number) => Boolean(expandedThinking[blockIndex]),
@@ -534,9 +532,10 @@ export const MessageItem = memo(function MessageItem({
   useEffect(() => {
     if (!isMessageStreaming) return;
 
-    const thinkingIndices = renderedBlocks
-      .map((block, index) => (block.type === 'thinking' ? index : -1))
-      .filter((index) => index !== -1);
+    const thinkingIndices: number[] = [];
+    renderedBlocks.forEach((block, index) => {
+      if (block.type === 'thinking') thinkingIndices.push(index);
+    });
 
     if (thinkingIndices.length === 0) return;
 

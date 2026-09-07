@@ -85,6 +85,17 @@ const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: Rea
   const { t } = useTranslation();
   const isDenied = useIsToolDenied(toolId);
 
+  // Hooks must run unconditionally; target/filePath/isDirectory are guarded so
+  // the early return can live below the hook call.
+  const target = input ? resolveToolTarget(input, 'read') : undefined;
+  const filePath = target?.rawPath;
+  const isDirectory = target?.isDirectory ?? false;
+
+  const fileLinkTooltip = useResolvedFileLinkTooltip(
+    !isDirectory ? filePath : undefined,
+    !isDirectory ? (target?.displayPath || filePath || undefined) : undefined,
+  );
+
   if (!input) {
     return null;
   }
@@ -95,17 +106,9 @@ const ReadToolBlock = memo(function ReadToolBlock({ input, result, toolId }: Rea
   const isCompleted = (result !== undefined && result !== null) || isDenied;
   const isError = isDenied || (isCompleted && result?.is_error === true);
 
-  const target = resolveToolTarget(input, 'read');
-  const filePath = target?.rawPath;
   const lineInfo = getToolLineInfo(input, target);
-  const isDirectory = target?.isDirectory ?? false;
   const iconClass = isDirectory ? 'codicon-folder' : 'codicon-file-code';
   const actionText = isDirectory ? t('permission.tools.readDirectory') : t('permission.tools.Read');
-
-  const fileLinkTooltip = useResolvedFileLinkTooltip(
-    !isDirectory ? filePath : undefined,
-    !isDirectory ? (target?.displayPath || filePath || undefined) : undefined,
-  );
 
   const handleFileClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent bubbling to avoid triggering expand/collapse

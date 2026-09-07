@@ -60,21 +60,20 @@ export function resolveDisplayTokens(totals: any, fallback = 0) {
 export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) {
   const safeCopy = typeof copyFn === "function" ? copyFn : (key: string) => key;
   const sources: any[] = Array.isArray(modelBreakdown?.sources) ? modelBreakdown.sources : [];
-  const normalizedSources = sources
-    .map((entry: any) => {
-      const totalTokens = resolveDisplayTokens(entry?.totals);
-      const totalCost = toFiniteNumber(entry?.totals?.total_cost_usd) ?? 0;
-      return {
-        source: entry?.source,
-        totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
-        totalCost: Number.isFinite(totalCost) ? totalCost : 0,
-        inputTokens: Math.max(0, toFiniteNumber(entry?.totals?.input_tokens) ?? 0),
-        cacheRead: Math.max(0, toFiniteNumber(entry?.totals?.cached_input_tokens) ?? 0),
-        cacheCreate: Math.max(0, toFiniteNumber(entry?.totals?.cache_creation_input_tokens) ?? 0),
-        models: Array.isArray(entry?.models) ? entry.models : [],
-      };
-    })
-    .filter((entry) => entry.totalTokens > 0);
+  const normalizedSources = sources.flatMap((entry) => {
+    const totalTokens = resolveDisplayTokens(entry?.totals);
+    const totalCost = toFiniteNumber(entry?.totals?.total_cost_usd) ?? 0;
+    const normalized = {
+      source: entry?.source,
+      totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
+      totalCost: Number.isFinite(totalCost) ? totalCost : 0,
+      inputTokens: Math.max(0, toFiniteNumber(entry?.totals?.input_tokens) ?? 0),
+      cacheRead: Math.max(0, toFiniteNumber(entry?.totals?.cached_input_tokens) ?? 0),
+      cacheCreate: Math.max(0, toFiniteNumber(entry?.totals?.cache_creation_input_tokens) ?? 0),
+      models: Array.isArray(entry?.models) ? entry.models : [],
+    };
+    return normalized.totalTokens > 0 ? [normalized] : [];
+  });
 
   if (!normalizedSources.length) return [];
 

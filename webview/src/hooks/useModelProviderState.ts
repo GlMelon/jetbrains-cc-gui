@@ -44,7 +44,7 @@ export interface UseModelProviderStateOptions {
  *
  * `currentProviderRef` is exposed for window callbacks registered with stable
  * identity that must read the current provider when fired by the JCEF bridge.
- * The ref is updated via render-time assignment (no useEffect mirror).
+ * The ref is mirrored inside useEffect so no ref access happens during render.
  */
 export function useModelProviderState({ addToast, t }: UseModelProviderStateOptions) {
   // ── Cross-slice state owned by the orchestrator ──
@@ -52,10 +52,12 @@ export function useModelProviderState({ addToast, t }: UseModelProviderStateOpti
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');
 
   // External-facing ref so window callbacks can read the latest provider
-  // without re-binding. Render-time assignment avoids the useRef + useEffect
-  // mirror anti-pattern (rule 5.15).
+  // without re-binding. Mirrored in an effect (bridge callbacks fire async,
+  // after commit) so render stays free of ref writes.
   const currentProviderRef = useRef(currentProvider);
-  currentProviderRef.current = currentProvider;
+  useEffect(() => {
+    currentProviderRef.current = currentProvider;
+  }, [currentProvider]);
 
   // ── Provider-specific sub-hooks ──
   const claude = useClaudeProvider();

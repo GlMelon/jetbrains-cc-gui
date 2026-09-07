@@ -165,13 +165,9 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
   // Depend on stable content fields so an existing history list refresh also clears the spinner.
   useEffect(() => {
     if (historyData) {
-      setIsDeepSearching(prev => {
-        if (prev && deepSearchTimeoutRef.current) {
-          clearTimeout(deepSearchTimeoutRef.current);
-          deepSearchTimeoutRef.current = null;
-        }
-        return false;
-      });
+      clearTimeout(deepSearchTimeoutRef.current ?? undefined);
+      deepSearchTimeoutRef.current = null;
+      setIsDeepSearching(false);
     }
   }, [historyData?.success, historyData?.total, historyData?.sessions]);
 
@@ -340,21 +336,19 @@ const HistoryView = ({ historyData, currentProvider, currentSessionId, onLoadSes
   }, [isSelectionMode, toggleSessionSelection, onLoadSession]);
 
   const handleDeepSearch = useCallback(() => {
-    setIsDeepSearching(prev => {
-      if (prev) return prev;
-      sendBridgeEvent('deep_search_history', currentProvider || 'claude');
+    if (isDeepSearching) return;
 
-      if (deepSearchTimeoutRef.current) {
-        clearTimeout(deepSearchTimeoutRef.current);
-      }
+    sendBridgeEvent('deep_search_history', currentProvider || 'claude');
 
-      deepSearchTimeoutRef.current = setTimeout(() => {
-        setIsDeepSearching(false);
-        deepSearchTimeoutRef.current = null;
-      }, DEEP_SEARCH_TIMEOUT_MS);
-      return true;
-    });
-  }, [currentProvider]);
+    clearTimeout(deepSearchTimeoutRef.current ?? undefined);
+
+    deepSearchTimeoutRef.current = setTimeout(() => {
+      setIsDeepSearching(false);
+      deepSearchTimeoutRef.current = null;
+    }, DEEP_SEARCH_TIMEOUT_MS);
+
+    setIsDeepSearching(true);
+  }, [isDeepSearching, currentProvider]);
 
   const handleConvertRequest = useCallback((sessionId: string) => {
     setConvertingSessionId(sessionId);

@@ -81,11 +81,16 @@ export function useMessageQueue({
       setQueue(prev => prev.slice(1));
 
       // Execute with small delay to ensure state updates
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         onExecute(nextMessage.content, nextMessage.attachments);
         isExecutingFromQueueRef.current = false;
       }, 50);
+      return () => {
+        clearTimeout(timer);
+        isExecutingFromQueueRef.current = false;
+      };
     }
+    return undefined;
   }, [isLoading, queue, onExecute]);
 
   return {

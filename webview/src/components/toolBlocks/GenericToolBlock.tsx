@@ -243,13 +243,31 @@ const GenericToolBlock = memo(function GenericToolBlock({ name, input, result, t
   const [expanded, setExpanded] = useState(false);
   const isDenied = useIsToolDenied(toolId);
 
+  const target = input ? resolveToolTarget(input, name) : undefined;
+  const filePath = target?.rawPath;
+
+  // Hooks must run unconditionally, so everything feeding
+  // useResolvedFileLinkTooltip is computed with null guards and the early
+  // returns live below the hook call.
+  // Codex uses 'cmd', others use 'command'
+  const commandStr = input
+    ? ((typeof input.command === 'string' ? input.command : undefined) ??
+       (typeof input.cmd === 'string' ? input.cmd : undefined))
+    : undefined;
+  const isFilePath = target?.isFile ?? false;
+  // For command-executing tools with read type, treat as file if we have a path
+  const isCommandRead = isCommandToolName(lowerName) && commandStr && parseCommandType(commandStr).type === 'read';
+  const effectiveIsFile = isFilePath || isCommandRead;
+  const tooltipPath = target?.displayPath ?? filePath ?? '';
+  const fileLinkTooltip = useResolvedFileLinkTooltip(
+    effectiveIsFile ? filePath : undefined,
+    tooltipPath || undefined,
+  );
+
   // Ignore write_stdin tool - it's waiting for previous command result
   if (lowerName === 'write_stdin') {
     return null;
   }
-
-  const target = input ? resolveToolTarget(input, name) : undefined;
-  const filePath = target?.rawPath;
 
   // Determine tool call status based on result
   // If denied, treat as completed (show error state)
@@ -266,10 +284,6 @@ const GenericToolBlock = memo(function GenericToolBlock({ name, input, result, t
 
   const displayName = getToolDisplayName(t, name, input);
   const codicon = getToolCodicon(name, input);
-
-  // Codex uses 'cmd', others use 'command'
-  const commandStr = (typeof input.command === 'string' ? input.command : undefined) ??
-    (typeof input.cmd === 'string' ? input.cmd : undefined);
 
   let summary: string | null = null;
   if (target) {
@@ -297,12 +311,7 @@ const GenericToolBlock = memo(function GenericToolBlock({ name, input, result, t
 
   const hasExpandableContent = otherParams.length > 0 || resultImages.length > 0;
   const isDirectoryPath = target?.isDirectory ?? false;
-  const isFilePath = target?.isFile ?? false;
   const lineInfo = input && target ? getToolLineInfo(input, target) : {};
-
-  // For command-executing tools with read type, treat as file if we have a path
-  const isCommandRead = isCommandToolName(lowerName) && commandStr && parseCommandType(commandStr).type === 'read';
-  const effectiveIsFile = isFilePath || isCommandRead;
 
   const handleFileClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -319,12 +328,6 @@ const GenericToolBlock = memo(function GenericToolBlock({ name, input, result, t
     const extension = target.cleanFileName.includes('.') ? target.cleanFileName.split('.').pop() : '';
     return getFileIcon(extension ?? '', target.cleanFileName);
   };
-
-  const tooltipPath = target?.displayPath ?? filePath ?? summary ?? '';
-  const fileLinkTooltip = useResolvedFileLinkTooltip(
-    effectiveIsFile ? filePath : undefined,
-    tooltipPath || undefined,
-  );
 
   // Extract all file paths for apply_patch tool
   const patchContent = lowerName === 'apply_patch'
