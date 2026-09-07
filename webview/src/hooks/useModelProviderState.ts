@@ -314,13 +314,14 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     if (providerId === 'claude') {
       const supports1M = selectedRegistryModel?.supports1MContext ?? false;
       setLongContextEnabled(supports1M);
-      setReasoningEffort('high');
+      // 不再强制重置 reasoningEffort('high')(codex/grok/kimi/pi 本就不重置,强制重置既不对称
+      // 又丢弃用户合法选择):档位钳制由 useReasoningEffortGuard 按新 provider 权威档位统一处理,
+      // 其 onChange 走 SET_REASONING_EFFORT 上行,天然对称。
       setCodexFastMode('normal');
     } else if (providerId === 'codex') {
       setLongContextEnabled(false);
     } else if (providerId === 'opencode') {
       setLongContextEnabled(false);
-      setReasoningEffort('high');
       setCodexFastMode('normal');
     } else {
       // grok/kimi/pi: CLI providers don't support long context
@@ -363,7 +364,6 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     setSelectedKimiModel,
     setSelectedPiModel,
     setLongContextEnabled,
-    setReasoningEffort,
     setCodexFastMode,
   ]);
 
