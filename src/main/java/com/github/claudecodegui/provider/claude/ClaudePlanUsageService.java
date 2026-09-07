@@ -17,7 +17,7 @@ import com.intellij.openapi.diagnostic.Logger;
  *
  * <p>Two data sources, picked by backend:
  * <ul>
- *   <li><b>Relay vendors</b> (z.ai/bigmodel.cn, Kimi For
+ *   <li><b>Relay vendors</b> (z.ai/bigmodel.cn, MiniMax Coding Plan, Kimi For
  *       Coding): {@link RelayUsageRegistry} matches the {@code ANTHROPIC_BASE_URL}
  *       host against the registered vendors and probes their usage API — see
  *       the {@code provider.claude.usage} package.</li>

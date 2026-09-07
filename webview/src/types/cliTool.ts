@@ -97,7 +97,7 @@ export const CLI_TOOL_DEFINITIONS: CliToolDefinition[] = [
     id: 'minimax',
     nameKey: 'settings.cli.tools.minimax.name',
     descriptionKey: 'settings.cli.tools.minimax.description',
-    binaryName: 'minimax / mcode',
+    binaryName: 'mcode',
     // npmjs.com is a Cloudflare-guarded SPA that renders blank inside the
     // IDE's JCEF browser; the npmmirror package page serves the same official
     // README server-side and is reachable in CN.

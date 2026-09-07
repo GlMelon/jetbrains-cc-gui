@@ -10,8 +10,9 @@ public enum CliToolId {
     PI("pi", "PI CLI", "pi", null),
     OMP("omp", "OMP CLI", "omp", null),
     DSH("dsh", "DeepSeek Harness", "dsh", null),
-    // Official installer exposes `minimax`; npm global installs expose `mcode`.
-    MINIMAX("minimax", "MiniMax Code", "minimax", "mcode");
+    // MiniMax Code:官方安装器(~/.minimax-code)与 npm 包 @minimax-ai/code 的 bin
+    // 均为 `mcode`(官方文档/install 脚本核实);`minimax` 不是官方命令名,仅作防御性 alt 保留。
+    MINIMAX("minimax", "MiniMax Code", "mcode", "minimax");
 
     private final String id;
     private final String displayName;
@@ -39,7 +40,8 @@ public enum CliToolId {
 
     /**
      * Secondary command name to probe when the primary one is not found
-     * (e.g. MiniMax Code: `minimax` from the official installer, `mcode` from npm).
+     * (e.g. MiniMax Code: primary `mcode` from the official installer/npm,
+     * defensive alt `minimax`).
      */
     public String getAltBinaryName() {
         return altBinaryName;

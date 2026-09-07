@@ -92,6 +92,13 @@ const CLI_TOOLS: CliToolConfig[] = [
     icon: 'dsh',
     docUrl: 'https://github.com/deepseek-ai/deepseek-harness',
   },
+  {
+    id: 'minimax',
+    nameKey: 'settings.cli.tools.minimax.name',
+    description: 'settings.cli.tools.minimax.description',
+    icon: 'minimax',
+    docUrl: 'https://www.npmmirror.com/package/@minimax-ai/code',
+  },
 ];
 
 const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {

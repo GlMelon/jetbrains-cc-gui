@@ -1004,7 +1004,7 @@
       "tools": {
         "minimax": {
           "name": "MiniMax Code",
-          "description": "MiniMax ターミナルコーディングエージェント。Node.js 22.19+ / 24+（23 は不可）が必要。コマンド: minimax / mcode"
+          "description": "MiniMax ターミナルコーディングエージェント。Node.js 22.19+ / 24+（23 は不可）が必要。コマンド: mcode (minimax)"
         },
         "grok": {
           "name": "Grok CLI",

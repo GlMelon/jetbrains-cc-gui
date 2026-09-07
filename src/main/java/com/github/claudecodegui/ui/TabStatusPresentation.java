@@ -99,9 +99,10 @@ final class TabStatusPresentation {
             case GROK -> GROK_ICON;
             case KIMI -> KIMI_ICON;
             case PI -> PI_ICON;
-            // omp/dsh 暂复用 codex/opencode 图标占位(批次 D 补真实图标)
+            // omp/dsh/minimax 暂复用 codex/opencode 图标占位(批次 D 补真实图标)
             case OMP -> CODEX_ICON;
             case DSH -> OPENCODE_ICON;
+            case MINIMAX -> CODEX_ICON;
         };
     }
 

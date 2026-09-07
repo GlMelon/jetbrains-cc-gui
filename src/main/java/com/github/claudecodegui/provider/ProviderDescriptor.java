@@ -105,6 +105,12 @@ public record ProviderDescriptor(
                 ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY);
     }
 
+    /** MiniMax Provider 描述符(mcode exec stream-json;思考/历史经 delta 事件与 v2 落盘)。 */
+    public static ProviderDescriptor minimax() {
+        return cliBuiltin(ProviderType.MINIMAX,
+                ProviderCapability.REASONING_THINKING, ProviderCapability.HISTORY);
+    }
+
     private static ProviderDescriptor builtin(ProviderType type) {
         return new ProviderDescriptor(
                 type.value(),
@@ -134,8 +140,8 @@ public record ProviderDescriptor(
         );
     }
 
-    /** 内置 Provider 描述符(全 8 家),按 {@link ProviderType} 声明顺序。 */
+    /** 内置 Provider 描述符(全 9 家),按 {@link ProviderType} 声明顺序。 */
     public static List<ProviderDescriptor> builtins() {
-        return List.of(claude(), codex(), opencode(), grok(), kimi(), pi(), omp(), dsh());
+        return List.of(claude(), codex(), opencode(), grok(), kimi(), pi(), omp(), dsh(), minimax());
     }
 }

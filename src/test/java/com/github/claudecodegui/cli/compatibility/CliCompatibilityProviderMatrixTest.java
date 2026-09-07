@@ -33,6 +33,10 @@ public class CliCompatibilityProviderMatrixTest {
         // 覆盖(a3b6106e 加枚举时漏配,EnumMap 缺项会以 null 进 evaluate 解析失败)。
         compatibleOutputs.put(ProviderType.OMP, "OMP 1.4.0");
         compatibleOutputs.put(ProviderType.DSH, "DSH 1.4.0");
+        // minimax 同为 <value>[^0-9]*v?<ver> 模式(MiniMaxCliVersionParser),补齐矩阵覆盖
+        // (加枚举时漏配会以 null 进 evaluate 解析失败,与 omp/dsh 当年同坑)。
+        // 输入用官方主命令名 `mcode`(官方安装器/npm bin 均此名)。
+        compatibleOutputs.put(ProviderType.MINIMAX, "mcode 1.4.0");
 
         Map<ProviderType, String> blockedOutputs = new EnumMap<>(ProviderType.class);
         blockedOutputs.put(ProviderType.CLAUDE, "Claude Code 1.5.0");
@@ -43,6 +47,7 @@ public class CliCompatibilityProviderMatrixTest {
         blockedOutputs.put(ProviderType.PI, "Pi 1.5.0");
         blockedOutputs.put(ProviderType.OMP, "OMP 1.5.0");
         blockedOutputs.put(ProviderType.DSH, "DSH 1.5.0");
+        blockedOutputs.put(ProviderType.MINIMAX, "mcode 1.5.0");
 
         for (ProviderType provider : ProviderType.values()) {
             CliCompatibilityDecision compatible = service.evaluate(provider, compatibleOutputs.get(provider));

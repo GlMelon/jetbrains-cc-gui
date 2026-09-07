@@ -316,7 +316,7 @@ public class ProviderImportExportSupport {
 
                     String jsonStr = GSON.toJson(response);
                     LOG.info("[ProviderHandler] Successfully read " + providers.size() + " Codex provider configs");
-                    context.callJavaScript("window.codex_import_preview_result", context.escapeJs(jsonStr));
+                    context.dispatchEvent(DownstreamEvent.CODEX_IMPORT_PREVIEW.value(), jsonStr);
 
                 } catch (Exception e) {
                     String errorDetails = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.codexCcswitch.readFailed") + ": " + e.getMessage();
@@ -412,7 +412,7 @@ public class ProviderImportExportSupport {
 
                         String jsonStr = GSON.toJson(response);
                         LOG.info("[ProviderHandler] Successfully read " + providers.size() + " Codex provider configs, sending to frontend");
-                        context.callJavaScript("window.codex_import_preview_result", context.escapeJs(jsonStr));
+                        context.dispatchEvent(DownstreamEvent.CODEX_IMPORT_PREVIEW.value(), jsonStr);
 
                     } catch (Exception e) {
                         String errorDetails = com.github.claudecodegui.i18n.ClaudeCodeGuiBundle.message("provider.codexCcswitch.readFailed") + ": " + e.getMessage();

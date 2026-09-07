@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,6 +59,15 @@ public class OpenCodeServeSession implements CliSession {
 
     private static final Logger LOG = Logger.getInstance(OpenCodeServeSession.class);
 
+    /**
+     * serve 权限交互闸口:把 permission.asked 路由到插件权限对话体系
+     * (PermissionService 决策记忆 + 前端对话框),返回 serve 协议应答
+     * ("once" / "always" / "reject")。实现方必须保守:任何无法判定的情形返回 "reject"。
+     */
+    public interface ServePermissionGate {
+        CompletionStage<String> ask(String toolName, JsonObject inputs, String cwd);
+    }
+
     private final String tabId;
     private final OpenCodeServeManager serveManager;
     private final McpGatewayService gatewayService;
@@ -68,6 +78,8 @@ public class OpenCodeServeSession implements CliSession {
     private final OpenCodeServeClient injectedClient;
     /** 测试 seam:one-shot 兜底替身(生产恒 null,走懒创建的真实 OpenCodeCliSession)。 */
     private final CliSession fallbackOverride;
+    /** 交互式权限闸口;为 null(测试 / 无 Project 路径)时退回保守 MVP(非 bypass 即 reject)。 */
+    private final ServePermissionGate permissionGate;
 
     /** 当前 session id(首轮创建后回写,续接复用;语义对齐 one-shot 实例字段)。 */
     private volatile String sessionId;
@@ -79,23 +91,32 @@ public class OpenCodeServeSession implements CliSession {
 
     public OpenCodeServeSession(String tabId, OpenCodeServeManager serveManager,
                                 McpGatewayService gatewayService,
-                                LifecycleObservabilityService lifecycleService) {
+                                LifecycleObservabilityService lifecycleService,
+                                ServePermissionGate permissionGate) {
         this.tabId = tabId;
         this.serveManager = serveManager;
         this.gatewayService = gatewayService;
         this.lifecycleService = lifecycleService;
         this.injectedClient = null;
         this.fallbackOverride = null;
+        this.permissionGate = permissionGate;
     }
 
     /** 测试 seam 构造:注入已连接的 serve client(绕过 manager acquire/spawn)与兜底会话替身。 */
     OpenCodeServeSession(String tabId, OpenCodeServeClient injectedClient, CliSession fallbackOverride) {
+        this(tabId, injectedClient, fallbackOverride, null);
+    }
+
+    /** 测试 seam 构造(带权限闸口)。 */
+    OpenCodeServeSession(String tabId, OpenCodeServeClient injectedClient, CliSession fallbackOverride,
+                         ServePermissionGate permissionGate) {
         this.tabId = tabId;
         this.serveManager = null;
         this.gatewayService = null;
         this.lifecycleService = null;
         this.injectedClient = injectedClient;
         this.fallbackOverride = fallbackOverride;
+        this.permissionGate = permissionGate;
     }
 
     @Override
@@ -404,11 +425,16 @@ public class OpenCodeServeSession implements CliSession {
 
     /**
      * 权限请求拦截:serve 模式工具调用发 permission.asked 事件,须 HTTP 应答。
-     * MVP 映射(有意差异,见 AGENTS.md 总则六):bypass 权限模式 → "always",其他 → "reject"
-     * (one-shot 的 --auto 只自动批准未被 deny 的项,语义强于 reject;serve 无等价细粒度
-     * 应答,MVP 保守拒绝,交互式授权留待后续)。
+     * <ul>
+     *   <li>bypass 权限模式 → 直接应答 "always"(等价 one-shot --permission-mode bypass);</li>
+     *   <li>其余模式且已注入 {@link ServePermissionGate} → 转发插件权限对话体系
+     *       (决策记忆命中直接应答;否则前端对话框,用户决策映射 allow→once /
+     *       allow_always→always / deny→reject),对话框超时 / 会话关闭 / 任何异常
+     *       兜底 "reject"(保守);</li>
+     *   <li>闸口缺失(测试 / 无 Project 路径)→ 保守 MVP:非 bypass 一律 "reject"。</li>
+     * </ul>
      */
-    private OpenCodeServeClient.TurnEventHandler wrapWithPermissionIntercept(
+    OpenCodeServeClient.TurnEventHandler wrapWithPermissionIntercept(
             OpenCodeServeClient client, String turnSessionId, OpenCodeServeTurn turn, CliSendRequest request) {
         boolean bypass = CommonConstants.PERMISSION_MODE_BYPASS.equals(request.permissionMode());
         return new OpenCodeServeClient.TurnEventHandler() {
@@ -422,15 +448,24 @@ public class OpenCodeServeSession implements CliSession {
                     if (permissionId == null) {
                         return;
                     }
-                    String response = bypass ? "always" : "reject";
-                    CliSessionExecutor.runAsync(() -> {
-                        try {
-                            client.respondPermission(turnSessionId, permissionId, response);
-                        } catch (Exception e) {
-                            LOG.warn("[OpenCodeServeSession][" + tabId + "] permission respond failed: "
-                                    + e.getMessage());
-                        }
-                    });
+                    if (bypass || permissionGate == null) {
+                        respondPermissionQuietly(client, turnSessionId, permissionId,
+                                bypass ? "always" : "reject");
+                        return;
+                    }
+                    String toolName = servePermissionToolName(properties);
+                    JsonObject inputs = servePermissionInputs(properties);
+                    String cwd = effectiveCwd(request);
+                    CliSessionExecutor.runAsync(() ->
+                            permissionGate.ask(toolName, inputs, cwd)
+                                    .thenAccept(response ->
+                                            respondPermissionQuietly(client, turnSessionId, permissionId, response))
+                                    .exceptionally(e -> {
+                                        LOG.warn("[OpenCodeServeSession][" + tabId + "] permission gate failed: "
+                                                + e.getMessage());
+                                        respondPermissionQuietly(client, turnSessionId, permissionId, "reject");
+                                        return null;
+                                    }));
                     return;
                 }
                 turn.onEvent(event);
@@ -441,6 +476,38 @@ public class OpenCodeServeSession implements CliSession {
                 turn.onStreamClosed(reason);
             }
         };
+    }
+
+    /** opencode permission.asked 的 properties.permission 即工具名("bash"/"edit" 等)。 */
+    private static String servePermissionToolName(JsonObject properties) {
+        String toolName = firstNonBlank(getString(properties, "permission"), getString(properties, "type"));
+        return toolName != null ? toolName : "opencode";
+    }
+
+    /** 对话框展示与参数级记忆 key:优先 properties.metadata,缺省包一层 patterns。 */
+    private static JsonObject servePermissionInputs(JsonObject properties) {
+        JsonObject metadata = properties != null ? asObject(properties, "metadata") : null;
+        if (metadata != null) {
+            return metadata;
+        }
+        JsonObject inputs = new JsonObject();
+        if (properties != null && properties.has("patterns")) {
+            inputs.add("patterns", properties.get("patterns"));
+        }
+        return inputs;
+    }
+
+    /** 权限应答(异步、不阻塞 SSE 读行线程);失败仅记日志,不穿透事件流。 */
+    private void respondPermissionQuietly(OpenCodeServeClient client, String turnSessionId,
+                                          String permissionId, String response) {
+        CliSessionExecutor.runAsync(() -> {
+            try {
+                client.respondPermission(turnSessionId, permissionId, response);
+            } catch (Exception e) {
+                LOG.warn("[OpenCodeServeSession][" + tabId + "] permission respond failed: "
+                        + e.getMessage());
+            }
+        });
     }
 
     // ── 内部 ──────────────────────────────────────────────────────────────────

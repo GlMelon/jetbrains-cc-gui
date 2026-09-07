@@ -318,6 +318,86 @@ public class PermissionService implements Disposable {
 
     // ── Permission Request Handling ────────────────────────────────────
 
+    /**
+     * 进程内权限请求入口(opencode serve 等不经文件协议的信道)。
+     *
+     * <p>语义与 {@link #handlePermissionRequest} 对齐:工具级 / 参数级决策记忆命中直接返回,
+     * 否则按 cwd 路由到前端权限对话框;无可用 shower 时回退系统对话框(对齐文件流兜底)。
+     * 任何异常 / 超时 / 空响应一律 DENY(保守)。决策经 {@link #notifyDecision} 广播,
+     * ALLOW_ALWAYS 按 SEC-02 规则写入记忆(命令执行类工具按参数记忆,其余按工具记忆)。</p>
+     *
+     * @param toolName 工具名(用于记忆匹配与对话框展示)
+     * @param inputs   工具输入(对话框展示与参数级记忆 key)
+     * @param cwd      请求来源工作目录(多项目对话框路由;可为 null)
+     * @return 用户 / 记忆 / 兜底的最终决策
+     */
+    public CompletableFuture<PermissionResponse> requestInteractivePermission(
+            String toolName, JsonObject inputs, String cwd) {
+        this.lastActivityTime = System.currentTimeMillis();
+        try {
+            PermissionResponse toolDecision = decisionStore.getToolDecision(toolName);
+            if (toolDecision != null) {
+                debugLog("MEMORY_HIT", "Tool-level (in-process): " + toolName + " -> " + toolDecision);
+                notifyDecision(toolName, inputs, toolDecision);
+                return CompletableFuture.completedFuture(toolDecision);
+            }
+            PermissionResponse remembered = decisionStore.getParameterDecision(toolName, inputs);
+            if (remembered != null) {
+                debugLog("PARAM_MEMORY_HIT", "(in-process) " + toolName + " -> " + remembered);
+                notifyDecision(toolName, inputs, remembered);
+                return CompletableFuture.completedFuture(remembered);
+            }
+
+            JsonObject routingRequest = new JsonObject();
+            if (cwd != null && !cwd.isEmpty()) {
+                routingRequest.addProperty("cwd", cwd);
+            }
+            PermissionDialogShower shower = dialogRouter.findPermissionDialogShower(routingRequest, "MATCH_INPROC_PROJECT");
+            if (shower == null) {
+                debugLog("FALLBACK_DIALOG", "In-process request using JOptionPane for: " + toolName);
+                return systemDialogDecision(toolName, inputs);
+            }
+
+            CompletableFuture<PermissionResponse> result = new CompletableFuture<>();
+            shower.showPermissionDialog(toolName, inputs).whenComplete((response, error) -> {
+                PermissionResponse decision = error != null
+                        ? PermissionResponse.DENY : resolveDecision(response);
+                rememberAlwaysDecision(toolName, inputs, decision);
+                notifyDecision(toolName, inputs, decision);
+                result.complete(decision);
+            });
+            return result;
+        } catch (Exception e) {
+            LOG.error("[PERM_INPROC] Error: " + e.getMessage(), e);
+            return CompletableFuture.completedFuture(PermissionResponse.DENY);
+        }
+    }
+
+    /**
+     * ALLOW_ALWAYS 决策写入记忆(SEC-02):命令执行类工具(Bash/Agent)按 command 串记忆,
+     * 其余工具(Edit/Write 等)按 tool-level 记忆。
+     */
+    private void rememberAlwaysDecision(String toolName, JsonObject inputs, PermissionResponse decision) {
+        if (decision != PermissionResponse.ALLOW_ALWAYS) {
+            return;
+        }
+        if (PermissionDecisionStore.isCommandExecutionTool(toolName)) {
+            decisionStore.rememberParameterDecision(toolName, inputs, PermissionResponse.ALLOW_ALWAYS);
+        } else {
+            decisionStore.rememberToolDecision(toolName, PermissionResponse.ALLOW_ALWAYS);
+        }
+    }
+
+    /** 系统对话框兜底(无前端 shower 时),30s 超时对齐文件流 dispatchPermissionFallback。 */
+    private CompletableFuture<PermissionResponse> systemDialogDecision(String toolName, JsonObject inputs) {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        ApplicationManager.getApplication().invokeLater(
+                () -> future.complete(showSystemPermissionDialog(toolName, inputs)));
+        return future.orTimeout(30, TimeUnit.SECONDS)
+                .thenApply(this::resolveDecision)
+                .exceptionally(ex -> PermissionResponse.DENY);
+    }
+
     /** Pull the per-request secret token Node embedded in the request, if present. */
     private static String extractRequestToken(JsonObject request) {
         if (request != null && request.has("requestToken") && !request.get("requestToken").isJsonNull()) {
@@ -397,15 +477,7 @@ public class PermissionService implements Disposable {
             try {
                 PermissionResponse decision = resolveDecision(response);
                 boolean allow = decision.isAllow();
-                if (decision == PermissionResponse.ALLOW_ALWAYS) {
-                    // SEC-02:命令执行类工具(Bash/Agent)按 command 串记忆——勾"总是允许 npm test"只放行
-                    // 该命令,不放行会话内任意 Bash(含 rm -rf)。其余工具(Edit/Write 等)保持 tool-level。
-                    if (PermissionDecisionStore.isCommandExecutionTool(toolName)) {
-                        decisionStore.rememberParameterDecision(toolName, inputs, PermissionResponse.ALLOW_ALWAYS);
-                    } else {
-                        decisionStore.rememberToolDecision(toolName, PermissionResponse.ALLOW_ALWAYS);
-                    }
-                }
+                rememberAlwaysDecision(toolName, inputs, decision);
                 notifyDecision(toolName, inputs, decision);
                 fileProtocol.writePermissionResponse(requestId, allow);
             } catch (Exception e) {

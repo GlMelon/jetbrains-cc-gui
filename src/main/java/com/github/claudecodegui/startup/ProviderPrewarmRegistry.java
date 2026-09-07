@@ -69,6 +69,10 @@ public final class ProviderPrewarmRegistry {
                 resolver(ProviderType.PI, RESOLVER_TIMEOUT,
                         () -> new ProviderCliResolver(
                                 ProviderType.PI, ProviderType.PI.cliCommand()).findExecutable()),
+                resolver(ProviderType.MINIMAX, RESOLVER_TIMEOUT,
+                        () -> new ProviderCliResolver(
+                                ProviderType.MINIMAX, ProviderType.MINIMAX.cliCommand(),
+                                com.github.claudecodegui.cli.CliToolId.MINIMAX.getAltBinaryName()).findExecutable()),
                 resolver(ProviderType.CLAUDE, RESOLVER_TIMEOUT,
                         () -> ClaudeCliDetector.getInstance().findCliExecutable()),
                 channel(ProviderType.OMP, Duration.ofSeconds(5),

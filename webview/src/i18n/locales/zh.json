@@ -924,7 +924,7 @@
       "tools": {
         "minimax": {
           "name": "MiniMax Code",
-          "description": "MiniMax 终端编码智能体。需 Node.js 22.19+ / 24+（不支持 23）；命令：minimax / mcode"
+          "description": "MiniMax 终端编码智能体。需 Node.js 22.19+ / 24+（不支持 23）；命令：mcode (minimax)"
         },
         "grok": {
           "name": "Grok CLI",

@@ -9,7 +9,6 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -28,18 +27,14 @@ public class WebviewTabActivationTest {
         CefBrowser cefBrowser = createCefBrowser(nativeComponent, calls, resized);
         JPanel browserComponent = new JPanel();
         browserComponent.setSize(640, 480);
-        AtomicBoolean frontendRepainted = new AtomicBoolean(false);
-
         ClaudeChatWindow.refreshActivatedWebview(
-                new JPanel(), browserComponent, cefBrowser, false,
-                () -> frontendRepainted.set(true));
+                new JPanel(), browserComponent, cefBrowser, false);
 
         assertTrue(nativeComponent.invalidated);
         assertTrue(nativeComponent.repainted);
         assertEquals(Arrays.asList(false, true), nativeComponent.visibilityChanges);
         assertFalse(calls.contains("wasResized"));
         assertTrue(calls.contains("notifyScreenInfoChanged"));
-        assertTrue(frontendRepainted.get());
     }
 
     @Test
@@ -51,16 +46,12 @@ public class WebviewTabActivationTest {
         CefBrowser cefBrowser = createCefBrowser(nativeComponent, calls, resized);
         JPanel browserComponent = new JPanel();
         browserComponent.setSize(800, 600);
-        AtomicBoolean frontendRepainted = new AtomicBoolean(false);
-
         ClaudeChatWindow.refreshActivatedWebview(
-                new JPanel(), browserComponent, cefBrowser, true,
-                () -> frontendRepainted.set(true));
+                new JPanel(), browserComponent, cefBrowser, true);
 
         assertArrayEquals(new int[]{800, 600}, resized[0]);
         assertTrue(nativeComponent.visibilityChanges.isEmpty());
         assertTrue(calls.contains("notifyScreenInfoChanged"));
-        assertTrue(frontendRepainted.get());
     }
 
     private static CefBrowser createCefBrowser(

@@ -50,6 +50,11 @@ public enum ProviderType implements ProtocolValue {
     // cliCommand 仅为占位(channel-manager 路径由 NodeService 解析,不直接 spawn 该二进制)。
     OMP("omp", "OMP", "omp", "omp.cmd"),
     DSH("dsh", "DeepSeek Harness", "dsh", "dsh.cmd"),
+    // minimax:上游 v0.5.6 新增纯 CLI provider(mcode exec stream-json,直 spawn 原生 CLI)。
+    // 官方安装器(~/.minimax-code)与 npm 包 @minimax-ai/code 的 bin 均为 `mcode`
+    // (官方文档/install 脚本核实,不存在 `minimax` 命令)——探测层(CliToolId.MINIMAX
+    // altBinaryName)与 ProviderCliResolver 的 altCommand 机制保留 `minimax` 作防御性回退。
+    MINIMAX("minimax", "MiniMax", "mcode", "mcode.cmd"),
     ;
 
     private final String value;
@@ -127,6 +132,7 @@ public enum ProviderType implements ProtocolValue {
             case CommonConstants.PROVIDER_PI -> PI;
             case CommonConstants.PROVIDER_OMP -> OMP;
             case CommonConstants.PROVIDER_DSH -> DSH;
+            case CommonConstants.PROVIDER_MINIMAX -> MINIMAX;
             default -> CLAUDE;
         };
     }

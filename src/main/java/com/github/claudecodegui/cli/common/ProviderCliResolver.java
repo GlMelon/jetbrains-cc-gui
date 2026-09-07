@@ -39,10 +39,17 @@ public final class ProviderCliResolver {
 
     private final ProviderType type;
     private final String npmDir;
+    /** 备用二进制名(如 minimax 官方装 `minimax`、npm 全局装 `mcode`);null 表示无。 */
+    private final String altCliCommand;
 
     public ProviderCliResolver(ProviderType type, String npmDir) {
+        this(type, npmDir, null);
+    }
+
+    public ProviderCliResolver(ProviderType type, String npmDir, String altCliCommand) {
         this.type = type;
         this.npmDir = npmDir;
+        this.altCliCommand = altCliCommand;
     }
 
     public String findExecutable() {
@@ -100,8 +107,16 @@ public final class ProviderCliResolver {
             candidates.add(type.cliCommandWindows());
             candidates.add(type.cliCommand() + ".exe");
             candidates.add(type.cliCommand() + ".bat");
+            if (altCliCommand != null && !altCliCommand.isBlank()) {
+                candidates.add(altCliCommand + ".cmd");
+                candidates.add(altCliCommand + ".exe");
+                candidates.add(altCliCommand + ".bat");
+            }
         } else {
             candidates.add(type.cliCommand());
+            if (altCliCommand != null && !altCliCommand.isBlank()) {
+                candidates.add(altCliCommand);
+            }
         }
 
         for (String candidate : candidates) {
@@ -153,10 +168,22 @@ public final class ProviderCliResolver {
             shim = resolve(type.cliCommand());
         }
         String inferred = inferNativeExecutablePath(shim, npmDir, type.cliCommand());
-        if (inferred == null) {
-            return null;
+        if (inferred != null && verify(inferred) != null) {
+            return inferred;
         }
-        return verify(inferred) != null ? inferred : null;
+        // alt 二进制名(npm 全局安装名,如 minimax→mcode):shim 命中时同样尝试
+        // 推断 npm 原生结构(exeName 取 alt 名)。
+        if (altCliCommand != null && !altCliCommand.isBlank()) {
+            String altShim = resolve(altCliCommand + ".cmd");
+            if (altShim == null) {
+                altShim = resolve(altCliCommand);
+            }
+            String altInferred = inferNativeExecutablePath(altShim, npmDir, altCliCommand);
+            if (altInferred != null && verify(altInferred) != null) {
+                return altInferred;
+            }
+        }
+        return null;
     }
 
     String resolve(String candidate) {

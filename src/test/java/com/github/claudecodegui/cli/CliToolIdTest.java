@@ -35,7 +35,9 @@ public class CliToolIdTest {
         assertEquals("pi", CliToolId.PI.getBinaryName());
         assertEquals("omp", CliToolId.OMP.getBinaryName());
         assertEquals("OMP CLI", CliToolId.OMP.getDisplayName());
-        assertEquals("minimax", CliToolId.MINIMAX.getBinaryName());
+        // 官方安装器/npm bin 均为 `mcode`;`minimax` 是防御性 alt
+        assertEquals("mcode", CliToolId.MINIMAX.getBinaryName());
+        assertEquals("minimax", CliToolId.MINIMAX.getAltBinaryName());
         for (CliToolId tool : CliToolId.values()) {
             assertNotNull(tool.getDisplayName());
         }

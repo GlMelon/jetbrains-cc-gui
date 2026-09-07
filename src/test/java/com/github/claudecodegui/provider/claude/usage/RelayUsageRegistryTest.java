@@ -22,6 +22,8 @@ public class RelayUsageRegistryTest {
     @Test
     public void match_dispatchesByHostAndPath() {
         assertEquals("kimi-coding", RelayUsageRegistry.match("https://api.kimi.com/coding").id());
+        assertEquals("minimax", RelayUsageRegistry.match("https://api.minimaxi.com/v1").id());
+        assertEquals("minimax", RelayUsageRegistry.match("https://api.minimax.io/v1").id());
         assertEquals("zai", RelayUsageRegistry.match("https://api.z.ai/api/anthropic").id());
         assertEquals("zai", RelayUsageRegistry.match("https://open.bigmodel.cn/api/anthropic").id());
         assertNull(RelayUsageRegistry.match("https://api.anthropic.com"));
@@ -85,7 +87,7 @@ public class RelayUsageRegistryTest {
         RelayUsageRegistry.resolve(ZaiUsageVendorTest.settings("https://api.z.ai/api/anthropic", "account-b"), t0 + 1);
         assertEquals(2, calls[0]);
         // Same token on a different vendor never collides (different endpoint anyway)
-        RelayUsageRegistry.resolve(ZaiUsageVendorTest.settings("https://api.kimi.com/coding", "account-a"), t0 + 2);
+        RelayUsageRegistry.resolve(ZaiUsageVendorTest.settings("https://api.minimaxi.com/v1", "account-a"), t0 + 2);
         assertEquals(3, calls[0]);
     }
 
@@ -142,6 +144,28 @@ public class RelayUsageRegistryTest {
         assertNull(RelayUsageCache.fresh(null, 1000L));
         assertNull(RelayUsageCache.stale(null, 1000L));
         RelayUsageCache.store(null, new JsonObject(), 1000L);
+    }
+
+    /** Keep per-model quotas separate even when the account and endpoint match. */
+    @Test
+    public void resolve_remembersEachMiniMaxModelQuota() {
+        int[] calls = {0};
+        RelayUsageHttp.setTransportForTests((url, headers) -> {
+            calls[0]++;
+            return JsonParser.parseString("""
+                    {"model_remains":[
+                      {"model_name":"MiniMax-M3","current_interval_remaining_percent":10},
+                      {"model_name":"general","current_interval_remaining_percent":90}
+                    ]}
+                    """).getAsJsonObject();
+        });
+        JsonObject settings = ZaiUsageVendorTest.settings("https://api.minimax.io/v1", "account-a");
+        assertEquals(10, RelayUsageRegistry.resolve(settings, 1000L).get("capacity_pct").getAsDouble(), 0.01);
+        settings.getAsJsonObject("env").addProperty("ANTHROPIC_MODEL", "MiniMax-M3");
+        assertEquals(90, RelayUsageRegistry.resolve(settings, 1001L).get("capacity_pct").getAsDouble(), 0.01);
+        settings.getAsJsonObject("env").remove("ANTHROPIC_MODEL");
+        assertEquals(10, RelayUsageRegistry.resolve(settings, 1002L).get("capacity_pct").getAsDouble(), 0.01);
+        assertEquals(2, calls[0]);
     }
 
     private static JsonObject zaiBody(double pct) {

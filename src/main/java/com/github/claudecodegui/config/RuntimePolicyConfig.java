@@ -79,6 +79,7 @@ public class RuntimePolicyConfig {
         m.put(ProviderType.GROK, new ProviderRuntimePolicy(true));
         m.put(ProviderType.KIMI, new ProviderRuntimePolicy(true));
         m.put(ProviderType.PI, new ProviderRuntimePolicy(true));
+        m.put(ProviderType.MINIMAX, new ProviderRuntimePolicy(true));
         return new RuntimePolicyConfig(m);
     }
 }

@@ -37,7 +37,8 @@ public final class MessageNormalizers {
             // normalizer is pure passthrough (same pattern as OpenCode).
             entry(CommonConstants.PROVIDER_GROK, GrokMessageNormalizer::new),
             entry(CommonConstants.PROVIDER_KIMI, KimiMessageNormalizer::new),
-            entry(CommonConstants.PROVIDER_PI, PiMessageNormalizer::new)
+            entry(CommonConstants.PROVIDER_PI, PiMessageNormalizer::new),
+            entry(CommonConstants.PROVIDER_MINIMAX, MiniMaxMessageNormalizer::new)
     );
 
     private MessageNormalizers() {

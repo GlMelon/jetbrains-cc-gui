@@ -18,9 +18,6 @@ interface Window {
    */
   sendToJava?: (message: string) => void;
 
-  /** Legacy windowed-JCEF repaint requested after its IntelliJ content tab is activated. */
-  onTabActivated?: () => void;
-
   /** Strict two-frame OSR damage pulse, owned by a Java frame-fence attempt token. */
   __ccguiSurfaceDamagePhaseA?: (token: string) => boolean;
   __ccguiSurfaceDamagePhaseB?: (token: string) => boolean;
@@ -1155,13 +1152,6 @@ interface Window {
   import_preview_result?: (dataOrStr: string | { providers?: unknown }) => void;
 
   /**
-   * Codex cc-switch import preview result callback. Mirrors import_preview_result
-   * but is Codex-scoped so the Codex panel (mounted alongside the Claude panel)
-   * owns its own import channel without colliding with the Claude flow.
-   */
-  codex_import_preview_result?: (dataOrStr: string | { providers?: unknown }) => void;
-
-  /**
    * Codex cc-switch import notification callback (type, title, message),
    * used for success/error/info toasts during Codex import. Codex-scoped to
    * avoid double toasts from the shared backend_notification channel.
@@ -1174,24 +1164,6 @@ interface Window {
    * JSON string or object with shape { type, title, message }.
    */
   backend_notification?: (...args: unknown[]) => void;
-
-  /**
-   * CLI provider model catalog (Kimi / OpenCode). Java pushes JSON after
-   * `get_cli_models:<provider>` via channel-manager `listModels`.
-   */
-  setCliModels?: (
-    dataOrStr:
-      | string
-      | {
-          success?: boolean;
-          provider?: string;
-          models?: Array<{ id?: string; label?: string; description?: string }>;
-          /** Dynamic model roles (omp); description = resolved model selector. */
-          roles?: Array<{ id?: string; label?: string; description?: string }>;
-          error?: string;
-          defaultModel?: string;
-        }
-  ) => void;
 
   /**
    * DSH host lifecycle status. Java pushes JSON after

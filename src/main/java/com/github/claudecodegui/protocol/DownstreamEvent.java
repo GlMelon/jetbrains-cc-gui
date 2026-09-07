@@ -40,6 +40,9 @@ public enum DownstreamEvent implements ProtocolValue {
     PROVIDER_OPENCODE_CONFIG("provider.opencode_config"),
     PROVIDER_CLI_LOGIN_ACCOUNT("provider.cli_login_account"),
     PROVIDER_IMPORT_PREVIEW("provider.import_preview"),
+    // Codex cc-switch 导入预览(独立于 PROVIDER_IMPORT_PREVIEW:两者 payload 同构,
+    // ProviderList 与 CodexProviderSection 并存,共用同一事件会互相串扰弹窗)
+    CODEX_IMPORT_PREVIEW("provider.codex_import_preview"),
 
     // ── Session ──
     SESSION_RUNTIME_STATE("session.runtime_state"),
@@ -54,6 +57,8 @@ public enum DownstreamEvent implements ProtocolValue {
     FILE_PATH_RESOLVED("file_path.resolved"),
     // 模型拉取 RPC 响应(对称 fetch_provider_models 上行;携带 __requestId 供 hub 路由 Promise)
     PROVIDER_MODELS_FETCHED("provider.models_fetched"),
+    // get_cli_models 上行的回填推送(携带 provider/models/roles/defaultModel;对称旧 window.setCliModels)
+    CLI_MODELS_RESULT("cli.models_result"),
 
     // ── Streaming ──
     STREAM_START("stream.start"),

@@ -36,7 +36,8 @@ public final class CliVersionParserRegistry {
                 new KimiCliVersionParser(),
                 new PiCliVersionParser(),
                 new OmpCliVersionParser(),
-                new DshCliVersionParser()));
+                new DshCliVersionParser(),
+                new MiniMaxCliVersionParser()));
     }
 
     public Optional<String> parse(ProviderType provider, String rawVersion) {

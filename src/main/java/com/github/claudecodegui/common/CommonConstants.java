@@ -37,6 +37,8 @@ public final class CommonConstants {
     public static final String PROVIDER_OMP = "omp";
     /** DSH(DeepSeek Harness) AI 提供者标识(marker 协议 + 本地 dsh web host RPC —— 上游 v0.5.4 引入) */
     public static final String PROVIDER_DSH = "dsh";
+    /** MiniMax Code AI 提供者标识(纯 CLI provider,mcode exec stream-json —— 上游 v0.5.6 引入) */
+    public static final String PROVIDER_MINIMAX = "minimax";
 
     // ===== 权限模式 =====
     // 控制工具调用（文件写入、命令执行等）的自动审批策略
@@ -111,11 +113,13 @@ public final class CommonConstants {
     public static final int OMP_DEFAULT_CONTEXT_WINDOW = 200_000;
     /** DeepSeek Harness 默认上下文窗口（128K，DeepSeek V3 系） */
     public static final int DSH_DEFAULT_CONTEXT_WINDOW = 128_000;
+    /** MiniMax Code 默认上下文窗口（200K，MiniMax M2/M3 系） */
+    public static final int MINIMAX_DEFAULT_CONTEXT_WINDOW = 200_000;
 
     /**
      * 获取指定 provider 的默认上下文窗口大小。
      *
-     * @param provider provider 标识（"claude" / "codex" / "opencode" / "grok" / "kimi" / "pi" / "omp" / "dsh"）
+     * @param provider provider 标识（"claude" / "codex" / "opencode" / "grok" / "kimi" / "pi" / "omp" / "dsh" / "minimax"）
      * @return 该 provider 的官方默认上下文窗口（token 数），未知 provider 回退 {@link #DEFAULT_CONTEXT_WINDOW}
      */
     public static int getDefaultContextWindowForProvider(String provider) {
@@ -129,6 +133,7 @@ public final class CommonConstants {
             case PROVIDER_PI -> PI_DEFAULT_CONTEXT_WINDOW;
             case PROVIDER_OMP -> OMP_DEFAULT_CONTEXT_WINDOW;
             case PROVIDER_DSH -> DSH_DEFAULT_CONTEXT_WINDOW;
+            case PROVIDER_MINIMAX -> MINIMAX_DEFAULT_CONTEXT_WINDOW;
             default -> DEFAULT_CONTEXT_WINDOW;
         };
     }

@@ -13,8 +13,8 @@ import com.google.gson.JsonObject;
  *   <li>{@code token} — {@code ANTHROPIC_AUTH_TOKEN}, falling back to
  *       {@code ANTHROPIC_API_KEY} (the same chain the SDK itself uses).</li>
  *   <li>{@code model} — the active model id (from {@code ANTHROPIC_MODEL} or the
- *       per-tier defaults), reserved for vendors whose quota is reported per
- *       model.</li>
+ *       per-tier defaults), used by vendors whose quota is reported per model
+ *       (MiniMax Coding Plan).</li>
  * </ul>
  */
 public final class RelayUsageEnv {

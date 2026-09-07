@@ -14,7 +14,7 @@ import com.google.gson.JsonObject;
 public interface RelayUsageVendor {
 
     /**
-     * Stable vendor id ("zai", "kimi-coding", …). Namespaces the
+     * Stable vendor id ("zai", "minimax", "kimi-coding", …). Namespaces the
      * probe cache; also used in log messages.
      */
     String id();

@@ -970,7 +970,7 @@
       "tools": {
         "minimax": {
           "name": "MiniMax Code",
-          "description": "MiniMax 終端編碼智能體。需 Node.js 22.19+ / 24+（不支援 23）；命令：minimax / mcode"
+          "description": "MiniMax 終端編碼智能體。需 Node.js 22.19+ / 24+（不支援 23）；命令：mcode (minimax)"
         },
         "grok": {
           "name": "Grok CLI",

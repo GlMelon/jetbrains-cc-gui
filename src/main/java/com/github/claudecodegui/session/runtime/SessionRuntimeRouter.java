@@ -39,6 +39,7 @@ public class SessionRuntimeRouter implements Disposable {
         registry.register(new PiCliSessionRuntime(cliManager));
         registry.register(new OmpCliSessionRuntime(cliManager));
         registry.register(new DshCliSessionRuntime(cliManager));
+        registry.register(new MiniMaxCliSessionRuntime(cliManager));
     }
 
     /**

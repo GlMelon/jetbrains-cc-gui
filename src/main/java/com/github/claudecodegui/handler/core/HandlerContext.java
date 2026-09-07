@@ -46,9 +46,9 @@ public class HandlerContext {
         String escapeJs(String str);
 
         /**
-         * 下行总线语义化入口(归一化重构)。Phase 0 双轨:内部走 window.__bridge.dispatch,
-         * 经既有 callJavaScript 路径,行为等价于旧 window.xxx 调用。
-         * 详见 plan: typed-booping-newt.md。
+         * 下行总线语义化入口:所有业务下行事件经此方法派发到前端
+         * window.__bridge.dispatch。这是唯一直接调用 callJavaScript 的合法出口,
+         * 业务代码禁止绕过本方法直接 callJavaScript("window.xxx")。
          *
          * <p>转义契约(SSOT,序列化出口统一):payload 参数必须是<strong>未转义</strong>的
          * 原始字符串(JSON 或裸文本),由本出口统一 {@link JsUtils#escapeJs} 后嵌入
@@ -225,8 +225,8 @@ public class HandlerContext {
     }
 
     /**
-     * 下行总线语义化入口代理。Phase 0 双轨,详见 plan: typed-booping-newt.md。
-     * 后续 Phase handler 由 callJavaScript("window.xxx") 迁移到本方法。
+     * 下行总线语义化入口代理,转发到 {@link JsCallback#dispatchEvent}。
+     * 业务 handler 派发下行事件统一走本方法,禁止直接 callJavaScript("window.xxx")。
      */
     public void dispatchEvent(String type, String payloadJson) {
         jsCallback.dispatchEvent(type, payloadJson);

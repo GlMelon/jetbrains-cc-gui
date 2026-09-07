@@ -434,6 +434,12 @@ public final class NodeProcessRegistry implements Disposable {
         if (containsProviderToken(lower, CommonConstants.PROVIDER_DSH)) {
             return CommonConstants.PROVIDER_DSH;
         }
+        // minimax 双二进制名:官方主命令 `mcode`(CliToolId.binaryName)与防御性 alt
+        // `minimax`(= PROVIDER_MINIMAX 字面量)——两个 token 都要认。
+        if (containsProviderToken(lower, CommonConstants.PROVIDER_MINIMAX)
+                || containsProviderToken(lower, com.github.claudecodegui.cli.CliToolId.MINIMAX.getBinaryName())) {
+            return CommonConstants.PROVIDER_MINIMAX;
+        }
         if (containsProviderToken(lower, CommonConstants.PROVIDER_CLAUDE)) {
             return CommonConstants.PROVIDER_CLAUDE;
         }

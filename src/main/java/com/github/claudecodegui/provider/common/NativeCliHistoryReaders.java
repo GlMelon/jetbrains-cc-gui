@@ -3,6 +3,7 @@ package com.github.claudecodegui.provider.common;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.provider.grok.GrokHistoryReader;
 import com.github.claudecodegui.provider.kimi.KimiHistoryReader;
+import com.github.claudecodegui.provider.minimax.MiniMaxHistoryReader;
 import com.github.claudecodegui.provider.pi.PiHistoryReader;
 import com.google.gson.JsonObject;
 
@@ -26,7 +27,7 @@ public final class NativeCliHistoryReaders {
     private NativeCliHistoryReaders() {
     }
 
-    /** 按 provider id 取 reader(grok/kimi/pi 之外的 provider 抛错——白名单在调用方先行校验)。 */
+    /** 按 provider id 取 reader(grok/kimi/pi/minimax 之外的 provider 抛错——白名单在调用方先行校验)。 */
     public static FrontendMessageReader forProvider(String provider) {
         if (CommonConstants.PROVIDER_GROK.equals(provider)) {
             return grok();
@@ -36,6 +37,9 @@ public final class NativeCliHistoryReaders {
         }
         if (CommonConstants.PROVIDER_PI.equals(provider)) {
             return pi();
+        }
+        if (CommonConstants.PROVIDER_MINIMAX.equals(provider)) {
+            return minimax();
         }
         throw new IllegalArgumentException("No native CLI history reader for provider: " + provider);
     }
@@ -61,6 +65,17 @@ public final class NativeCliHistoryReaders {
         return (sessionId, cwd) -> {
             Path file = reader.findSessionFile(sessionId, cwd);
             return file == null ? List.of() : reader.loadMessages(file);
+        };
+    }
+
+    public static FrontendMessageReader minimax() {
+        MiniMaxHistoryReader reader = new MiniMaxHistoryReader();
+        return (sessionId, cwd) -> {
+            try {
+                return reader.getSessionMessages(sessionId, cwd);
+            } catch (Exception e) {
+                return List.of();
+            }
         };
     }
 }

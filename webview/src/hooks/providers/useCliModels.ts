@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { sendBridgeEvent } from '../../utils/bridge';
+import { subscribeEvent } from '../../bridge/typed';
+import { DOWNSTREAM } from '../../generated/protocol';
 import type { ModelInfo } from '../../components/ChatInputBox/types';
 import {
   CODEX_MODELS,
@@ -223,11 +225,9 @@ export function useCliModels(currentProvider: string) {
       setLoadingProvider((current) => (current === provider ? null : current));
     };
 
-    window.setCliModels = handler;
+    const unsubscribe = subscribeEvent(DOWNSTREAM.CLI_MODELS_RESULT, handler);
     return () => {
-      if (window.setCliModels === handler) {
-        delete window.setCliModels;
-      }
+      unsubscribe();
       clearPendingLoad();
     };
   }, [clearPendingLoad]);
@@ -298,8 +298,8 @@ export type UseCliModelsReturn = ReturnType<typeof useCliModels>;
 
 /**
  * Dynamic OMP model roles discovered via the listModels payload (roles arrive
- * through `window.setCliModels` regardless of which provider is active, so
- * this subscribes directly to the module-level roles cache).
+ * through the `cli.models_result` downstream event regardless of which provider
+ * is active, so this subscribes directly to the module-level roles cache).
  * Falls back to the static smol/slow/plan role entries until a payload with
  * roles arrives (CLI missing, old omp without roles support, fetch failure).
  */

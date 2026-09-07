@@ -526,8 +526,7 @@ public class ClaudeChatWindow {
                         mainPanel,
                         currentBrowser.getComponent(),
                         currentBrowser.getCefBrowser(),
-                        currentBrowser.isOffScreenRendering(),
-                        () -> callJavaScript("window.onTabActivated")
+                        currentBrowser.isOffScreenRendering()
                 );
             } catch (Exception | LinkageError e) {
                 LOG.warn("Failed to refresh activated JCEF tab: " + e.getMessage(), e);
@@ -546,39 +545,34 @@ public class ClaudeChatWindow {
             JPanel mainPanel,
             JComponent browserComponent,
             CefBrowser cefBrowser,
-            boolean offScreenRendering,
-            Runnable frontendRepaint
+            boolean offScreenRendering
     ) {
         mainPanel.revalidate();
         mainPanel.repaint();
         browserComponent.revalidate();
         browserComponent.repaint();
 
-        try {
-            if (offScreenRendering) {
-                int width = browserComponent.getWidth();
-                int height = browserComponent.getHeight();
-                if (width > 0 && height > 0) {
-                    cefBrowser.wasResized(width, height);
-                }
-            } else {
-                Component nativeComponent = cefBrowser.getUIComponent();
-                if (nativeComponent != null) {
-                    nativeComponent.setVisible(false);
-                    nativeComponent.invalidate();
-                    nativeComponent.setVisible(true);
-                    Container parent = nativeComponent.getParent();
-                    if (parent != null) {
-                        parent.validate();
-                        parent.repaint();
-                    }
-                    nativeComponent.repaint();
-                }
+        if (offScreenRendering) {
+            int width = browserComponent.getWidth();
+            int height = browserComponent.getHeight();
+            if (width > 0 && height > 0) {
+                cefBrowser.wasResized(width, height);
             }
-            cefBrowser.notifyScreenInfoChanged();
-        } finally {
-            frontendRepaint.run();
+        } else {
+            Component nativeComponent = cefBrowser.getUIComponent();
+            if (nativeComponent != null) {
+                nativeComponent.setVisible(false);
+                nativeComponent.invalidate();
+                nativeComponent.setVisible(true);
+                Container parent = nativeComponent.getParent();
+                if (parent != null) {
+                    parent.validate();
+                    parent.repaint();
+                }
+                nativeComponent.repaint();
+            }
         }
+        cefBrowser.notifyScreenInfoChanged();
     }
 
     public String getSessionId() {
@@ -822,12 +816,11 @@ public class ClaudeChatWindow {
             java.util.regex.Pattern.compile("^[a-zA-Z_$][a-zA-Z0-9_$.]*$");
 
     /**
-     * 下行总线(Java → 前端)的语义化入口。归一化重构(详见 plan: typed-booping-newt.md)。
+     * 下行总线(Java → 前端)的语义化入口。
      *
      * 后端调用语义化事件名 + payload,经前端 window.__bridge.dispatch(type, payloadJson) 单一入口
-     * 派发到各业务模块的订阅者。Phase 0 双轨:内部仍走既有 callJavaScript 路径(包 typeof 检查与
-     * try/catch),行为与旧 window.xxx 调用等价。后续 Phase 各 handler 由 callJavaScript("window.xxx")
-     * 逐步迁移到本方法,旧 window.xxx 经前端 compat 兼容别名保留一阶段。
+     * 派发到各业务模块的订阅者。本方法是唯一直接调用 callJavaScript 的合法出口,业务代码禁止
+     * 绕过本方法直接 callJavaScript("window.xxx")。
      *
      * <p>转义契约(SSOT,序列化出口统一):payload 必须是未转义的原始字符串(JSON 或裸文本),
      * 由本出口统一 {@link com.github.claudecodegui.util.JsUtils#escapeJs} 后嵌入。调用方禁止

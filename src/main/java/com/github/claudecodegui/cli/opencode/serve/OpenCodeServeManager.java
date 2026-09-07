@@ -106,6 +106,11 @@ public final class OpenCodeServeManager implements Disposable {
         return project.getService(OpenCodeServeManager.class);
     }
 
+    /** serve 所属 project(权限对话框路由等场景使用)。 */
+    public @NotNull Project project() {
+        return project;
+    }
+
     /**
      * 获取可用 serve 客户端。命中(进程存活且指纹匹配)直接返回;未命中(首次 / 指纹漂移 /
      * 崩溃 / SSE 断线后)重建一次;重建失败或熔断中返回 null——调用方当轮降级 one-shot。

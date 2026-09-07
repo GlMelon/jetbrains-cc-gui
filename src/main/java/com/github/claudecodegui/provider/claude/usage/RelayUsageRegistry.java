@@ -27,6 +27,7 @@ public final class RelayUsageRegistry {
 
     private static final List<RelayUsageVendor> VENDORS = List.of(
             new KimiCodingUsageVendor(),
+            new MiniMaxUsageVendor(),
             new ZaiUsageVendor());
 
     private RelayUsageRegistry() {
@@ -48,6 +49,10 @@ public final class RelayUsageRegistry {
         }
         // Keep credentials out of long-lived cache objects while retaining account isolation.
         String cacheKey = vendor.id() + '\n' + canonicalBaseUrl(env.baseUrl()) + '\n' + sha256(env.token());
+        // MiniMax selects a model-specific quota before the payload reaches the cache.
+        if (MiniMaxUsageVendor.ID.equals(vendor.id())) {
+            cacheKey += '\n' + (env.model() == null ? "" : env.model());
+        }
 
         JsonObject fresh = RelayUsageCache.fresh(cacheKey, nowMs);
         if (fresh != null) {

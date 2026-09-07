@@ -4,9 +4,11 @@ import com.github.claudecodegui.bridge.EnvironmentConfigurator;
 import com.github.claudecodegui.bridge.NodeDetector;
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.FrontendActionContext;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.provider.dsh.DshEnvSupport;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -32,8 +34,9 @@ import java.util.concurrent.TimeUnit;
  * CLI provider 动态模型目录(kimi / grok / pi / omp / dsh / codex)。
  *
  * <p>spawn 一次性进程 {@code channel-manager.js <provider> listModels},解析 stdout JSON,
- * 经 {@code window.setCliModels(payload)} 回填前端 useCliModels。前端以 legacy
- * {@code sendBridgeEvent('get_cli_models', provider)} 请求(payload 即 provider id)。
+ * 经 {@link com.github.claudecodegui.protocol.DownstreamEvent#CLI_MODELS_RESULT} 下行事件
+ * 回填前端 useCliModels。前端以 legacy {@code sendBridgeEvent('get_cli_models', provider)}
+ * 请求(payload 即 provider id)。
  *
  * <p>定位(与 MODEL_REGISTRY 的分工):claude / codex / opencode 的静态模型经
  * {@code ReadOnlyDefaultModels} 注入 MODEL_REGISTRY 下发;CLI-only provider
@@ -53,7 +56,10 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
 
     /** 与前端 useCliModels#supportsDynamicModels 对齐(codex + CLI-only providers)。 */
     private static final Set<String> SUPPORTED_PROVIDERS = Set.of(
-            "opencode", "kimi", "pi", "omp", "codex", "grok", "dsh");
+            CommonConstants.PROVIDER_OPENCODE, CommonConstants.PROVIDER_KIMI,
+            CommonConstants.PROVIDER_PI, CommonConstants.PROVIDER_OMP,
+            CommonConstants.PROVIDER_CODEX, CommonConstants.PROVIDER_GROK,
+            CommonConstants.PROVIDER_DSH, CommonConstants.PROVIDER_MINIMAX);
 
     @Override
     public UpstreamAction action() {
@@ -172,7 +178,7 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
             if (!payload.has("provider") || payload.get("provider").isJsonNull()) {
                 payload.addProperty("provider", provider);
             }
-            ctx.callJavaScript("window.setCliModels", ctx.escapeJs(GSON.toJson(payload)));
+            ctx.dispatchEvent(DownstreamEvent.CLI_MODELS_RESULT.value(), GSON.toJson(payload));
         } catch (Exception e) {
             LOG.warn("[CliModels] Failed for " + provider + ": " + e.getMessage(), e);
             pushError(ctx, provider, e.getMessage() != null ? e.getMessage() : "list models failed");
@@ -260,6 +266,6 @@ public final class GetCliModelsActionHandler implements FrontendActionHandler<St
         error.addProperty("provider", provider != null ? provider : "");
         error.addProperty("error", message != null ? message : "unknown error");
         error.add("models", GSON.toJsonTree(new ArrayList<String>()));
-        ctx.callJavaScript("window.setCliModels", ctx.escapeJs(GSON.toJson(error)));
+        ctx.dispatchEvent(DownstreamEvent.CLI_MODELS_RESULT.value(), GSON.toJson(error));
     }
 }

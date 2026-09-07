@@ -76,14 +76,15 @@ public class CliSessionManager {
     private final Map<String, CliSessionFactory> factories;
 
     /**
-     * 默认装配 Claude + Codex + OpenCode + Grok + Kimi + Pi 六个工厂。
+     * 默认装配全部内置 provider 的工厂(Claude + Codex + OpenCode + Grok + Kimi + Pi + OMP + DSH + MiniMax)。
      */
     public CliSessionManager() {
         this(List.of(new ClaudeCliSessionFactory(), new CodexCliSessionFactory(),
                 new OpenCodeCliSessionFactory(), new GrokCliSessionFactory(),
                 new KimiCliSessionFactory(), new PiCliSessionFactory(),
                 new com.github.claudecodegui.cli.omp.OmpCliSessionFactory(),
-                new com.github.claudecodegui.cli.dsh.DshCliSessionFactory()));
+                new com.github.claudecodegui.cli.dsh.DshCliSessionFactory(),
+                new com.github.claudecodegui.cli.minimax.MiniMaxCliSessionFactory()));
     }
 
     /**
@@ -110,6 +111,9 @@ public class CliSessionManager {
                 new com.github.claudecodegui.cli.omp.OmpCliSessionFactory(NodeService.getInstance(),
                         LifecycleObservabilityService.getInstance(project)),
                 new com.github.claudecodegui.cli.dsh.DshCliSessionFactory(NodeService.getInstance(),
+                        LifecycleObservabilityService.getInstance(project)),
+                new com.github.claudecodegui.cli.minimax.MiniMaxCliSessionFactory(
+                        McpGatewayService.getInstance(project),
                         LifecycleObservabilityService.getInstance(project))
         ));
     }

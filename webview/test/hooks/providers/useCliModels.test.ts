@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { __resetCliModelsCacheForTests, useCliModels, useOmpRoles } from '../../../src/hooks/providers/useCliModels';
 import { CODEX_MODELS, KIMI_MODELS, OMP_ROLE_MODELS } from '../../../src/components/ChatInputBox/types';
 import { installRuntimeProviderDispatchers } from '../../../src/utils/runtimeProviderCapabilities';
+import { bridgeHub } from '../../../src/bridge';
+import { DOWNSTREAM } from '../../../src/generated/protocol';
 
 const sendBridgeEventMock = vi.hoisted(() => vi.fn());
 
@@ -12,7 +14,7 @@ vi.mock('../../../src/utils/bridge', () => ({
 
 function emitCliModels(payload: unknown) {
   act(() => {
-    window.setCliModels?.(JSON.stringify(payload));
+    bridgeHub.dispatch(DOWNSTREAM.CLI_MODELS_RESULT, JSON.stringify(payload));
   });
 }
 
@@ -20,11 +22,13 @@ describe('useCliModels', () => {
   beforeEach(() => {
     sendBridgeEventMock.mockClear();
     __resetCliModelsCacheForTests();
+    bridgeHub.reset();
+    bridgeHub.markReady();
     installRuntimeProviderDispatchers();
   });
 
   afterEach(() => {
-    delete window.setCliModels;
+    bridgeHub.reset();
     __resetCliModelsCacheForTests();
     vi.useRealTimers();
   });
@@ -249,11 +253,13 @@ describe('useOmpRoles', () => {
   beforeEach(() => {
     sendBridgeEventMock.mockClear();
     __resetCliModelsCacheForTests();
+    bridgeHub.reset();
+    bridgeHub.markReady();
     installRuntimeProviderDispatchers();
   });
 
   afterEach(() => {
-    delete window.setCliModels;
+    bridgeHub.reset();
     __resetCliModelsCacheForTests();
     vi.useRealTimers();
   });
@@ -266,7 +272,7 @@ describe('useOmpRoles', () => {
     expect(result.current).toEqual(OMP_ROLE_MODELS);
   });
 
-  it('populates omp roles from the setCliModels payload', () => {
+  it('populates omp roles from the cli.models_result payload', () => {
     const { result } = renderHook(() => {
       useCliModels('omp');
       return useOmpRoles();

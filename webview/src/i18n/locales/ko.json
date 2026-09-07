@@ -1095,7 +1095,7 @@
       "tools": {
         "minimax": {
           "name": "MiniMax Code",
-          "description": "MiniMax 터미널 코딩 에이전트. Node.js 22.19+ / 24+ 필요(23 미지원); 명령: minimax / mcode"
+          "description": "MiniMax 터미널 코딩 에이전트. Node.js 22.19+ / 24+ 필요(23 미지원); 명령: mcode (minimax)"
         },
         "grok": {
           "name": "Grok CLI",

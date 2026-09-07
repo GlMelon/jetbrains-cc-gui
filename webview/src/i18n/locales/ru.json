@@ -1007,7 +1007,7 @@
       "tools": {
         "minimax": {
           "name": "MiniMax Code",
-          "description": "Терминальный кодинг-агент MiniMax. Требуется Node.js 22.19+ / 24+ (не 23); команды: minimax / mcode"
+          "description": "Терминальный кодинг-агент MiniMax. Требуется Node.js 22.19+ / 24+ (не 23); команды: mcode (minimax)"
         },
         "grok": {
           "name": "Grok CLI",

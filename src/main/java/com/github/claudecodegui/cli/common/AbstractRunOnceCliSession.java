@@ -79,6 +79,9 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     // 当前活跃进程(用于中断)
     private volatile CliProcessHandle activeHandle;
     private final AtomicBoolean userInterrupted = new AtomicBoolean(false);
+    // 完成标记行触发的主动终止(isCompletionMarkerLine 钩子):进程被杀死后的
+    // 非零退出码按正常完成处理(对称 ai-bridge shouldTerminate 抑制非零退出码)。
+    private volatile boolean terminatedOnCompletionMarker;
     // CLI 可执行解析器(懒初始化,npmDir 钩子依赖子类状态故不在构造期创建)
     private volatile ProviderCliResolver resolver;
 
@@ -108,6 +111,23 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     /** npm 全局结构下的包目录名,默认取裸名(grok/kimi/pi);opencode 为 "opencode-ai" 须覆写。 */
     protected String npmDir() {
         return providerType.cliCommand();
+    }
+
+    /**
+     * 备用 CLI 二进制名(如 minimax:主命令 {@code mcode},防御性回退 {@code minimax})。
+     * 默认 null;需要双名探测的 provider 覆写(透传给 {@link ProviderCliResolver})。
+     */
+    protected String altCliCommand() {
+        return null;
+    }
+
+    /**
+     * 完成标记行钩子:某些 CLI(mcode exec)在结果行后不退出、继续空转,需在看到结果行时
+     * 确定性终止进程树(对称 ai-bridge runCliStreaming 的 shouldTerminate)。命中后按
+     * 「正常完成」处理(杀死进程的非零退出码不计失败)。默认 false(无完成标记协议)。
+     */
+    protected boolean isCompletionMarkerLine(String line) {
+        return false;
     }
 
     /**
@@ -155,6 +175,7 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
     @Override
     public CompletableFuture<Void> send(CliSendRequest request, CliSessionCallback callback) {
         userInterrupted.set(false);
+        terminatedOnCompletionMarker = false;
         return CliSessionExecutor.runAsync(() -> {
             long sendStartNanos = System.nanoTime();
             List<File> tempFiles = new ArrayList<>();
@@ -340,9 +361,14 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                                             + ", elapsedMs=" + elapsedMillis(sendStartNanos)
                                             + ", thread=" + Thread.currentThread().getName());
                                 }
-                                processLine(lineBuf, parser, diagnostic);
+                                String line = processLine(lineBuf, parser, diagnostic);
                                 logTurnPerfMarkers(parser, sendStartNanos,
                                         firstProtocolEventLogged, firstContentEventLogged);
+                                if (line != null && isCompletionMarkerLine(line)) {
+                                    // mcode 类 CLI 结果行后不退出的确定性终止(进程树)。
+                                    terminatedOnCompletionMarker = true;
+                                    PlatformUtils.terminateProcess(process);
+                                }
                             } else {
                                 lineBuf.write(b);
                             }
@@ -386,6 +412,17 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
             // 从事件流捕获 session id(首轮提取后续接复用)
             if (parser.capturedSessionId() != null) {
                 sessionId = parser.capturedSessionId();
+            }
+
+            if (terminatedOnCompletionMarker && !parser.hasError()) {
+                // 完成标记行后进程被钩子确定性终止(退出码非零不代表失败,对称
+                // ai-bridge shouldTerminate 的退出码抑制);解析器已收齐 result。
+                if (!parser.streamEnded()) {
+                    callback.onMessage(CliConstants.MSG_STREAM_END, "");
+                    callback.onMessage(CliConstants.MSG_MESSAGE_END, "");
+                }
+                callback.onComplete(true, parser.accumulatedText(), null);
+                return false;
             }
 
             if (exitCode == 0 && !parser.hasError()) {
@@ -498,7 +535,7 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
         if (r == null) {
             synchronized (this) {
                 if (resolver == null) {
-                    resolver = new ProviderCliResolver(providerType, npmDir());
+                    resolver = new ProviderCliResolver(providerType, npmDir(), altCliCommand());
                 }
                 r = resolver;
             }
@@ -656,7 +693,7 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
         }
     }
 
-    private void processLine(CliOutputLimits.LineBuffer lineBuf, CliStreamParser parser, StringBuilder diagnostic) {
+    private String processLine(CliOutputLimits.LineBuffer lineBuf, CliStreamParser parser, StringBuilder diagnostic) {
         if (lineBuf.isTruncated()) {
             lineBuf.reset();
             throw new IllegalStateException("CLI stdout line exceeded " + CliOutputLimits.MAX_LINE_BYTES + " bytes");
@@ -668,13 +705,14 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
             len--;
         }
         if (len == 0) {
-            return;
+            return null;
         }
         String line = decodeLine(bytes, len);
         if (line == null || line.isBlank()) {
-            return;
+            return null;
         }
         dispatchLine(line, parser, diagnostic);
+        return line;
     }
 
     /**

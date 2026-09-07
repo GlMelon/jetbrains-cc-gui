@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "revision": 2026090401,
-  "generatedAt": "2026-09-04",
+  "revision": 2026090701,
+  "generatedAt": "2026-09-07",
   "providers": {
     "claude": {
       "minimumSupported": "0.0.0",
@@ -59,6 +59,13 @@
       "higherVersionPolicy": "WARN_ALLOW"
     },
     "dsh": {
+      "minimumSupported": "0.0.0",
+      "maximumTested": "0.0.0",
+      "blockedVersions": [],
+      "unknownVersionPolicy": "WARN_ALLOW",
+      "higherVersionPolicy": "WARN_ALLOW"
+    },
+    "minimax": {
       "minimumSupported": "0.0.0",
       "maximumTested": "0.0.0",
       "blockedVersions": [],

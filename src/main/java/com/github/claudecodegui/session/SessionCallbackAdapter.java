@@ -33,7 +33,8 @@ public class SessionCallbackAdapter implements ClaudeSession.SessionCallback {
         void callJavaScript(String functionName, String... args);
 
         /**
-         * 下行总线语义化入口。转义契约与 {@code HandlerContext.JsCallback#dispatchEvent}
+         * 下行总线语义化入口,session 域唯一直接调用 callJavaScript 的合法出口。
+         * 转义契约与 {@code HandlerContext.JsCallback#dispatchEvent}
          * 一致:payload 必须是未转义的原始字符串,由本出口统一 escapeJs;调用方禁止
          * 再手动转义(双转义会损坏 payload)。
          */

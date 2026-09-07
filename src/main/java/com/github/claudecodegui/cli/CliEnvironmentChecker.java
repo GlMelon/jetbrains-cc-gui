@@ -78,6 +78,18 @@ public class CliEnvironmentChecker {
             "DeepSeek Harness 命令行工具",
             "@deepseek-ai/dsh"
         ),
+        // minimax:MiniMax Code,官方安装器(~/.minimax-code)与 npm 官方包
+        // @minimax-ai/code 的 bin 均为 `mcode`(官方 install 脚本核实)。⚠️npm 上名为
+        // "mcode" 的是无关的 MSON Code 包(github.com/smizell/mcode),版本检查/一键安装
+        // 必须用 scoped 包名;探测主名 mcode、防御性回退 minimax(对齐 CliStatusDetector)。
+        new CliToolDefinition(
+            ProviderType.MINIMAX.value(),
+            "MiniMax Code CLI",
+            "MiniMax Code 命令行工具",
+            "@minimax-ai/code",
+            "mcode",
+            CliToolId.MINIMAX.getAltBinaryName()
+        ),
     };
 
     /**
@@ -149,8 +161,10 @@ public class CliEnvironmentChecker {
         );
 
         try {
-            // 1. 查找CLI可执行文件
-            String cliPath = findCliExecutable(tool.name);
+            // 1. 查找CLI可执行文件(先主探测名后别名,与 CliStatusDetector 的双名探测一致;
+            //    probeName 与 provider 标识解耦——如 minimax 的 provider id 是 "minimax"、
+            //    官方可执行名是 "mcode")
+            String cliPath = findCliExecutable(tool.probeName, tool.altName);
             
             if (cliPath == null) {
                 status.setInstalled(false);
@@ -197,11 +211,19 @@ public class CliEnvironmentChecker {
     }
 
     /**
-     * 查找CLI可执行文件
+     * 查找CLI可执行文件(先主名,未命中再探测别名;如 minimax → mcode)
      */
-    private String findCliExecutable(String cliName) {
+    private String findCliExecutable(String cliName, String altName) {
+        String path = findSingleName(cliName);
+        if (path == null && altName != null && !altName.isBlank()) {
+            path = findSingleName(altName);
+        }
+        return path;
+    }
+
+    private String findSingleName(String cliName) {
         String executableName = PlatformUtils.isWindows() ? cliName + ".cmd" : cliName;
-        
+
         // 1. 首先尝试在PATH中查找
         String pathResult = findInPath(executableName);
         if (pathResult != null) {
@@ -257,13 +279,16 @@ public class CliEnvironmentChecker {
             // Windows 目录
             String localAppData = System.getenv("LOCALAPPDATA");
             String appData = System.getenv("APPDATA");
-            
+
             if (localAppData != null) {
                 dirs.add(localAppData + "\\npm");
             }
             if (appData != null) {
                 dirs.add(appData + "\\npm");
             }
+            // minimax 官方安装器目录(install.ps1: %USERPROFILE%\.minimax-code,launcher 在根下)
+            String userHomeWin = PlatformUtils.getHomeDirectory();
+            dirs.add(userHomeWin + "\\.minimax-code");
             
             // Volta
             String voltaHome = System.getenv("VOLTA_HOME");
@@ -282,11 +307,13 @@ public class CliEnvironmentChecker {
             dirs.add(userHome + "/.npm-global/bin");
             dirs.add("/usr/local/bin");
             dirs.add("/usr/bin");
-            // omp/dsh 专属安装目录(与 CliStatusDetector 的目录表对齐;
-            // dsh 的 Hermes 原生安装器把 node + dsh 一起放在 .hermes/node/bin)
+            // omp/dsh/minimax 专属安装目录(与 CliStatusDetector 的目录表对齐;
+            // dsh 的 Hermes 原生安装器把 node + dsh 一起放在 .hermes/node/bin;
+            // minimax 官方安装器(install.sh)launcher 落在 ~/.minimax-code 根下)
             dirs.add(userHome + "/.omp/bin");
             dirs.add(userHome + "/.dsh/bin");
             dirs.add(userHome + "/.hermes/node/bin");
+            dirs.add(userHome + "/.minimax-code");
             
             // Volta
             dirs.add(userHome + "/.volta/bin");
@@ -512,12 +539,23 @@ public class CliEnvironmentChecker {
         public final String displayName;
         public final String description;
         public final String npmPackage;
+        /** 主探测可执行名(默认与 name 相同);如 minimax 的官方 bin 是 mcode。 */
+        public final String probeName;
+        /** 备用可执行名(防御性回退),如 minimax 的 minimax;可为 null。 */
+        public final String altName;
 
         public CliToolDefinition(String name, String displayName, String description, String npmPackage) {
+            this(name, displayName, description, npmPackage, name, null);
+        }
+
+        public CliToolDefinition(String name, String displayName, String description,
+                                 String npmPackage, String probeName, String altName) {
             this.name = name;
             this.displayName = displayName;
             this.description = description;
             this.npmPackage = npmPackage;
+            this.probeName = probeName;
+            this.altName = altName;
         }
     }
 }

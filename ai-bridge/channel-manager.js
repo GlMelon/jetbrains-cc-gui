@@ -20,9 +20,9 @@
  *   minimax  - MiniMax Code CLI (no SDK; spawns local `minimax` / mcode binary)
  *
  * Commands:
- *   send                - Send a message (parameters passed via stdin as JSON)
- *   sendWithAttachments - Send a message with attachments (claude only)
- *   getSession          - Retrieve session message history (claude/opencode)
+ *   The per-provider command whitelist lives in each channel descriptor
+ *   (`channels/<provider>-channel.js` → `commands`), routed by
+ *   `channels/provider-registry.js`. Do not duplicate the list here.
  *
  * Design notes:
  * - Single entry point that dispatches to different services based on the provider parameter

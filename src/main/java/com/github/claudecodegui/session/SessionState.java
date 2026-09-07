@@ -47,6 +47,8 @@ public class SessionState {
         // omp/dsh:上游 v0.5.4 新增的纯 CLI provider,纳入白名单供 setProvider 持久化。
         providers.add(CommonConstants.PROVIDER_OMP);
         providers.add(CommonConstants.PROVIDER_DSH);
+        // minimax:上游 v0.5.6 新增的纯 CLI provider,纳入白名单供 setProvider 持久化。
+        providers.add(CommonConstants.PROVIDER_MINIMAX);
         VALID_PROVIDERS = Collections.unmodifiableSet(providers);
     }
 

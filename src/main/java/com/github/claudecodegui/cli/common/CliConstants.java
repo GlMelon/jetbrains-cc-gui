@@ -388,6 +388,39 @@ public final class CliConstants {
     /** --thinking：思考级别（off/minimal/low/medium/high/xhigh/max），由 reasoningEffort 映射。 */
     public static final String PI_ARG_THINKING = "--thinking";
 
+    // ── MiniMax Code(mcode)CLI 参数 ─────────────────────────────────────────
+    // 命令布局(上游 ai-bridge/services/minimax/message-service.js 实测 mcode 0.2.x):
+    //   minimax exec --output-format stream-json --permission <ask|smart|full|off>
+    //        [--model <provider/model>] [--session <id>] [--cwd <dir>] "<prompt>"
+    // 事件流:delta(thinking/content/toolCalls status 1=start/2=done) /
+    // message(assistant.usage)/ exec.result(sessionId + status,"succeeded" 之外即失败)。
+    // exec.result 后 CLI 不退出,由会话层 isCompletionMarkerLine 钩子确定性终止。
+
+    /** exec 子命令:一次性执行。 */
+    public static final String MINIMAX_ARG_EXEC = "exec";
+    /** --output-format:输出格式声明。 */
+    public static final String MINIMAX_ARG_OUTPUT_FORMAT = "--output-format";
+    /** --output-format 值:stream-json NDJSON 事件流。 */
+    public static final String MINIMAX_FORMAT_STREAM_JSON = "stream-json";
+    /** --permission:权限策略(ask|smart|full|off;headless 不用 ask)。 */
+    public static final String MINIMAX_ARG_PERMISSION = "--permission";
+    /** --permission 值:bypassPermissions 映射(完全跳过审批)。 */
+    public static final String MINIMAX_PERMISSION_OFF = "off";
+    /** --permission 值:acceptEdits 映射(文件编辑自动批准)。 */
+    public static final String MINIMAX_PERMISSION_FULL = "full";
+    /** --permission 值:default/plan/auto 等其余模式的默认映射(CLI 智能审批)。 */
+    public static final String MINIMAX_PERMISSION_SMART = "smart";
+    /** --model:模型引用(minimax/<model> 或 custom_provider:<key>/<model>)。 */
+    public static final String MINIMAX_ARG_MODEL = "--model";
+    /** --file:附件路径(官方参数,可重复使用;图片/视频等多模态文件)。 */
+    public static final String MINIMAX_ARG_FILE = "--file";
+    /** --session:按既有会话 id 续接。 */
+    public static final String MINIMAX_ARG_SESSION = "--session";
+    /** --cwd:工作目录。 */
+    public static final String MINIMAX_ARG_CWD = "--cwd";
+    /** mcode stream-json 的完成标记行子串(结果行后 CLI 仍空转,据此确定性终止)。 */
+    public static final String MINIMAX_COMPLETION_MARKER = "\"type\":\"exec.result\"";
+
     // ── Sandbox 模式值 ─────────────────────────────────────────────────────────
 
     public static final String SANDBOX_READ_ONLY = "read-only";

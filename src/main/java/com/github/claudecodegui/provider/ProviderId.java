@@ -13,6 +13,7 @@ public record ProviderId(String value) {
     public static final ProviderId PI = new ProviderId(CommonConstants.PROVIDER_PI);
     public static final ProviderId OMP = new ProviderId(CommonConstants.PROVIDER_OMP);
     public static final ProviderId DSH = new ProviderId(CommonConstants.PROVIDER_DSH);
+    public static final ProviderId MINIMAX = new ProviderId(CommonConstants.PROVIDER_MINIMAX);
 
     public ProviderId {
         value = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);

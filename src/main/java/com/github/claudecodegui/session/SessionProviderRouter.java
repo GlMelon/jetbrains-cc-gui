@@ -77,7 +77,11 @@ public class SessionProviderRouter {
                     }
                 }),
                 new CliOnlyProviderAdapter(ProviderId.DSH, "DeepSeek Harness", (sessionId, cwd) ->
-                        dshReader.getSessionMessages(sessionId, cwd))
+                        dshReader.getSessionMessages(sessionId, cwd)),
+                // MiniMax:本地 v2 snapshot 落盘(MiniMaxHistoryReader);分页 loader 暂不注入
+                //(omp/dsh 同款 backlog:消息形状的轮边界判定未验证)。
+                new CliOnlyProviderAdapter(ProviderId.MINIMAX, "MiniMax",
+                        NativeCliHistoryReaders.minimax()::read)
         );
     }
 

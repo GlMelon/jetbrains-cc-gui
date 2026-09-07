@@ -999,7 +999,7 @@
       "tools": {
         "minimax": {
           "name": "MiniMax Code",
-          "description": "Agent de code en terminal de MiniMax. Nécessite Node.js 22.19+ / 24+ (pas 23) ; commandes : minimax / mcode"
+          "description": "Agent de code en terminal de MiniMax. Nécessite Node.js 22.19+ / 24+ (pas 23) ; commandes : mcode (minimax)"
         },
         "grok": {
           "name": "Grok CLI",

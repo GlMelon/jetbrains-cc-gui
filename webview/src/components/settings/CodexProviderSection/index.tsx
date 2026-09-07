@@ -1,6 +1,6 @@
-import { sendAction } from '../../../bridge/typed';
+import { sendAction, subscribeEvent } from '../../../bridge/typed';
 import { BanIcon, CheckIcon, EditIcon, GripIcon, InfoIcon, KeyIcon, PlusIcon, PowerIcon, TrashIcon } from '../../Icons';;
-import { UPSTREAM } from '../../../generated/protocol';
+import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
 import { useTranslation } from 'react-i18next';
@@ -92,19 +92,19 @@ const CodexProviderSection = ({
       }
     };
 
-    // Register Codex-scoped global callbacks for Java invocation
-    window.codex_import_preview_result = (dataOrStr) => {
+    // [归一化] codex_import_preview_result → provider.codex_import_preview(转发为 CustomEvent,保持既有监听者)
+    const unsubImportPreview = subscribeEvent(DOWNSTREAM.CODEX_IMPORT_PREVIEW, (dataOrStr) => {
       let data: unknown = dataOrStr;
       if (typeof data === 'string') {
         try {
           data = JSON.parse(data);
         } catch (e) {
-          console.error('Failed to parse codex_import_preview_result data:', e);
+          console.error('Failed to parse codex.import_preview data:', e);
         }
       }
       const event = new CustomEvent('codex_import_preview_result', { detail: data });
       window.dispatchEvent(event);
-    };
+    });
 
     window.codex_cc_switch_notification = (...args: unknown[]) => {
       let data: any = {};
@@ -143,7 +143,7 @@ const CodexProviderSection = ({
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('codex_import_preview_result', handleImportPreview as EventListener);
       window.removeEventListener('codex_cc_switch_notification', handleImportNotification as EventListener);
-      delete window.codex_import_preview_result;
+      unsubImportPreview();
       delete window.codex_cc_switch_notification;
     };
   }, [addToast]);

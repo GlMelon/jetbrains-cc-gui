@@ -30,7 +30,8 @@ final class HistoryProviderRegistry {
                 new KimiHistoryProviderAdapter(),
                 new PiHistoryProviderAdapter(),
                 new OmpHistoryProviderAdapter(),
-                new DshHistoryProviderAdapter()
+                new DshHistoryProviderAdapter(),
+                new MiniMaxHistoryProviderAdapter()
         ));
     }
 

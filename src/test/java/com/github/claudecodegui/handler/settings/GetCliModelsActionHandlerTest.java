@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler.settings;
 import com.github.claudecodegui.handler.core.FrontendActionDispatcher;
 import com.github.claudecodegui.handler.core.FrontendActionHandler;
 import com.github.claudecodegui.handler.core.HandlerContext;
+import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.protocol.UpstreamAction;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonObject;
@@ -31,12 +32,12 @@ public class GetCliModelsActionHandlerTest {
     /** 捕获回推 JS 的 fake callback。 */
     private static class CapturingCallback implements HandlerContext.JsCallback {
         final AtomicReference<String> function = new AtomicReference<>();
-        final AtomicReference<String> arg = new AtomicReference<>();
+        final AtomicReference<String[]> args = new AtomicReference<>();
 
         @Override
         public void callJavaScript(String functionName, String... args) {
             function.set(functionName);
-            arg.set(args != null && args.length > 0 ? args[0] : null);
+            this.args.set(args);
         }
 
         @Override
@@ -62,10 +63,12 @@ public class GetCliModelsActionHandlerTest {
 
         assertTrue(dispatcher.dispatch("get_cli_models", "not-a-provider"));
 
-        assertEquals("window.setCliModels", callback.function.get());
-        String payload = callback.arg.get();
-        assertNotNull(payload);
-        JsonObject json = GsonHolder.GSON.fromJson(payload, JsonObject.class);
+        assertEquals("window.__bridge.dispatch", callback.function.get());
+        String[] args = callback.args.get();
+        assertNotNull(args);
+        assertEquals(2, args.length);
+        assertEquals(DownstreamEvent.CLI_MODELS_RESULT.value(), args[0]);
+        JsonObject json = GsonHolder.GSON.fromJson(args[1], JsonObject.class);
         assertEquals(false, json.get("success").getAsBoolean());
         assertEquals("not-a-provider", json.get("provider").getAsString());
         assertTrue(json.get("error").getAsString().contains("Unsupported CLI provider"));
@@ -74,7 +77,7 @@ public class GetCliModelsActionHandlerTest {
 
     /**
      * spawn 链路关键要素契约:七家 provider 全支持、channel-manager listModels 命令、
-     * 经 window.setCliModels 回推(与前端 useCliModels 的 setCliModels 回填约定)。
+     * 经 cli.models_result 下行事件回推(与前端 useCliModels 的 subscribeEvent 约定)。
      */
     @Test
     public void spawnPathContract() throws Exception {
@@ -88,7 +91,7 @@ public class GetCliModelsActionHandlerTest {
         }
         assertTrue(text.contains("channel-manager.js"));
         assertTrue(text.contains("\"listModels\""));
-        assertTrue(text.contains("window.setCliModels"));
+        assertTrue(text.contains("dispatchEvent(DownstreamEvent.CLI_MODELS_RESULT.value()"));
         assertTrue(text.contains("AppExecutorUtil.getAppExecutorService()"));
     }
 }

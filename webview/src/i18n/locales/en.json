@@ -898,7 +898,7 @@
       "tools": {
         "minimax": {
           "name": "MiniMax Code",
-          "description": "MiniMax terminal coding agent. Requires Node.js 22.19+ / 24+ (not 23); commands: minimax / mcode"
+          "description": "MiniMax terminal coding agent. Requires Node.js 22.19+ / 24+ (not 23); commands: mcode (minimax)"
         },
         "grok": {
           "name": "Grok CLI",
