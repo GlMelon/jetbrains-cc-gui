@@ -140,6 +140,12 @@ function petErrorDescriptor(error: string): { key: string; params?: Record<strin
 function normalizeAliasDraft(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
 }
+// Number('abc') is NaN — fall back to the previous config value when the
+// input can't be parsed. Empty string stays 0 so the field remains editable.
+function parseNumericInput(raw: string, fallback: number): number {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
 
 function normalizeCatalogQuery(value: string): string {
   return value.trim().toLowerCase().slice(0, MAX_CATALOG_QUERY_LENGTH);
@@ -399,7 +405,7 @@ function SearchablePetSelect({
                 } else if (event.key === 'ArrowUp') {
                   event.preventDefault();
                   setActiveIndex((current) => Math.max(0, current - 1));
-                } else if (event.key === 'Enter' && filteredOptions[activeIndex]) {
+                } else if (event.key === 'Enter' && !event.nativeEvent.isComposing && filteredOptions[activeIndex]) {
                   event.preventDefault();
                   selectOption(filteredOptions[activeIndex]);
                 }
@@ -948,7 +954,7 @@ export default function PetSettingsSection({ addToast }: PetSettingsSectionProps
                           })}
                           onChange={(event) => setAliasDraft(event.target.value)}
                           onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
+                            if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
                               event.preventDefault();
                               saveAlias(aliasDraft);
                             }
@@ -1183,10 +1189,10 @@ export default function PetSettingsSection({ addToast }: PetSettingsSectionProps
                     max="20"
                     value={config.bubbleDurationSeconds}
                     onChange={(event) => updateConfigDraft({
-                      bubbleDurationSeconds: Number(event.target.value),
+                      bubbleDurationSeconds: parseNumericInput(event.target.value, config.bubbleDurationSeconds),
                     })}
                     onBlur={(event) => updateConfig({
-                      bubbleDurationSeconds: Number(event.currentTarget.value),
+                      bubbleDurationSeconds: parseNumericInput(event.currentTarget.value, config.bubbleDurationSeconds),
                     })}
                   />
                 </label>
@@ -1381,10 +1387,10 @@ export default function PetSettingsSection({ addToast }: PetSettingsSectionProps
                     max="300"
                     value={config.petdexConnectTimeoutSeconds}
                     onChange={(event) => updateConfigDraft({
-                      petdexConnectTimeoutSeconds: Number(event.target.value),
+                      petdexConnectTimeoutSeconds: parseNumericInput(event.target.value, config.petdexConnectTimeoutSeconds),
                     })}
                     onBlur={(event) => updateConfig({
-                      petdexConnectTimeoutSeconds: Number(event.currentTarget.value),
+                      petdexConnectTimeoutSeconds: parseNumericInput(event.currentTarget.value, config.petdexConnectTimeoutSeconds),
                     })}
                   />
                 </label>
@@ -1396,10 +1402,10 @@ export default function PetSettingsSection({ addToast }: PetSettingsSectionProps
                     max="300"
                     value={config.petdexRequestTimeoutSeconds}
                     onChange={(event) => updateConfigDraft({
-                      petdexRequestTimeoutSeconds: Number(event.target.value),
+                      petdexRequestTimeoutSeconds: parseNumericInput(event.target.value, config.petdexRequestTimeoutSeconds),
                     })}
                     onBlur={(event) => updateConfig({
-                      petdexRequestTimeoutSeconds: Number(event.currentTarget.value),
+                      petdexRequestTimeoutSeconds: parseNumericInput(event.currentTarget.value, config.petdexRequestTimeoutSeconds),
                     })}
                   />
                 </label>
@@ -1411,10 +1417,10 @@ export default function PetSettingsSection({ addToast }: PetSettingsSectionProps
                     max="10"
                     value={config.petdexRetryAttempts}
                     onChange={(event) => updateConfigDraft({
-                      petdexRetryAttempts: Number(event.target.value),
+                      petdexRetryAttempts: parseNumericInput(event.target.value, config.petdexRetryAttempts),
                     })}
                     onBlur={(event) => updateConfig({
-                      petdexRetryAttempts: Number(event.currentTarget.value),
+                      petdexRetryAttempts: parseNumericInput(event.currentTarget.value, config.petdexRetryAttempts),
                     })}
                   />
                 </label>

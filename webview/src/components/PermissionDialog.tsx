@@ -35,8 +35,10 @@ const formatInputValue = (value: unknown): string => {
   }
   if (Array.isArray(value)) {
     return value
-      .map((item) => formatInputValue(item))
-      .filter(Boolean)
+      .flatMap((item) => {
+        const text = formatInputValue(item);
+        return text ? [text] : [];
+      })
       .join('\n');
   }
   if (typeof value === 'object') {

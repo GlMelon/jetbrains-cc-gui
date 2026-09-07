@@ -20,6 +20,24 @@ interface SkillToggleResult {
   conflict?: boolean;
 }
 
+// Icon colors
+const ICON_COLORS = [
+  '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B',
+  '#EF4444', '#EC4899', '#06B6D4', '#6366F1',
+];
+
+function getIconColor(skillId: string): string {
+  let hash = 0;
+  for (let i = 0; i < skillId.length; i++) {
+    hash = skillId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return ICON_COLORS[Math.abs(hash) % ICON_COLORS.length];
+}
+
+function getSkillIconStyle(skillId: string, enabled: boolean): React.CSSProperties {
+  return { color: enabled ? getIconColor(skillId) : 'var(--text-tertiary)' };
+}
+
 /**
  * Skills settings component
  * Manages Claude/Codex Skills
@@ -124,24 +142,6 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     for (const s of allSkillList) if (s.enabled) enabled++;
     return { enabledCount: enabled, disabledCount: allSkillList.length - enabled };
   }, [allSkillList]);
-
-  // Icon colors
-  const iconColors = [
-    '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B',
-    '#EF4444', '#EC4899', '#06B6D4', '#6366F1',
-  ];
-
-  const getIconColor = (skillId: string): string => {
-    let hash = 0;
-    for (let i = 0; i < skillId.length; i++) {
-      hash = skillId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return iconColors[Math.abs(hash) % iconColors.length];
-  };
-
-  const getSkillIconStyle = (skillId: string, enabled: boolean): React.CSSProperties => ({
-    color: enabled ? getIconColor(skillId) : 'var(--text-tertiary)',
-  });
 
   const loadSkills = useCallback(() => {
     setLoading(true);

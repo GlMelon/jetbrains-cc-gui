@@ -50,8 +50,7 @@ const extractToolResultText = (result?: ToolResultBlock | null): string | undefi
 
   if (Array.isArray(result.content)) {
     const text = result.content
-      .map((item) => (item && typeof item.text === 'string' ? item.text : ''))
-      .filter(Boolean)
+      .flatMap((item) => (item && typeof item.text === 'string' && item.text ? [item.text] : []))
       .join('\n');
     return text || undefined;
   }

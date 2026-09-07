@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
+import { m, useMotionValue, useReducedMotion, useSpring, useTransform } from "motion/react";
 
 function getStaticTokenStyle(token, height) {
   if (token === ".") {
@@ -36,7 +36,7 @@ function RollingDigit({ mv, digit, height }) {
   });
 
   return (
-    <motion.span
+    <m.span
       style={{
         position: "absolute",
         inset: 0,
@@ -47,7 +47,7 @@ function RollingDigit({ mv, digit, height }) {
       }}
     >
       {digit}
-    </motion.span>
+    </m.span>
   );
 }
 

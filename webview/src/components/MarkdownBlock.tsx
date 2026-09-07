@@ -245,7 +245,10 @@ function safeStringifyContent(value: unknown): string {
     return String(value);
   }
   if (Array.isArray(value)) {
-    return value.map((item) => safeStringifyContent(item)).filter(Boolean).join('\n');
+    return value.flatMap((item) => {
+      const text = safeStringifyContent(item);
+      return text ? [text] : [];
+    }).join('\n');
   }
   if (typeof value === 'object') {
     const record = value as Record<string, unknown>;

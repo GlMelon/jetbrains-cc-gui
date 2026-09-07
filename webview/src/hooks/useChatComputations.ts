@@ -237,10 +237,7 @@ export function useChatComputations({
   // a text-only new turn must not temporarily revive a previous turn's plan.
   // Settled/history views scan the full transcript for Claude; Codex is always
   // narrowed to its latest user turn inside deriveTodosForTurn.
-  const todoScopeMessages = useMemo(
-    () => (streamingActive ? latestTurnMessages : messages),
-    [streamingActive, latestTurnMessages, messages],
-  );
+  const todoScopeMessages = streamingActive ? latestTurnMessages : messages;
 
   const extractedSubagents = useSubagents({
     messages: currentProvider === 'codex' ? messages : statusScopeMessages,

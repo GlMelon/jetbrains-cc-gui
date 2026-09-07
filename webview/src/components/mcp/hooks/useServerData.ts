@@ -20,10 +20,11 @@ function normalizeServerKey(value: string | undefined): string {
 
 function getTerminalStatusNames(statusList: McpServerStatusInfo[]): Set<string> {
   return new Set(
-    statusList
-      .filter((status) => TERMINAL_DISCONNECT_STATUSES.has(status.status))
-      .map((status) => normalizeServerKey(status.name))
-      .filter(Boolean),
+    statusList.flatMap((status) => {
+      if (!TERMINAL_DISCONNECT_STATUSES.has(status.status)) return [];
+      const name = normalizeServerKey(status.name);
+      return name ? [name] : [];
+    }),
   );
 }
 
@@ -213,7 +214,16 @@ export function useServerData({
       if (hasValidCache) {
         setServers(cachedServers);
         setLoading(false);
-        const cacheAge = Date.now() - (JSON.parse(localStorage.getItem(cacheKeys.SERVERS) || '{}').timestamp || 0);
+        let cachedAt = 0;
+        try {
+          const parsed: unknown = JSON.parse(localStorage.getItem(cacheKeys.SERVERS) || '{}');
+          if (parsed && typeof parsed === 'object' && 'timestamp' in parsed && typeof parsed.timestamp === 'number') {
+            cachedAt = parsed.timestamp;
+          }
+        } catch {
+          // Malformed cache payload — treat as cache with no timestamp.
+        }
+        const cacheAge = Date.now() - cachedAt;
         if (cacheAge < 60000) {
           onLog(t('mcp.logs.fastLoadCache', { count: cachedServers.length, seconds: Math.round(cacheAge/1000) }), 'info');
         }

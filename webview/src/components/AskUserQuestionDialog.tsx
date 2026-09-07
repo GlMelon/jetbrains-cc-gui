@@ -45,16 +45,14 @@ function normalizeQuestion(raw: any): Question | null {
   const header = typeof raw.header === 'string' ? raw.header : '';
   const multiSelect = typeof raw.multiSelect === 'boolean' ? raw.multiSelect : false;
   const rawOptions = Array.isArray(raw.options) ? raw.options : (Array.isArray(raw.choices) ? raw.choices : []);
-  const options: QuestionOption[] = rawOptions
-    .map((opt: any): QuestionOption | null => {
-      if (typeof opt === 'string') return { label: opt, description: '' };
-      if (!opt || typeof opt !== 'object') return null;
-      const label = typeof opt.label === 'string' ? opt.label : (typeof opt.value === 'string' ? opt.value : '');
-      const description = typeof opt.description === 'string' ? opt.description : '';
-      if (!label) return null;
-      return { label, description };
-    })
-    .filter(Boolean) as QuestionOption[];
+  const options: QuestionOption[] = rawOptions.flatMap((opt: any): QuestionOption[] => {
+    if (typeof opt === 'string') return [{ label: opt, description: '' }];
+    if (!opt || typeof opt !== 'object') return [];
+    const label = typeof opt.label === 'string' ? opt.label : (typeof opt.value === 'string' ? opt.value : '');
+    const description = typeof opt.description === 'string' ? opt.description : '';
+    if (!label) return [];
+    return [{ label, description }];
+  });
   if (!questionText) return null;
   return { question: questionText, header, options, multiSelect };
 }
@@ -86,8 +84,10 @@ const AskUserQuestionDialog = ({
     onTimeout: handleTimeout,
   });
   const normalizedQuestions = (Array.isArray(request?.questions) ? request!.questions : [])
-    .map(normalizeQuestion)
-    .filter(Boolean) as Question[];
+    .flatMap((raw) => {
+      const question = normalizeQuestion(raw);
+      return question === null ? [] : [question];
+    });
   const isCodexRequest = request?.provider === 'codex' || request?.toolName === 'request_user_input';
   const dialogTitle = isCodexRequest
     ? t('askUserQuestion.codexTitle', 'Codex 有一些问题想问你')
@@ -102,8 +102,10 @@ const AskUserQuestionDialog = ({
   useEffect(() => {
     if (isOpen && request) {
       const questions = (Array.isArray(request.questions) ? request.questions : [])
-        .map(normalizeQuestion)
-        .filter(Boolean) as Question[];
+        .flatMap((raw) => {
+          const question = normalizeQuestion(raw);
+          return question === null ? [] : [question];
+        });
 
       const initialAnswers: Record<string, Set<string>> = {};
       const initialCustomInputs: Record<string, string> = {};

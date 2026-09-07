@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import { Maximize2 } from "lucide-react";
 import { copy, getCopyLocale } from "../../../lib/copy";
 import { cn } from "../../../lib/cn";
@@ -220,7 +220,7 @@ const TrendBar = React.memo(function TrendBar({
   const renderFlat = kind !== "real" || totalSegmentsValue <= 0;
 
   return (
-    <motion.div
+    <m.div
       className="group relative flex-1 self-stretch"
       initial={{ opacity: 0, scaleY: 0 }}
       animate={{ opacity: 1, scaleY: 1 }}
@@ -277,7 +277,7 @@ const TrendBar = React.memo(function TrendBar({
           })
         )}
       </div>
-    </motion.div>
+    </m.div>
   );
 });
 

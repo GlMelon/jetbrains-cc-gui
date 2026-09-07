@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import { Info, SquareArrowOutUpRight } from "lucide-react";
+
+// Hoisted so destructuring defaults don't create a fresh reference per render.
+const EMPTY_LIST = [];
 
 // Solid (fill-based) monochrome all-tools mark — matches the fill-based
 // mono provider icons, unlike lucide's stroke-only Layers3. Drawn bold and
@@ -132,7 +135,7 @@ function RefreshButton({ loading, onClick }) {
       aria-label={copy("usage.button.refresh")}
       className="w-8 p-0"
     >
-      <motion.span
+      <m.span
         aria-hidden="true"
         animate={loading ? { rotate: 360 } : { rotate: 0 }}
         transition={
@@ -143,7 +146,7 @@ function RefreshButton({ loading, onClick }) {
         style={{ display: "inline-block" }}
       >
         ↻
-      </motion.span>
+      </m.span>
     </Button>
   );
 }
@@ -189,7 +192,7 @@ export function UsageOverview({
   summaryLabel,
   summaryCostValue,
   onCostInfo,
-  fleetData = [],
+  fleetData = EMPTY_LIST,
   onRefresh,
   loading,
   announceLoading = false,
@@ -205,7 +208,7 @@ export function UsageOverview({
   onOpenShare,
   from,
   to,
-  deviceOptions = [],
+  deviceOptions = EMPTY_LIST,
   selectedDevice = "",
   onDeviceChange,
 }) {
@@ -483,7 +486,7 @@ export function UsageOverview({
                 const displayLabel = formatProviderDisplayName(provider.label);
                 const percentLabel = formatProviderPercent(provider);
                 return (
-                  <motion.div
+                  <m.div
                     key={provider.label}
                     initial={{ width: 0 }}
                     animate={{ width: `${getProviderPercentValue(provider)}%` }}

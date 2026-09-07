@@ -90,9 +90,9 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
       const totalPercentRaw = grandTotal > 0 ? (entry.totalTokens / grandTotal) * 100 : 0;
       const totalPercent = Number.isFinite(totalPercentRaw) ? totalPercentRaw.toFixed(2) : "0.00";
       const models = entry.models
-        .map((model: any) => {
+        .flatMap((model: any) => {
           const modelTokens = resolveDisplayTokens(model?.totals);
-          if (!Number.isFinite(modelTokens) || modelTokens <= 0) return null;
+          if (!Number.isFinite(modelTokens) || modelTokens <= 0) return [];
           const share =
             entry.totalTokens > 0 ? Math.round((modelTokens / entry.totalTokens) * 1000) / 10 : 0;
           const name = resolveModelName(model, safeCopy("shared.placeholder.short"));
@@ -104,9 +104,8 @@ export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) 
               : entry.totalCost > 0 && entry.totalTokens > 0
                 ? (modelTokens / entry.totalTokens) * entry.totalCost
                 : null;
-          return { id, name, share, usage: modelTokens, cost: modelCost };
-        })
-        .filter(Boolean);
+          return [{ id, name, share, usage: modelTokens, cost: modelCost }];
+        });
       // Input-side cache hit rate = cache reads / all input-side tokens
       // (non-cached input + cache reads + cache writes). cached_input_tokens are
       // reads, cache_creation_input_tokens are writes. null when the source does

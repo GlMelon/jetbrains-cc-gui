@@ -636,7 +636,7 @@ export function DashboardPage({ baseUrl, onMainContentVisible }) {
       ? userStatus.subscriptions.items
       : [];
     const normalized = rows
-      .map((row) => {
+      .flatMap((row) => {
         const tool = typeof row?.tool === "string" ? row.tool.trim() : "";
         const planTypeRaw =
           typeof row?.plan_type === "string"
@@ -645,8 +645,8 @@ export function DashboardPage({ baseUrl, onMainContentVisible }) {
               ? row.planType
               : "";
         const planType = planTypeRaw.trim();
-        if (!tool || !planType) return null;
-        return {
+        if (!tool || !planType) return [];
+        return [{
           tool,
           planType,
           provider: typeof row?.provider === "string" ? row.provider.trim() : "",
@@ -657,9 +657,8 @@ export function DashboardPage({ baseUrl, onMainContentVisible }) {
               : typeof row?.rateLimitTier === "string"
                 ? row.rateLimitTier.trim()
                 : "",
-        };
-      })
-      .filter(Boolean);
+        }];
+      });
     return normalized.slice(0, 6);
   }, [userStatus]);
 
