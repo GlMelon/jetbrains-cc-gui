@@ -13,7 +13,7 @@ import {
   OPENCODE_MODELS,
   PI_MODELS,
 } from '../../components/ChatInputBox/types';
-import { isCliOnlyProvider } from './cliProviders';
+import { DYNAMIC_MODEL_PROVIDERS } from './cliProviders';
 import { subscribeActiveCodexProvider } from '../../utils/runtimeProviderCapabilities';
 
 type CliModelsByProvider = Record<string, ModelInfo[]>;
@@ -72,12 +72,11 @@ function fallbackModels(providerId: string): ModelInfo[] {
 
 /**
  * Providers whose model list is discovered dynamically via `get_cli_models`.
- * Codex is included even though it is not a CLI-only provider: its list comes
- * from ~/.codex/config.toml + model_catalog_json, same as the codex CLI picker.
+ * 消费 cliProviders 的 dynamicModels 分类(SSOT 派生,含 codex:目录来自
+ * ~/.codex/config.toml + model_catalog_json,同 codex CLI picker)。
  */
 function supportsDynamicModels(providerId: string): boolean {
-  if (providerId === 'codex') return true;
-  return isCliOnlyProvider(providerId);
+  return DYNAMIC_MODEL_PROVIDERS.has(providerId);
 }
 
 function normalizeModels(raw: unknown): ModelInfo[] {
