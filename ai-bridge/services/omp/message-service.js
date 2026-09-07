@@ -95,7 +95,7 @@ function extractToolResultText(result) {
   }
 }
 
-function buildOmpArgs({ message, sessionId, model, reasoningEffort, thinkingOutputEnabled = true }) {
+export function buildOmpArgs({ message, sessionId, model, reasoningEffort, thinkingOutputEnabled = true }) {
   const args = ['--print', '--mode', 'json'];
   // The webview maps omp modes (smol/slow/plan) onto the model value itself —
   // omp resolves role names passed to --model, so no separate mode handling.

@@ -101,7 +101,7 @@ async function ensureSession(settings, workCwd, incomingSessionId) {
 }
 
 /** Model selection — only when the composer picked an explicit tuple. */
-async function applyModelSelection(client, sessionId, model, reasoningEffort) {
+export async function applyModelSelection(client, sessionId, model, reasoningEffort) {
   const tuple = splitModelTuple(model);
   if (!tuple || !tuple.provider || !tuple.model) {
     return;
