@@ -83,7 +83,7 @@ final class ClaudePersistentSendPath {
         String fingerprint = buildFingerprint(request, addDirs, mcpConfigFilePath, gatewayEndpoint);
         List<String> command = ClaudeCliSession.buildCommand(
                 cliPath, request, addDirs, profile, hasMcpServers, mcpConfigFilePath,
-                session.getSessionId(), true);
+                session.getSessionId(), true, useGateway);
         LOG.info("[ClaudePersistentSendPath][" + session.tabId() + "] persistent spec: fingerprint="
                 + fingerprint + ", cwd=" + request.cwd());
         return new CliProcessSpec(fingerprint, command, env, resolveSpawnCwd(request),

@@ -211,7 +211,8 @@ public class ClaudeCliSession implements CliSession {
                 profile,
                 useGateway || mcpConfig.hasServers(),
                 useGateway ? gatewayConfig.configPath().toAbsolutePath().toString() : mcpConfig.getConfigFilePath(),
-                sessionId
+                sessionId,
+                useGateway
         );
     }
 
@@ -228,9 +229,26 @@ public class ClaudeCliSession implements CliSession {
                 mcpConfigFilePath, currentSessionId, false);
     }
 
+    static List<String> buildCommand(
+            String cliPath,
+            CliSendRequest request,
+            List<String> addDirs,
+            ClaudeCliModelResolver.ResolvedModel profile,
+            boolean hasMcpServers,
+            String mcpConfigFilePath,
+            String currentSessionId,
+            boolean strictMcpConfig
+    ) {
+        return buildCommand(cliPath, request, addDirs, profile, hasMcpServers,
+                mcpConfigFilePath, currentSessionId, false, strictMcpConfig);
+    }
+
     /**
      * 命令构建完整版。{@code streamJsonInput}=true 时额外加 {@code --input-format stream-json},
      * 供长驻模式使用(stdin 走 stream-json user 消息行,保留 -p)。
+     * {@code strictMcpConfig}=true(gateway 聚合启用)时额外加 {@code --strict-mcp-config}:
+     * 只用 --mcp-config 的 gateway 入口,settings.json 的真实 server 不再直连加载
+     * (对齐 codex/opencode 的"禁真实 server + gateway 聚合",2026-09-07 延迟排查 §5.1)。
      */
     static List<String> buildCommand(
             String cliPath,
@@ -240,7 +258,8 @@ public class ClaudeCliSession implements CliSession {
             boolean hasMcpServers,
             String mcpConfigFilePath,
             String currentSessionId,
-            boolean streamJsonInput
+            boolean streamJsonInput,
+            boolean strictMcpConfig
     ) {
         List<String> cmd = new ArrayList<>();
         cmd.add(cliPath);
@@ -275,6 +294,9 @@ public class ClaudeCliSession implements CliSession {
         if (profile.capabilities().supportsMcp() && hasMcpServers) {
             cmd.add(CliConstants.ARG_MCP_CONFIG);
             cmd.add(mcpConfigFilePath);
+            if (strictMcpConfig) {
+                cmd.add(CliConstants.ARG_STRICT_MCP_CONFIG);
+            }
         }
 
         // 附件父目录授权，使 Claude 可以读取持久化目录下的图片

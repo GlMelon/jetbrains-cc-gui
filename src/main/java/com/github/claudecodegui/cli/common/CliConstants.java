@@ -219,6 +219,8 @@ public final class CliConstants {
     public static final String ARG_MODEL = "--model";
     public static final String ARG_EFFORT = "--effort";
     public static final String ARG_MCP_CONFIG = "--mcp-config";
+    /** 只用 --mcp-config 指定的 MCP 配置,忽略 settings.json 等其他来源(gateway 聚合时对齐 codex/opencode)。 */
+    public static final String ARG_STRICT_MCP_CONFIG = "--strict-mcp-config";
     public static final String ARG_ADD_DIR = "--add-dir";
     public static final String ARG_RESUME = "--resume";
     public static final String ARG_REWIND_FILES = "--rewind-files";

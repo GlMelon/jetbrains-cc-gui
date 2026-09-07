@@ -10,7 +10,8 @@ import java.util.Map;
  * <p>三种注入机制(按 provider,2026-09 起统一为 Streamable HTTP url 直连,替代 stdio 代理进程):
  * <ul>
  *   <li><b>Claude</b>:文件机制 —— {@link #configPath()} 指向 mcp-gateway.json
- *       ({@code type:"http"} + url + {@code ${MELON_MCP_GATEWAY_TOKEN}} header 引用),经 {@code --mcp-config} 加载。</li>
+ *       ({@code type:"http"} + url + {@code ${MELON_MCP_GATEWAY_TOKEN}} header 引用),经 {@code --mcp-config}
+ *       加载;gateway 启用时另加 {@code --strict-mcp-config},真实 server 只经 gateway 聚合。</li>
  *   <li><b>Codex</b>:命令行覆盖 —— {@link #overrideArgs()} 是 {@code -c key=value} 扁平列表
  *       (melon_gateway 的 url + bearer_token_env_var + enabled,再逐个禁真实 server),argv 直传。</li>
  *   <li><b>OpenCode</b>:env 内联 —— {@link #environment()} 含 {@code OPENCODE_CONFIG_CONTENT}

@@ -21,7 +21,9 @@ import java.util.Map;
  *
  * <ul>
  *   <li><b>Claude</b>:写额外 {@code mcp-gateway.json}({@code type:"http"} + url + headers
- *       {@code Authorization: Bearer ${MELON_MCP_GATEWAY_TOKEN}} 变量引用),命令行 {@code --mcp-config} 加载。</li>
+ *       {@code Authorization: Bearer ${MELON_MCP_GATEWAY_TOKEN}} 变量引用),命令行 {@code --mcp-config} 加载;
+ *       gateway 启用时命令行另加 {@code --strict-mcp-config}(ClaudeCliSession.buildCommand),
+ *       settings.json 的真实 server 不再直连加载,对齐 Codex/OpenCode 的聚合语义。</li>
  *   <li><b>Codex</b>:{@code -c key=value} 命令行覆盖(扁平列表):{@code url} +
  *       {@code bearer_token_env_var='MELON_MCP_GATEWAY_TOKEN'} + {@code enabled=true};
  *       CODEX_HOME 保持真实 {@code ~/.codex} → 零临时 home。</li>
@@ -35,8 +37,9 @@ import java.util.Map;
  * 各 CLI 的变量引用语法,明文不进 argv / 配置文件 / 进程列表(Kimi 例外:ACP 协议头值只接受
  * 字面值,token 经 JSON-RPC stdin 消息传递,不落盘、不进 argv)。
  *
- * <p>Codex/OpenCode 共同模式:注入 melon_gateway 聚合入口 + 逐个禁用真实 mcp server
- * (合并语义:不禁则真实 server 仍被加载直连=慢,gateway 失去意义)。
+ * <p>三 provider 共同模式:注入 melon_gateway 聚合入口 + 屏蔽真实 mcp server 直连
+ * (Claude 经 {@code --strict-mcp-config},Codex/OpenCode 逐个 enabled=false;
+ * 不屏蔽则真实 server 仍被加载直连=慢,gateway 失去意义)。
  */
 public class McpGatewayConfigWriter {
     private static final Logger LOG = Logger.getInstance(McpGatewayConfigWriter.class);

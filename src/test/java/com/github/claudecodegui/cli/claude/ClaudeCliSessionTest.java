@@ -95,6 +95,23 @@ public class ClaudeCliSessionTest {
     }
 
     @Test
+    public void buildCommandAddsStrictMcpConfigOnlyWhenGatewayActive() {
+        ClaudeCliModelResolver.ResolvedModel profile = ClaudeCliModelResolver.resolveProfile(
+                "claude-sonnet-4-6", new JsonObject());
+        CliSendRequest request = request("claude-sonnet-4-6", null);
+
+        List<String> strict = ClaudeCliSession.buildCommand(
+                "claude", request, List.of(), profile, true, "C:/tmp/mcp-gateway.json", null, true);
+        assertTrue(strict.contains(CliConstants.ARG_MCP_CONFIG));
+        assertTrue(strict.contains(CliConstants.ARG_STRICT_MCP_CONFIG));
+
+        List<String> nonStrict = ClaudeCliSession.buildCommand(
+                "claude", request, List.of(), profile, true, "C:/tmp/mcp.json", null, false);
+        assertTrue(nonStrict.contains(CliConstants.ARG_MCP_CONFIG));
+        assertFalse(nonStrict.contains(CliConstants.ARG_STRICT_MCP_CONFIG));
+    }
+
+    @Test
     public void buildExitErrorWrapsServiceUnavailableDiagnostic() throws Exception {
         Method method = ClaudeCliSession.class.getDeclaredMethod(
                 "buildExitError",

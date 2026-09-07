@@ -34,6 +34,18 @@ public class CliMcpGatewaySymmetryTest {
         assertTrue(source.contains("gatewayConfig.endpoint()"));
     }
 
+    @Test
+    public void claudeGatewayPathUsesStrictMcpConfig() throws Exception {
+        // 对齐 codex/opencode 的"禁真实 server + gateway 聚合":gateway 启用时
+        // one-shot 与长驻两路径都必须传 useGateway 作 strictMcpConfig。
+        String session = Files.readString(Path.of(
+                "src/main/java/com/github/claudecodegui/cli/claude/ClaudeCliSession.java"));
+        assertTrue(session.contains("CliConstants.ARG_STRICT_MCP_CONFIG"));
+        String persistent = Files.readString(Path.of(
+                "src/main/java/com/github/claudecodegui/cli/claude/ClaudePersistentSendPath.java"));
+        assertTrue(persistent.contains("session.getSessionId(), true, useGateway"));
+    }
+
     private static void assertContains(String file) throws Exception {
         String source = Files.readString(Path.of(file));
         assertTrue(source.contains("McpGatewayService"));
