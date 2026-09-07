@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { getModelSupportedReasoningLevels } from '../../utils/modelRegistry';
 import {
   REASONING_LEVELS,
@@ -69,11 +69,22 @@ export function useReasoningEffortGuard(
   currentLevel: ReasoningInfo | undefined;
 } {
   const isVisible = isReasoningVisible(currentProvider, selectedModel, sessionThinkingAvailable);
-  const availableLevels = useMemo(
-    () => getAvailableReasoningLevels(currentProvider, selectedModel),
-    [currentProvider, selectedModel],
-  );
+  // 档位列表必须与上方 isVisible 同源(每次渲染重算,读当前 registry 快照)。
+  // registry 是模块级可变状态,经 MODEL_REGISTRY 异步下发;若用 useMemo 缓存
+  // (deps 仅 currentProvider/selectedModel),mount 时缓存下的空 registry 档位列表
+  // (3 档)会滞留到 registry 到达之后——isVisible 翻 true 触发 effect 重跑时,
+  // 合法的 max/xhigh 被误判并改写成兜底 medium(2026-09 思考强度回退根因)。
+  // 列表仅 5 项,重算开销可忽略。
+  const availableLevels = getAvailableReasoningLevels(currentProvider, selectedModel);
   const currentLevel = resolveCurrentReasoningLevel(value, availableLevels);
+
+  // claude 档位未知(registry 未加载 / 模型无 registry 条目,getModelSupportedReasoningLevels 返 null)
+  // 时,availableLevels 只是 3 档兜底而非权威档位;未知不等于权威,guard 不得据此改写
+  // 持久化值——否则降级会话(sessionThinkingAvailable=false 先于 MODEL_REGISTRY 到达)下
+  // 合法的 max/xhigh 会被错钳成兜底 medium 并被立即持久化(2026-09 思考强度回退残留窗口)。
+  const claudeLevelsUnknown = currentProvider === 'claude'
+    && !!selectedModel
+    && getModelSupportedReasoningLevels(selectedModel) === null;
 
   useEffect(() => {
     if (availableLevels.some((level) => level.id === value)) {
@@ -84,10 +95,13 @@ export function useReasoningEffortGuard(
     if (!isVisible && sessionThinkingAvailable !== false) {
       return;
     }
+    if (claudeLevelsUnknown) {
+      return;
+    }
     if (currentLevel) {
       onChange(currentLevel.id);
     }
-  }, [availableLevels, currentLevel, isVisible, onChange, sessionThinkingAvailable, value]);
+  }, [availableLevels, claudeLevelsUnknown, currentLevel, isVisible, onChange, sessionThinkingAvailable, value]);
 
   return { isVisible, availableLevels, currentLevel };
 }
