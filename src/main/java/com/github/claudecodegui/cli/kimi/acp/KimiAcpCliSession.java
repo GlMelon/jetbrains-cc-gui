@@ -105,6 +105,8 @@ public class KimiAcpCliSession implements CliSession {
     private volatile ModelOptions modelOptions;
     /** 本长驻连接已成功下发的 model 值(去重:档位未变不重发 RPC),随 clearPersistent 清空。 */
     private volatile String lastAppliedModel;
+    /** 本长驻连接已成功下发的 thinking 值(去重:档位未变不重发 RPC),随 clearPersistent 清空。 */
+    private volatile String lastAppliedThinking;
     /**
      * 当前 session 是否配置了 MCP(ACP session/new 注入非空,或 ~/.kimi-code/mcp.json 存在),
      * 在 establishSession 时算定,随 clearPersistent 重置。
@@ -384,15 +386,20 @@ public class KimiAcpCliSession implements CliSession {
             // 开启思考(若用户启用)。档位经 configOptions 协商:合法值是模型动态的
             // (KimiAcpProtocol.THINKING 取值说明),这里先把通用档位映射成当前 session
             // 支持的值;setThinkingConfig 内的 "on" 回退仅作协商失手的最后防线。
+            // 档位未变时跳过同步 RPC(10s 超时),省每轮一次无意义往返。
             try {
                 String desired = resolveThinkingValue(request);
                 String negotiated = negotiateThinkingValue(desired, thinkingOptions);
-                if (negotiated != null) {
+                String currentCatalogThinking = thinkingOptions != null ? thinkingOptions.currentValue() : null;
+                if (shouldApplyThinkingConfig(negotiated, lastAppliedThinking, currentCatalogThinking)) {
                     if (!negotiated.equals(desired)) {
                         LOG.info("[KimiAcpCliSession][" + tabId + "] thinking effort '" + desired
                                 + "' not supported by current model; negotiated to '" + negotiated + "'");
                     }
-                    setThinkingConfig(conn, resolvedSessionId, negotiated);
+                    lastAppliedThinking = setThinkingConfig(conn, resolvedSessionId, negotiated);
+                } else if (negotiated != null && lastAppliedThinking == null) {
+                    // 目录当前值已是期望值:视为已生效,记录去重基准
+                    lastAppliedThinking = negotiated;
                 }
             } catch (Exception e) {
                 LOG.warn("[KimiAcpCliSession][" + tabId + "] set thinking config failed (non-fatal)", e);
@@ -673,21 +680,42 @@ public class KimiAcpCliSession implements CliSession {
         return resolved;
     }
 
-    private void setThinkingConfig(KimiAcpConnection conn, String sessionId, String value) throws Exception {
+    /**
+     * 档位未变跳过判定(§5.3:每轮必发同步 set_config_option 是纯浪费):
+     * negotiated 为 null(用户未启用/词表仅 off)→ 不发;等于本连接已下发值 → 不发;
+     * 首次且等于目录当前值 → 不发(服务端已是该档位)。
+     */
+    static boolean shouldApplyThinkingConfig(String negotiated, String lastApplied,
+                                             String currentCatalogValue) {
+        if (negotiated == null) {
+            return false;
+        }
+        if (negotiated.equals(lastApplied)) {
+            return false;
+        }
+        return lastApplied != null || !negotiated.equals(currentCatalogValue);
+    }
+
+    /**
+     * 下发 thinking 档位,返回实际生效值(词表拒绝时回退 "on",返回值与请求值不同)。
+     */
+    private String setThinkingConfig(KimiAcpConnection conn, String sessionId, String value) throws Exception {
         JsonObject params = new JsonObject();
         params.addProperty(KimiAcpProtocol.FIELD_SESSION_ID, sessionId);
         params.addProperty(KimiAcpProtocol.FIELD_CONFIG_ID, KimiAcpProtocol.CONFIG_ID_THINKING);
         params.addProperty(KimiAcpProtocol.FIELD_VALUE, value);
         try {
             conn.request(KimiAcpProtocol.METHOD_SET_CONFIG_OPTION, params, SET_CONFIG_TIMEOUT_MS);
+            return value;
         } catch (KimiAcpConnection.AcpRpcException e) {
             // kimi 的合法档位由模型目录动态下发(supportEfforts,服务端刷新),请求档位
             // 不在当前模型词表时(实测 k3 拒绝 medium)退回 "on"——kimi 侧语义为
             // 采用模型 defaultThinkingEffort,对所有模型通用,不硬编码词表。
             LOG.info("[KimiAcpCliSession][" + tabId + "] thinking value '" + value
                     + "' rejected by model catalog; falling back to 'on'");
-            params.addProperty(KimiAcpProtocol.FIELD_VALUE, "on");
+            params.addProperty(KimiAcpProtocol.FIELD_VALUE, KimiAcpProtocol.THINKING_ON);
             conn.request(KimiAcpProtocol.METHOD_SET_CONFIG_OPTION, params, SET_CONFIG_TIMEOUT_MS);
+            return KimiAcpProtocol.THINKING_ON;
         }
     }
 
@@ -1162,6 +1190,7 @@ public class KimiAcpCliSession implements CliSession {
         thinkingOptions = null;
         modelOptions = null;
         lastAppliedModel = null;
+        lastAppliedThinking = null;
         mcpConfigured = false;
         if (old != null) {
             try {

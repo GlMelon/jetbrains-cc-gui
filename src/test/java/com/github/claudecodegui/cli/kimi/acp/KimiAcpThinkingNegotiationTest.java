@@ -6,7 +6,9 @@ import org.junit.Test;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * kimi thinking 档位协商单测(纯静态函数直打)。
@@ -120,5 +122,30 @@ public class KimiAcpThinkingNegotiationTest {
         // 空词表 = 目录未知(parseThinkingOptions 不会产出空表,此为防御语义)→ 字面量透传
         assertEquals("medium", KimiAcpCliSession.negotiateThinkingValue("medium",
                 new KimiAcpCliSession.ThinkingOptions(List.of(), "off")));
+    }
+
+    // ── shouldApplyThinkingConfig(档位未变跳过) ─────────────────────────────
+
+    @Test
+    public void skipWhenNegotiatedNull() {
+        assertFalse(KimiAcpCliSession.shouldApplyThinkingConfig(null, null, "off"));
+    }
+
+    @Test
+    public void skipWhenUnchanged() {
+        assertFalse(KimiAcpCliSession.shouldApplyThinkingConfig("high", "high", "low"));
+    }
+
+    @Test
+    public void skipWhenFirstTurnMatchesCatalogCurrent() {
+        // 服务端当前已是该档位:首轮也不发
+        assertFalse(KimiAcpCliSession.shouldApplyThinkingConfig("high", null, "high"));
+    }
+
+    @Test
+    public void applyWhenChangedOrFirstTurnDiffers() {
+        assertTrue(KimiAcpCliSession.shouldApplyThinkingConfig("high", "low", "low"));
+        assertTrue(KimiAcpCliSession.shouldApplyThinkingConfig("high", null, "off"));
+        assertTrue(KimiAcpCliSession.shouldApplyThinkingConfig("high", null, null));
     }
 }
