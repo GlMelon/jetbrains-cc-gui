@@ -67,6 +67,8 @@ public class CodemossSettingsServiceCommitAiConfigTest {
         JsonObject config = invokeGetCommitAiConfig(service);
 
         assertEquals("claude", config.get("provider").getAsString());
+        assertEquals("claude", config.get("effectiveProvider").getAsString());
+        assertEquals("manual", config.get("resolutionSource").getAsString());
         assertEquals("claude-role-opus", config.getAsJsonObject("models").get("claude").getAsString());
         assertEquals("provider-catalog-model", config.getAsJsonObject("models").get("codex").getAsString());
     }

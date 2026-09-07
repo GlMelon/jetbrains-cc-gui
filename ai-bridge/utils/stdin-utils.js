@@ -12,6 +12,7 @@ const STDIN_ENV_BY_PROVIDER = {
   pi: 'PI_USE_STDIN',
   omp: 'OMP_USE_STDIN',
   dsh: 'DSH_USE_STDIN',
+  minimax: 'MINIMAX_USE_STDIN',
 };
 
 /**

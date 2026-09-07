@@ -1,11 +1,17 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { OMP_ROLE_MODELS, type ModelInfo } from '../types';
+import { OMP_ROLE_MODELS, type ModelInfo, type PermissionMode } from '../types';
 import { ModeSelect } from './ModeSelect';
 
 const LABELS: Record<string, string> = {
   'modes.default.label': 'Default Mode',
   'modes.default.shortLabel': 'Default',
+  'modes.auto.label': 'Auto Mode',
+  'modes.auto.shortLabel': 'Auto',
+  'modes.bypassPermissions.label': 'Full Auto',
+  'modes.bypassPermissions.shortLabel': 'Full Auto',
+  'codexModes.auto.label': 'Approve for me',
+  'codexModes.auto.shortLabel': 'Auto',
   'ompModes.default.label': 'Default',
   'ompModes.smol.label': 'Smol',
   'ompModes.slow.label': 'Slow',
@@ -41,11 +47,17 @@ describe('ModeSelect', () => {
     ompRolesState.roles = [];
   });
 
-  it('shows exactly default/smol/slow/plan (in order) for the omp provider before roles load', () => {
-    expect(openAndGetOptionIds('omp')).toEqual(['default', 'smol', 'slow', 'plan']);
+  it('shows only Default for the omp provider before roles load', () => {
+    // A1:静态 role 表已清空(registry/动态 roles 为权威),roles 未加载时仅剩 Default。
+    expect(openAndGetOptionIds('omp')).toEqual(['default']);
   });
 
   it('renders OMP model-role labels from the ompModes i18n keys', () => {
+    ompRolesState.roles = [
+      { id: 'smol', identifier: 'smol', label: 'Smol' },
+      { id: 'slow', identifier: 'slow', label: 'Slow' },
+      { id: 'plan', identifier: 'plan', label: 'Plan' },
+    ];
     render(<ModeSelect value="default" onChange={vi.fn()} provider="omp" />);
     fireEvent.click(screen.getByRole('button'));
 
@@ -56,11 +68,11 @@ describe('ModeSelect', () => {
 
   it('shows Default + dynamic roles for omp, with raw label/selector for unknown roles', () => {
     ompRolesState.roles = [
-      { id: 'smol', label: 'Smol', description: 'openai/gpt-5-mini' },
-      { id: 'designer', label: 'Designer', description: 'opencode-go/deepseek-v4-flash' },
+      { id: 'smol', identifier: 'smol', label: 'Smol', description: 'openai/gpt-5-mini' },
+      { id: 'designer', identifier: 'designer', label: 'Designer', description: 'opencode-go/deepseek-v4-flash' },
     ];
     const onChange = vi.fn();
-    render(<ModeSelect value="designer" onChange={onChange} provider="omp" />);
+    render(<ModeSelect value={'designer' as PermissionMode} onChange={onChange} provider="omp" />);
 
     // Collapsed button shows the selected dynamic role with raw capitalized label.
     expect(screen.getByRole('button').textContent).toContain('Designer');
@@ -83,8 +95,8 @@ describe('ModeSelect', () => {
 
   it('translates known dynamic role ids via ompModes keys when roles carry extra entries', () => {
     ompRolesState.roles = [
-      { id: 'plan', label: 'ignored payload label', description: 'openai/o4' },
-      { id: 'vision', label: 'Vision', description: 'openai/gpt-5-vision' },
+      { id: 'plan', identifier: 'plan', label: 'ignored payload label', description: 'openai/o4' },
+      { id: 'vision', identifier: 'vision', label: 'Vision', description: 'openai/gpt-5-vision' },
     ];
     render(<ModeSelect value="default" onChange={vi.fn()} provider="omp" />);
     fireEvent.click(screen.getByRole('button'));
@@ -103,14 +115,41 @@ describe('ModeSelect', () => {
     expect(screen.getByText('Default Mode')).toBeTruthy();
   });
 
-  it('hides smol/slow for the claude provider while keeping the four claude modes', () => {
-    expect(openAndGetOptionIds('claude')).toEqual(['default', 'plan', 'acceptEdits', 'bypassPermissions']);
+  it('renders native auto and Full Auto as separate Claude choices', () => {
+    render(<ModeSelect value="auto" onChange={vi.fn()} provider="claude" />);
+    expect(screen.getByRole('button').textContent).toContain('Auto');
+    expect(screen.getByRole('button').className).not.toContain('mode-full-auto-active');
+
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByText('Auto Mode')).toBeTruthy();
+    expect(screen.getByText('Full Auto')).toBeTruthy();
   });
 
-  it('hides plan/smol/slow for the other CLI providers', () => {
-    for (const provider of ['codex', 'grok', 'kimi', 'opencode', 'pi']) {
-      expect(openAndGetOptionIds(provider)).toEqual(['default', 'acceptEdits', 'bypassPermissions']);
-      cleanup();
-    }
+  it('uses the warning treatment only for Full Auto', () => {
+    render(<ModeSelect value="bypassPermissions" onChange={vi.fn()} provider="claude" />);
+    expect(screen.getByRole('button').className).toContain('mode-full-auto-active');
   });
+
+  it('hides smol/slow for the claude provider while keeping native auto and Full Auto distinct', () => {
+    expect(openAndGetOptionIds('claude')).toEqual(['default', 'plan', 'acceptEdits', 'auto', 'bypassPermissions']);
+  });
+
+  it('shows Codex native auto review alongside Full Auto', () => {
+    expect(openAndGetOptionIds('codex')).toEqual(['default', 'acceptEdits', 'auto', 'bypassPermissions']);
+    cleanup();
+
+    render(<ModeSelect value="auto" onChange={vi.fn()} provider="codex" />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(screen.getByText('Approve for me')).toBeTruthy();
+    expect(screen.getByText('Full Auto')).toBeTruthy();
+  });
+
+  it('hides plan and native auto for headless CLI providers (backend degrades both to default)', () => {
+    expect(openAndGetOptionIds('kimi')).toEqual(['default', 'acceptEdits', 'bypassPermissions']);
+  });
+
+  it('keeps native auto for grok (native auto-approve alias) while hiding plan', () => {
+    expect(openAndGetOptionIds('grok')).toEqual(['default', 'acceptEdits', 'auto', 'bypassPermissions']);
+  });
+
 });

@@ -35,6 +35,7 @@ export const AppDialogs = ({
   onRewindConfirm,
   onRewindCancel,
   permissionDialogTimeoutSeconds = DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS,
+  onPlanApprovalModeChange,
 }: {
   showNewSessionConfirm: boolean;
   onConfirmNewSession: () => void;
@@ -48,6 +49,8 @@ export const AppDialogs = ({
   onRewindConfirm: (sessionId: string, userMessageId: string) => void;
   onRewindCancel: () => void;
   permissionDialogTimeoutSeconds?: number;
+  /** Apply the execution mode chosen while approving a Claude plan. */
+  onPlanApprovalModeChange?: (mode: string) => void;
 }) => {
   const { t } = useTranslation();
   const {
@@ -143,7 +146,10 @@ export const AppDialogs = ({
       <PlanApprovalDialog
         isOpen={planApprovalDialogOpen}
         request={currentPlanApprovalRequest}
-        onApprove={handlePlanApprovalApprove}
+        onApprove={(requestId, targetMode) => {
+          handlePlanApprovalApprove(requestId, targetMode);
+          onPlanApprovalModeChange?.(targetMode);
+        }}
         onReject={handlePlanApprovalReject}
         timeoutSeconds={permissionDialogTimeoutSeconds}
       />

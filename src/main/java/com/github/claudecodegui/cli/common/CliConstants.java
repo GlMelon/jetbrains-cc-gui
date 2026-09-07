@@ -255,6 +255,14 @@ public final class CliConstants {
     public static final String CODEX_CONFIG_MODEL_REASONING_SUMMARY = "model_reasoning_summary";
     public static final String CODEX_CONFIG_SERVICE_TIER = "service_tier";
     public static final String CODEX_REASONING_SUMMARY_AUTO = "auto";
+    /** `-c` 配置键:审批请求由哪个 reviewer 裁决(native auto review / 用户)。 */
+    public static final String CODEX_CONFIG_APPROVALS_REVIEWER = "approvals_reviewer";
+    /** native auto review:Codex CLI 内置分类器 reviewer(对齐 ai-bridge codex-utils.js)。 */
+    public static final String CODEX_APPROVALS_REVIEWER_AUTO_REVIEW = "auto_review";
+    /** 非 auto 模式显式 pin user,防 resume 线程继承历史 auto_review 配置。 */
+    public static final String CODEX_APPROVALS_REVIEWER_USER = "user";
+    /** native auto review 的 CLI 版本下限(对齐 ai-bridge CODEX_NATIVE_AUTO_REVIEW_MIN_VERSION)。 */
+    public static final String CODEX_NATIVE_AUTO_REVIEW_MIN_VERSION = "0.146.0";
 
     // ── OpenCode CLI 参数（实测 opencode v1.17.11 `opencode run --help`） ──────
     // 真实命令：opencode run [message..] --format json（输出逐行 NDJSON 事件流）。
@@ -394,7 +402,9 @@ public final class CliConstants {
     // 完整定义见 CommonConstants.PERMISSION_MODE_*；此处保留子集用于 CLI 参数校验。
 
     public static final Set<String> VALID_PERMISSION_MODES = Set.of(
-            CommonConstants.PERMISSION_MODE_DEFAULT, CommonConstants.PERMISSION_MODE_ACCEPT_EDITS, CommonConstants.PERMISSION_MODE_PLAN
+            CommonConstants.PERMISSION_MODE_DEFAULT, CommonConstants.PERMISSION_MODE_ACCEPT_EDITS, CommonConstants.PERMISSION_MODE_PLAN,
+            // Claude CLI 原生支持 `--permission-mode auto`(分类器审批),透传不降级。
+            CommonConstants.PERMISSION_MODE_AUTO
     );
 
     // ── 环境变量名 (Anthropic / Claude) ────────────────────────────────────────

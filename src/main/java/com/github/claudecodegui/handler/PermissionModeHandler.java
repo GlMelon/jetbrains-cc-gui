@@ -3,6 +3,7 @@ package com.github.claudecodegui.handler;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.handler.core.HandlerContext;
 import com.github.claudecodegui.protocol.DownstreamEvent;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
 
 import com.google.gson.Gson;
@@ -12,7 +13,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 
 /**
- * Handles permission mode (bypassPermissions, etc.) get/set operations.
+ * Handles native auto approval, full auto, and other permission mode get/set operations.
  */
 public class PermissionModeHandler {
 
@@ -25,6 +26,25 @@ public class PermissionModeHandler {
 
     public PermissionModeHandler(HandlerContext context) {
         this.context = context;
+    }
+
+    private String normalizeModeForCurrentProvider(String mode) {
+        String normalized = mode == null ? CommonConstants.PERMISSION_MODE_DEFAULT : mode.trim();
+        String provider = this.context.getCurrentProvider();
+        if (provider == null || provider.isEmpty()) {
+            provider = HandlerContext.DEFAULT_PROVIDER;
+        }
+        if (CommonConstants.PERMISSION_MODE_AUTO_EDIT.equals(normalized)) {
+            normalized = ProviderType.OMP.value().equals(provider)
+                    ? CommonConstants.PERMISSION_MODE_DEFAULT
+                    : CommonConstants.PERMISSION_MODE_ACCEPT_EDITS;
+        }
+        if (CommonConstants.PERMISSION_MODE_AUTO.equals(normalized)
+                && !ProviderType.CLAUDE.value().equals(provider)
+                && !ProviderType.CODEX.value().equals(provider)) {
+            return CommonConstants.PERMISSION_MODE_DEFAULT;
+        }
+        return normalized;
     }
 
     /**
@@ -45,10 +65,15 @@ public class PermissionModeHandler {
                 PropertiesComponent props = PropertiesComponent.getInstance();
                 String savedMode = props.getValue(PERMISSION_MODE_PROPERTY_KEY);
                 if (savedMode != null && !savedMode.trim().isEmpty()) {
+                    // Keep the raw trimmed value here — the legacy autoEdit alias
+                    // and per-provider fallbacks are all handled by the shared
+                    // normalizeModeForCurrentProvider below, so read and write
+                    // paths map the same stored value to the same effective mode.
                     currentMode = savedMode.trim();
                 }
             }
 
+            currentMode = normalizeModeForCurrentProvider(currentMode);
             final String modeToSend = currentMode;
 
             ApplicationManager.getApplication().invokeLater(() -> {
@@ -66,15 +91,22 @@ public class PermissionModeHandler {
         try {
             String mode = parseMode(content);
 
+            mode = normalizeModeForCurrentProvider(mode);
+
             // Check if session exists
             if (context.getSession() != null) {
                 context.getSession().setPermissionMode(mode);
+                String effectiveMode = context.getSession().getPermissionMode();
+                if (effectiveMode == null || effectiveMode.isEmpty()) {
+                    effectiveMode = CommonConstants.PERMISSION_MODE_DEFAULT;
+                    context.getSession().setPermissionMode(effectiveMode);
+                }
 
                 // Save permission mode to persistent storage
                 PropertiesComponent props = PropertiesComponent.getInstance();
-                props.setValue(PERMISSION_MODE_PROPERTY_KEY, mode);
-                LOG.info("Saved permission mode to settings: " + mode);
-                com.github.claudecodegui.notifications.ClaudeNotifier.setMode(context.getProject(), mode);
+                props.setValue(PERMISSION_MODE_PROPERTY_KEY, effectiveMode);
+                LOG.info("Saved permission mode to settings: " + effectiveMode);
+                com.github.claudecodegui.notifications.ClaudeNotifier.setMode(context.getProject(), effectiveMode);
             } else {
                 LOG.warn("[PermissionModeHandler] WARNING: Session is null! Cannot set permission mode");
             }

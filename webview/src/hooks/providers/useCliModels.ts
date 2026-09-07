@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { sendBridgeEvent } from '../../utils/bridge';
 import type { ModelInfo } from '../../components/ChatInputBox/types';
-import { CODEX_MODELS, DSH_MODELS, GROK_MODELS, KIMI_MODELS, OMP_MODELS, OMP_ROLE_MODELS, OPENCODE_MODELS, PI_MODELS } from '../../components/ChatInputBox/types';
+import {
+  CODEX_MODELS,
+  DSH_MODELS,
+  GROK_MODELS,
+  KIMI_MODELS,
+  OMP_MODELS,
+  OMP_ROLE_MODELS,
+  OPENCODE_MODELS,
+  PI_MODELS,
+} from '../../components/ChatInputBox/types';
 import { isCliOnlyProvider } from './cliProviders';
 import { subscribeActiveCodexProvider } from '../../utils/runtimeProviderCapabilities';
 

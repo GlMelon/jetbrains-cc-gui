@@ -322,6 +322,7 @@ public class ChatWindowDelegate {
         JBCefBrowser getBrowser();
         boolean isDisposed();
         void callJavaScript(String fn, String... args);
+        void executeJavaScriptCode(String jsCode);
         Content getParentContent();
         String getOriginalTabName();
         void setOriginalTabName(String name);
@@ -478,6 +479,10 @@ nodeService.setSessionId(sessionId);
             @Override
             public void callJavaScript(String functionName, String... args) {
                 host.callJavaScript(functionName, args);
+            }
+            @Override
+            public void executeJavaScript(String jsCode) {
+                host.executeJavaScriptCode(jsCode);
             }
             @Override
             public String escapeJs(String str) {
@@ -1143,6 +1148,7 @@ nodeService.setSessionId(sessionId);
             return;
         }
 
+        host.getStreamCoalescer().resetDeliveryBaseline();
         try {
             String sessionId = session.getSessionId();
             if (sessionId != null && !sessionId.trim().isEmpty()) {

@@ -56,6 +56,12 @@ const CONTEXT_SWITCH_STYLE: React.CSSProperties = {
  * rows on the way; without a grace period those rows steal the submenu.
  */
 export const SUBMENU_HOVER_DELAY_MS = 200;
+/**
+ * Delay before opening the first fly-out on hover. The function rows sit at
+ * the popover's bottom edge — right where the pointer enters from the
+ * trigger — so an instant open would fire on every pass-through.
+ */
+export const SUBMENU_TRIGGER_DELAY_MS = 500;
 
 type ActiveSubmenu = 'none' | 'effort' | 'speed' | 'preset';
 
@@ -147,17 +153,17 @@ export const ModelConfigSelect = ({
       clearHoverTimer();
       return;
     }
-    // First open can be immediate; only switching between fly-outs is delayed.
-    if (activeSubmenuRef.current === 'none') {
-      openSubmenu(submenu);
-      return;
-    }
     clearHoverTimer();
+    // Opening the first fly-out waits longer than switching between open
+    // fly-outs: the pointer may only be crossing a row on its way elsewhere.
+    const delay = activeSubmenuRef.current === 'none'
+      ? SUBMENU_TRIGGER_DELAY_MS
+      : SUBMENU_HOVER_DELAY_MS;
     hoverTimerRef.current = window.setTimeout(() => {
       hoverTimerRef.current = undefined;
       setActiveSubmenu(submenu);
-    }, SUBMENU_HOVER_DELAY_MS);
-  }, [clearHoverTimer, openSubmenu]);
+    }, delay);
+  }, [clearHoverTimer]);
 
   const triggerRefFor = (submenu: ActiveSubmenu) => {
     if (submenu === 'preset') return presetTriggerRef.current;
@@ -180,7 +186,7 @@ export const ModelConfigSelect = ({
     }
   }, [clearHoverTimer]);
 
-  const { positionedStyle: mainPositionedStyle, recalculate: mainRecalculate } = useDropdownPosition({
+  const { positionedStyle: mainPositionedStyle, maxHeight: mainMaxHeight, recalculate: mainRecalculate } = useDropdownPosition({
     buttonRef,
     dropdownRef,
     preferredAlignment: 'right',
@@ -339,7 +345,7 @@ export const ModelConfigSelect = ({
           ref={dropdownRef}
           className="selector-dropdown model-config-dropdown"
           data-testid="model-config-dropdown"
-          style={{ ...DROPDOWN_STYLE, ...mainPositionedStyle }}
+          style={{ ...DROPDOWN_STYLE, ...mainPositionedStyle, maxHeight: mainMaxHeight, boxSizing: 'border-box' }}
           onMouseOverCapture={retainActiveSubmenu}
         >
           {showEffortRow && (

@@ -195,6 +195,25 @@ public class CodexCliSession implements CliSession {
             String processToken = null;
             Long processGeneration = null;
             try {
+                // Native auto review version gate (aligned with ai-bridge message-service.js):
+                // Codex CLI < 0.146.0 cannot honor approvals_reviewer=auto_review; an
+                // unparseable/missing version is treated as unsupported — fail fast
+                // instead of silently degrading the user's explicit auto selection.
+                if (CommonConstants.PERMISSION_MODE_AUTO.equals(request.permissionMode())) {
+                    CodexCliResolver.findExecutable(); // ensure the cached --version probe ran
+                    String rawVersion = CodexCliResolver.getCachedVersion();
+                    if (!CodexCliCommandUtils.isNativeAutoReviewSupported(rawVersion)) {
+                        String err = CliErrorFormatter.formatError("Codex",
+                                "Codex native auto review requires Codex CLI >= "
+                                        + CliConstants.CODEX_NATIVE_AUTO_REVIEW_MIN_VERSION
+                                        + " (installed: " + (rawVersion != null ? rawVersion : "unknown")
+                                        + "). Please update the Codex CLI.");
+                        LOG.warn("[CodexCliSession][" + tabId + "] " + err);
+                        callback.onError(err);
+                        callback.onComplete(false, null, err);
+                        return;
+                    }
+                }
                 LOG.info("[CliConcurrencyDiag][CodexCliSession] send task started"
                         + ": tabId=" + tabId
                         + ", cwd=" + (request.cwd() != null ? request.cwd() : "(none)")
@@ -1239,7 +1258,7 @@ public class CodexCliSession implements CliSession {
         CodexCliCommandUtils.addCodexGlobalOptions(cmd, perm);
 
         if (resumeThreadId != null) {
-            appendResumeArgs(cmd, request, images, gatewayOverrideArgs, resumeThreadId);
+            appendResumeArgs(cmd, request, images, perm, gatewayOverrideArgs, resumeThreadId);
         } else {
             appendExecArgs(cmd, request, images, perm, gatewayOverrideArgs);
         }
@@ -1289,6 +1308,7 @@ public class CodexCliSession implements CliSession {
         cmd.add(CliConstants.CODEX_ARG_NEVER);
         cmd.add(CliConstants.CODEX_ARG_SANDBOX);
         cmd.add(perm.sandbox());
+        CodexCliCommandUtils.addApprovalsReviewerOverride(cmd, perm);
 
         if (request.cwd() != null && !request.cwd().isBlank()) {
             cmd.add(CliConstants.CODEX_ARG_C);
@@ -1332,7 +1352,7 @@ public class CodexCliSession implements CliSession {
     }
 
     private static String codexConfigOverride(String key, String value) {
-        return key + "=\"" + value + "\"";
+        return CodexCliCommandUtils.codexConfigOverride(key, value);
     }
 
     private void appendServiceTierOverride(List<String> cmd, CliSendRequest request) {
@@ -1355,11 +1375,16 @@ public class CodexCliSession implements CliSession {
      * 续接会话:codex exec resume THREAD_ID ... PROMPT
      */
     private void appendResumeArgs(List<String> cmd, CliSendRequest request, List<File> images,
+                                 CodexCliCommandUtils.PermissionSelection perm,
                                  List<String> gatewayOverrideArgs, String resumeThreadId) {
         cmd.add(CliConstants.CODEX_ARG_EXEC);
         cmd.add(CliConstants.CODEX_ARG_RESUME);
         cmd.add(resumeThreadId);
         cmd.add(CliConstants.CODEX_ARG_JSON);
+
+        // reviewer 覆盖必须随 resume 一并下发:resume 线程可能继承历史会话的
+        // auto_review 配置,非 auto 模式须显式 pin user(对称 exec 路径)。
+        CodexCliCommandUtils.addApprovalsReviewerOverride(cmd, perm);
 
         String effectiveModel = firstNonBlank(request.actualModel(), request.model());
         if (effectiveModel != null && !effectiveModel.isBlank()) {

@@ -1,6 +1,8 @@
 package com.github.claudecodegui.cli.codex;
 
 import com.github.claudecodegui.cli.common.CliConstants;
+import com.github.claudecodegui.cli.compatibility.CodexCliVersionParser;
+import com.github.claudecodegui.cli.compatibility.VersionComparator;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.protocol.CodexProtectedEnvKey;
 import com.github.claudecodegui.session.runtime.ProviderType;
@@ -29,10 +31,31 @@ public final class CodexCliCommandUtils {
     static PermissionSelection selectPermission(String permissionMode, String configuredSandbox) {
         String sandbox = normalizeSandbox(configuredSandbox);
         return switch (permissionMode == null ? "" : permissionMode) {
-            case CommonConstants.PERMISSION_MODE_BYPASS -> new PermissionSelection(CliConstants.CODEX_ARG_NEVER, CliConstants.SANDBOX_DANGER_FULL_ACCESS);
-            case CommonConstants.PERMISSION_MODE_PLAN   -> new PermissionSelection(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, CliConstants.SANDBOX_READ_ONLY);
-            case CommonConstants.PERMISSION_MODE_ACCEPT_EDITS, CommonConstants.PERMISSION_MODE_AUTO_EDIT -> new PermissionSelection(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, sandbox);
-            default -> new PermissionSelection(CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST, sandbox);
+            // Native auto review owns its guarded contract: workspace-write +
+            // on-request + the CLI's auto_review reviewer. The configured sandbox
+            // (and the Windows danger-full-access fallback) is intentionally NOT
+            // applied here — the reviewer handles approval decisions inside the
+            // project sandbox (aligned with ai-bridge CodexPermissionMapper).
+            case CommonConstants.PERMISSION_MODE_AUTO -> new PermissionSelection(
+                    CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST,
+                    CliConstants.SANDBOX_WORKSPACE_WRITE,
+                    CliConstants.CODEX_APPROVALS_REVIEWER_AUTO_REVIEW);
+            case CommonConstants.PERMISSION_MODE_BYPASS -> new PermissionSelection(
+                    CliConstants.CODEX_ARG_NEVER,
+                    CliConstants.SANDBOX_DANGER_FULL_ACCESS,
+                    CliConstants.CODEX_APPROVALS_REVIEWER_USER);
+            case CommonConstants.PERMISSION_MODE_PLAN   -> new PermissionSelection(
+                    CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST,
+                    CliConstants.SANDBOX_READ_ONLY,
+                    CliConstants.CODEX_APPROVALS_REVIEWER_USER);
+            case CommonConstants.PERMISSION_MODE_ACCEPT_EDITS, CommonConstants.PERMISSION_MODE_AUTO_EDIT -> new PermissionSelection(
+                    CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST,
+                    sandbox,
+                    CliConstants.CODEX_APPROVALS_REVIEWER_USER);
+            default -> new PermissionSelection(
+                    CliConstants.CODEX_ARG_APPROVAL_ON_REQUEST,
+                    sandbox,
+                    CliConstants.CODEX_APPROVALS_REVIEWER_USER);
         };
     }
 
@@ -60,6 +83,33 @@ public final class CodexCliCommandUtils {
         command.add(permission.approval());
     }
 
+    /**
+     * 显式选择 approvals reviewer:native auto review 用 CLI 内置的 auto_review;
+     * 其余模式 pin user,防止 resume 的线程继承历史配置里的 auto_review
+     * (对齐 ai-bridge applyCodexApprovalsReviewerConfig)。`exec` 与 `exec resume`
+     * 均支持 `-c`。
+     */
+    static void addApprovalsReviewerOverride(List<String> command, PermissionSelection permission) {
+        command.add(CliConstants.CODEX_ARG_C_CONFIG);
+        command.add(codexConfigOverride(CliConstants.CODEX_CONFIG_APPROVALS_REVIEWER, permission.approvalsReviewer()));
+    }
+
+    /**
+     * native auto review 的版本门控(纯函数,对齐 ai-bridge isCodexNativeAutoReviewSupported):
+     * `codex --version` 输出(如 "codex-cli 0.146.0")不可解析或低于
+     * {@link CliConstants#CODEX_NATIVE_AUTO_REVIEW_MIN_VERSION} 时不支持。
+     */
+    static boolean isNativeAutoReviewSupported(String rawVersion) {
+        return new CodexCliVersionParser().parse(rawVersion)
+                .map(version -> VersionComparator.compareVersions(
+                        version, CliConstants.CODEX_NATIVE_AUTO_REVIEW_MIN_VERSION) >= 0)
+                .orElse(false);
+    }
+
+    static String codexConfigOverride(String key, String value) {
+        return key + "=\"" + value + "\"";
+    }
+
     static Map<String, String> sanitizeEnv(Map<String, String> env) {
         Map<String, String> result = new LinkedHashMap<>();
         if (env == null) {
@@ -78,5 +128,5 @@ public final class CodexCliCommandUtils {
         return result;
     }
 
-    record PermissionSelection(String approval, String sandbox) {}
+    record PermissionSelection(String approval, String sandbox, String approvalsReviewer) {}
 }

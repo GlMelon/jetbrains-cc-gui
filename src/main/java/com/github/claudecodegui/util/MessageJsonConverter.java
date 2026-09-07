@@ -8,10 +8,10 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.intellij.openapi.application.ApplicationManager;
+import com.google.gson.JsonPrimitive;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.ui.jcef.JBCefBrowser;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -206,6 +206,11 @@ public class MessageJsonConverter {
         // Copy turnUsage and its estimated cost for per-turn display
         copyFieldIfPresent(raw, transport, "turnUsage");
         copyFieldIfPresent(raw, transport, CommonConstants.JSON_KEY_TURN_COST_USD);
+        // Agent/Task tool metadata (agentId, totalDurationMs, totalTokens,
+        // toolStats, ...) stamped on tool_result messages. The frontend's
+        // SubagentList / AgentGroupBlock read this to render subagent usage and
+        // status; without it sync subagents show no metadata.
+        copyToolUseResultIfPresent(raw, transport);
 
         if (raw.has("content")) {
             transport.add("content", raw.get("content").deepCopy());
@@ -251,63 +256,79 @@ public class MessageJsonConverter {
     }
 
     /**
-     * Extract usage info from messages and push update to the webview.
+     * Copy the toolUseResult metadata field, truncating any oversized string
+     * values so a chatty subagent result cannot blow up the transport payload.
+     * The CLI may stamp toolUseResult as a raw error string, a usage object, or
+     * an object holding nested arrays of content blocks, so truncation must
+     * walk every shape rather than only the top-level object.
      */
-    public static void pushUsageUpdateFromMessages(
-            List<ClaudeSession.Message> messages,
-            HandlerContext handlerContext,
-            JBCefBrowser browser,
-            boolean disposed
-    ) {
-        try {
-            LOG.debug("pushUsageUpdateFromMessages called with " + messages.size() + " messages");
-
-            JsonObject lastUsage = TokenUsageUtils.findLastUsageFromSessionMessages(messages);
-            if (lastUsage == null) {
-                LOG.debug("No usage info found in messages");
-                return;
-            }
-
-            String currentProvider = handlerContext.getCurrentProvider();
-            int usedTokens = TokenUsageUtils.extractUsedTokens(lastUsage, currentProvider);
-            // 优先采用 provider 上报的真实上下文窗口(Codex model_context_window);静态模型映射
-            // 仅在有真实分子时作分母 fallback,避免把 200k/1050k 静态上限当作活跃上下文。
-            int fallbackMaxTokens = handlerContext.getSession() != null
-                    ? handlerContext.getSession().getState().getEffectiveMaxTokens()
-                    : ModelProviderHandler.getModelContextLimit(handlerContext.getCurrentModel());
-            int maxTokens = TokenUsageUtils.extractMaxTokens(lastUsage, fallbackMaxTokens);
-            int percentage = Math.min(100, maxTokens > 0 ? (int) ((usedTokens * 100.0) / maxTokens) : 0);
-
-            LOG.debug("Pushing usage update: provider=" + currentProvider + ", usedTokens=" + usedTokens + ", max=" + maxTokens + ", percentage=" + percentage + "%");
-
-            JsonObject usageUpdate = TokenUsageUtils.buildUsageUpdatePayload(lastUsage, currentProvider, maxTokens);
-
-            String usageJson = GsonHolder.GSON.toJson(usageUpdate);
-            ApplicationManager.getApplication().invokeLater(() -> {
-                if (browser != null && !disposed) {
-                    // Use safe call pattern, check if function exists
-                    String js = "(function() {" +
-                            "  if (typeof window.onUsageUpdate === 'function') {" +
-                            "    window.onUsageUpdate('" + JsUtils.escapeJs(usageJson) + "');" +
-                            "    console.log('[Backend->Frontend] Usage update sent successfully');" +
-                            "  } else {" +
-                            "    console.warn('[Backend->Frontend] window.onUsageUpdate not found');" +
-                            "  }" +
-                            "})();";
-                    browser.getCefBrowser().executeJavaScript(js, browser.getCefBrowser().getURL(), 0);
-                }
-            });
-        } catch (Exception e) {
-            LOG.warn("Failed to push usage update: " + e.getMessage(), e);
+    private static void copyToolUseResultIfPresent(JsonObject source, JsonObject target) {
+        if (!source.has("toolUseResult") || source.get("toolUseResult").isJsonNull()) {
+            return;
         }
+        JsonElement toolUseResult = source.get("toolUseResult").deepCopy();
+        target.add("toolUseResult", truncateStringFields(toolUseResult));
+    }
+
+    /**
+     * Recursively truncate oversized strings inside any JSON shape (primitive,
+     * object, or array) so no single field can exceed the transport budget.
+     */
+    private static JsonElement truncateStringFields(JsonElement el) {
+        if (el == null || el.isJsonNull()) {
+            return el;
+        }
+        if (el.isJsonPrimitive()) {
+            JsonPrimitive primitive = el.getAsJsonPrimitive();
+            if (primitive.isString()) {
+                String s = primitive.getAsString();
+                return s.length() > MAX_TOOL_RESULT_CHARS
+                        ? new JsonPrimitive(truncateString(s)) : el;
+            }
+            // Non-string primitives (number, boolean) pass through unchanged.
+            return el;
+        }
+        if (el.isJsonObject()) {
+            JsonObject obj = el.getAsJsonObject();
+            for (String key : new ArrayList<>(obj.keySet())) {
+                obj.add(key, truncateStringFields(obj.get(key)));
+            }
+            return obj;
+        }
+        if (el.isJsonArray()) {
+            JsonArray arr = el.getAsJsonArray();
+            for (int i = 0; i < arr.size(); i++) {
+                arr.set(i, truncateStringFields(arr.get(i)));
+            }
+            return arr;
+        }
+        return el;
+    }
+
+    /**
+     * Truncate a string to fit within {@link #MAX_TOOL_RESULT_CHARS}, preserving
+     * both the head and the tail and inserting a marker that records the original
+     * length. The marker's overhead is reserved up front so the returned string
+     * never exceeds the budget (naive head/tail split ignores the marker and can
+     * overshoot by the marker length).
+     */
+    private static String truncateString(String s) {
+        if (s.length() <= MAX_TOOL_RESULT_CHARS) {
+            return s;
+        }
+        String marker = "\n...\n(truncated, original length: " + s.length() + " chars)\n...\n";
+        int available = Math.max(0, MAX_TOOL_RESULT_CHARS - marker.length());
+        int head = available * 2 / 3;
+        int tail = available - head;
+        return s.substring(0, head) + marker + s.substring(s.length() - tail);
     }
 
     /**
      * Build the usage-update JSON string from the last usage block in messages.
-     * Unlike {@link #pushUsageUpdateFromMessages}, this does not dispatch to
-     * the browser directly — the caller routes the result through the ordered
-     * {@code WebviewEventQueue} via {@code callJavaScript("onUsageUpdate", ...)}
-     * so usage stays consistent with the snapshot that just entered the queue.
+     * Does not dispatch to the browser directly — the caller routes the result
+     * through the ordered {@code WebviewEventQueue} via
+     * {@code callJavaScript("onUsageUpdate", ...)} so usage stays consistent
+     * with the snapshot that just entered the queue.
      *
      * @return JSON string for {@code onUsageUpdate}, or {@code null} if no usage
      */

@@ -170,7 +170,7 @@ export type CodexFastMode = 'normal' | 'fast';
 /**
  * Mode information
  */
-interface ModeInfo {
+export interface ModeInfo {
   id: PermissionMode;
   label: string;
   icon: string;
@@ -205,8 +205,20 @@ export const AVAILABLE_MODES: ModeInfo[] = [
     description: 'Auto-accept file creation/editing, fewer confirmations',
   },
   {
-    id: 'bypassPermissions',
+    // 原生自动审批(Claude classifier / Codex auto_review / Grok auto-approve 别名)。
+    // 可用性按静态 provider 集合判定(claude/codex/grok,见 cliProviders
+    // .NATIVE_AUTO_APPROVAL_PROVIDERS),与后端 SessionSendService 的降级规则一一对应:
+    // 其余 provider 由后端把 auto 降级为 default,前端不再自行降级,只负责不在
+    // 菜单中暴露(总则一:判定结果的唯一权威在后端,此处集合是后端规则的镜像常量)。
+    id: 'auto',
     label: 'Auto Mode',
+    icon: 'codicon-shield',
+    tooltip: 'Let the provider review approval requests automatically',
+    description: 'Uses the provider-native reviewer while retaining safety boundaries',
+  },
+  {
+    id: 'bypassPermissions',
+    label: 'Full Auto',
     icon: 'codicon-zap',
     tooltip: 'Bypass all permission checks',
     description: 'Fully automated, bypasses all permission checks [use with caution]',
@@ -216,8 +228,8 @@ export const AVAILABLE_MODES: ModeInfo[] = [
 /**
  * All valid PermissionMode IDs (SSOT-derived).
  *
- * 从 SSOT {@link PERMISSION_MODE}(5 值含 autoEdit 别名)派生,而非展示列表
- * {@link AVAILABLE_MODES}(4 值,不含 autoEdit)。用于校验,避免后端下发 autoEdit
+ * 从 SSOT {@link PERMISSION_MODE}(6 值含 autoEdit 别名)派生,而非展示列表
+ * {@link AVAILABLE_MODES}(5 值,不含 autoEdit)。用于校验,避免后端下发 autoEdit
  * 时被当作非法值拒绝而静默丢失状态(原 C2 bug:从 AVAILABLE_MODES 派生漏 autoEdit)。
  */
 export const VALID_PERMISSION_MODE_IDS: ReadonlySet<PermissionMode> = new Set(

@@ -17,6 +17,7 @@
  *   pi       - PI CLI (spawns local `pi` binary)
  *   omp      - OMP CLI (spawns local `omp` binary)
  *   dsh      - DeepSeek Harness (Host RPC + WS mux against local `dsh web`)
+ *   minimax  - MiniMax Code CLI (no SDK; spawns local `minimax` / mcode binary)
  *
  * Commands:
  *   send                - Send a message (parameters passed via stdin as JSON)

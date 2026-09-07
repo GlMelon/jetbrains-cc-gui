@@ -29,6 +29,23 @@ const MAX_TITLE_STDOUT_CHARS = 8192;
 // stderr 只保留有界滚动 tail 供失败诊断(同 mcp-gateway stdio-client 做法)。
 const TITLE_STDERR_TAIL_CHARS = 4096;
 
+// System prompt for the direct API title path (buildSessionTitleRequest).
+// The CLI title path (callHaikuApi) embeds its own plain-text variant inline.
+const SESSION_TITLE_PROMPT = `Generate a concise title (3-7 words) for this coding session. The title must be in the SAME LANGUAGE as the user's message.
+
+Return JSON: {"title": "..."}
+
+English examples:
+{"title": "Fix login button on mobile"}
+{"title": "Refactor API error handling"}
+
+Chinese examples:
+{"title": "修复登录按钮移动端问题"}
+{"title": "重构API错误处理逻辑"}
+
+Bad: {"title": "Code changes"} (too vague)
+Bad: {"title": "修复登录按钮在移动设备上不响应的问题"} (too long)`;
+
 /**
  * @param {string | undefined} sessionId
  * @returns {boolean}
@@ -230,6 +247,10 @@ export function buildTitleCliRequest({ cliPath, model, prompt, cwd, env }) {
     ...(env || buildCliEnv()),
     CLAUDE_NO_COLOR: '1',
     NO_COLOR: '1',
+    // CLI equivalent of the API path's `thinking: { type: 'disabled' }`: the Haiku
+    // alias can be user-mapped to a reasoning model (e.g. DeepSeek via relay), which
+    // would otherwise burn the budget on 'thinking' blocks and return an empty title.
+    MAX_THINKING_TOKENS: '0',
   };
 
   return {
@@ -375,6 +396,23 @@ Return ONLY the title text, no JSON formatting, no quotes.`;
       }
     }, timeoutMs);
   });
+}
+
+/**
+ * Build the messages.create() request for title generation.
+ * thinking is disabled: the Haiku alias can be user-mapped to a reasoning
+ * model (e.g. DeepSeek via relay), which would otherwise burn the 128-token
+ * budget on `thinking` blocks and return an empty title.
+ * Exposed for tests.
+ */
+export function buildSessionTitleRequest(model, userMessage) {
+  return {
+    model,
+    max_tokens: 128,
+    thinking: { type: 'disabled' },
+    messages: [{ role: 'user', content: userMessage }],
+    system: SESSION_TITLE_PROMPT,
+  };
 }
 
 /**

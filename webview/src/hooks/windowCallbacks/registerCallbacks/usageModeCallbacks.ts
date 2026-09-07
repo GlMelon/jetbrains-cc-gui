@@ -22,6 +22,7 @@ import { drainPendingSettings, startInitialSettingsRequest } from '../settingsBo
 import { clampPermissionDialogTimeoutSeconds } from '../../../utils/permissionDialogTimeout';
 import { normalizeProvider, resolveClaudeModelId } from '../../../utils/modelRegistry';
 import { registerLegacyAlias } from '../../../bridge';
+import { normalizeCliPermissionMode } from '../../providers/cliProviders';
 
 export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): void {
   const {
@@ -108,9 +109,15 @@ export function registerUsageModeCallbacks(options: UseWindowCallbacksOptions): 
 
   const updateMode = (mode?: PermissionMode, providerOverride?: string) => {
     const activeProvider = providerOverride || currentProviderRef.current;
-    if (isValidPermissionMode(mode)) {
+    // Migrate the legacy Java/CLI alias before validating the callback payload.
+    const canonicalMode = mode === 'autoEdit' ? 'acceptEdits' : mode;
+    const modeForProvider = activeProvider === 'omp' ? mode : canonicalMode;
+    const normalizedMode = activeProvider === 'claude' || activeProvider === 'codex'
+      ? canonicalMode
+      : normalizeCliPermissionMode(modeForProvider ?? 'default', activeProvider);
+    if (isValidPermissionMode(normalizedMode)) {
       const nextMode: PermissionMode =
-        activeProvider === 'codex' && mode === 'plan' ? 'default' : mode;
+        activeProvider === 'codex' && normalizedMode === 'plan' ? 'default' : normalizedMode;
       setPermissionMode((prev) => (prev === nextMode ? prev : nextMode));
       if (activeProvider === 'codex') {
         setCodexPermissionMode((prev) => (prev === nextMode ? prev : nextMode));

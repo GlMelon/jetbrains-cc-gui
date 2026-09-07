@@ -140,6 +140,14 @@ public class SessionSendService {
                 && !CommonConstants.PROVIDER_OMP.equals(provider)) {
             return CommonConstants.PERMISSION_MODE_DEFAULT;
         }
+        // Native auto review is limited to Claude/Codex; grok keeps its internal
+        // auto-approve alias, the remaining CLI providers downgrade auto to default.
+        if (CommonConstants.PERMISSION_MODE_AUTO.equals(resolvedMode)
+                && !CommonConstants.PROVIDER_CLAUDE.equals(provider)
+                && !CommonConstants.PROVIDER_CODEX.equals(provider)
+                && !CommonConstants.PROVIDER_GROK.equals(provider)) {
+            return CommonConstants.PERMISSION_MODE_DEFAULT;
+        }
         return resolvedMode;
     }
 
@@ -150,6 +158,9 @@ public class SessionSendService {
         String trimmed = mode.trim();
         if (trimmed.isEmpty()) {
             return null;
+        }
+        if ("autoEdit".equals(trimmed)) {
+            return "acceptEdits";
         }
         if (SessionState.isValidPermissionMode(trimmed)) {
             return trimmed;

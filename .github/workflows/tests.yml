@@ -18,8 +18,12 @@ jobs:
   # invoked from the repository root because api-config.test.js resolves modules
   # via path.resolve('ai-bridge/...') relative to the working directory.
   ai-bridge:
-    name: ai-bridge unit tests
-    runs-on: ubuntu-latest
+    name: ai-bridge unit tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6

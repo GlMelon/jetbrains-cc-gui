@@ -94,6 +94,14 @@
     "localProject": "本地專案",
     "disabled": "已停用",
     "planModeEnabled": "已啟用規劃模式",
+    "sdkNotInstalled": "{{provider}} SDK 尚未安裝，請先安裝 SDK 才能開始對話",
+    "sdkStatusLoading": "Checking SDK status...",
+    "sdkStatusUnavailable": "無法檢查 SDK 狀態。",
+    "retrySdkStatus": "重試",
+    "openSourceBanner": "本專案保證100%開源和免費（謹防盜版項目）",
+    "openSourceBannerStar": "點個 Star",
+    "openSourceBannerStarAria": "前往 GitHub 點 Star",
+    "goInstallSdk": "前往安裝",
     "commandNotImplemented": "`{{command}}` 功能尚未實現。",
     "clearCommandDescription": "清除對話歷史並新建會話",
     "helpCommandTitle": "可用命令",
@@ -351,7 +359,8 @@
           "kimi": "Kimi CLI",
           "opencode": "OpenCode",
           "pi": "PI CLI",
-          "omp": "OMP CLI"
+          "omp": "OMP CLI",
+          "minimax": "MiniMax Code"
         },
         "currentProviderAuto": "目前使用自動選擇：{{provider}}",
         "currentProviderManual": "目前使用手動選擇的 provider：{{provider}}",
@@ -622,6 +631,22 @@
     "versionHistoryLatest": "最新",
     "versionHistoryViewDetails": "查看詳細資訊",
     "versionHistoryViewAll": "查看所有版本",
+    "community": "官方交流群",
+    "communityDesc": "掃描下方二維碼加入官方微信交流群，獲取最新資訊和技術支援",
+    "communityQrTip": "使用微信掃一掃加入交流群",
+    "communityQrAlt": "官方微信交流群二維碼",
+    "socialDocs": "官方文檔",
+    "socialTitle": "關注我們",
+    "socialGithub": "GitHub 開源倉庫，歡迎 Star",
+    "socialX": "X（Twitter）@ZPeng31310",
+    "socialZhihu": "知乎 @vscodeai",
+    "socialXiaohongshu": "小紅書",
+    "socialDouyin": "抖音，滑鼠懸停掃碼關注",
+    "socialYoutube": "YouTube 頻道 @昆鹏马上优化",
+    "douyinQrAlt": "抖音二維碼",
+    "douyinId": "抖音號：nengyongai",
+    "douyinCopied": "抖音號已複製到剪貼簿",
+    "douyinCopyFailed": "複製失敗，請手動複製",
     "provider": {
       "loading": "載入中...",
       "emptyProvider": "暫無供應商配置",
@@ -943,6 +968,10 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Failed to copy",
       "tools": {
+        "minimax": {
+          "name": "MiniMax Code",
+          "description": "MiniMax 終端編碼智能體。需 Node.js 22.19+ / 24+（不支援 23）；命令：minimax / mcode"
+        },
         "grok": {
           "name": "Grok CLI",
           "description": "xAI Grok 終端編碼助手"
@@ -1737,16 +1766,20 @@
         "label": "Haiku 4.5",
         "description": "Haiku 4.5 · 速度最快，適合快速回覆"
       },
-      "opus48": {
-        "label": "Opus 4.8",
-        "description": "Opus 4.8 · 保留的前代 Opus 模型"
+      "fable51": {
+        "label": "Fable 5.1",
+        "description": "Fable 5.1 · 最強大 · Mythos 級"
       },
       "fable5": {
         "label": "Fable 5",
-        "description": "Fable 5 · 最強大 · Mythos 級"
+        "description": "Fable 5 · 保留的前代 Fable 模型"
       }
     },
     "codex": {
+      "gpt6astra": {
+        "label": "GPT-6 Astra",
+        "description": "新一代旗艦模型，擅長自主電腦操作與長鏈路智慧體任務"
+      },
       "gpt56sol": {
         "label": "GPT-5.6 Sol",
         "description": "面向複雜專業工作的前沿模型"
@@ -1799,9 +1832,15 @@
       "tooltip": "自動接受檔案編輯",
       "description": "自動接受檔案建立/編輯，減少確認步驟"
     },
-    "bypassPermissions": {
-      "label": "自動模式",
+    "auto": {
+      "label": "自動審批",
       "shortLabel": "自動",
+      "tooltip": "由模型審查器自動批准或阻止操作",
+      "description": "使用供應商原生審查器處理審批，同時保留安全邊界"
+    },
+    "bypassPermissions": {
+      "label": "全自動",
+      "shortLabel": "全自動",
       "tooltip": "略過所有權限檢查",
       "description": "完全自動化，略過所有權限檢查【請謹慎使用】"
     }
@@ -1822,6 +1861,12 @@
       "label": "Auto Edit",
       "tooltip": "Codex approval_policy=on-request – asks for approval when needed",
       "description": "Balanced option. Allows normal editing flow while still requiring approvals when needed."
+    },
+    "auto": {
+      "label": "替我審批",
+      "shortLabel": "自動",
+      "tooltip": "Codex approvals_reviewer=auto_review：由自動審查器處理可審批請求。",
+      "description": "維持 workspace-write 沙箱；審查器無法批准的請求仍會升級處理。"
     },
     "bypassPermissions": {
       "label": "Full Auto",
@@ -1863,6 +1908,12 @@
     },
     "kimi": {
       "label": "Kimi CLI"
+    },
+    "minimax": {
+      "label": "MiniMax Code"
+    },
+    "gemini": {
+      "label": "Gemini Cli"
     },
     "opencode": {
       "label": "OpenCode"

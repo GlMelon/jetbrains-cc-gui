@@ -93,6 +93,14 @@
     "global": "Global",
     "localProject": "Local",
     "disabled": "Désactivé",
+    "sdkNotInstalled": "{{provider}} SDK n'est pas installé. Veuillez installer le SDK pour commencer à discuter.",
+    "sdkStatusLoading": "Checking SDK status...",
+    "sdkStatusUnavailable": "Impossible de vérifier l'état du SDK.",
+    "retrySdkStatus": "Réessayer",
+    "openSourceBanner": "Ce projet est garanti 100% open source et gratuit (méfiez-vous des projets piratés)",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarAria": "Ouvrir le dépôt sur GitHub et mettre une étoile",
+    "goInstallSdk": "Aller installer",
     "commandNotImplemented": "La fonctionnalité `{{command}}` n'est pas encore implémentée.",
     "clearCommandDescription": "Effacer l'historique et démarrer une nouvelle session",
     "helpCommandTitle": "Commandes disponibles",
@@ -350,7 +358,8 @@
           "kimi": "Kimi CLI",
           "opencode": "OpenCode",
           "pi": "PI CLI",
-          "omp": "OMP CLI"
+          "omp": "OMP CLI",
+          "minimax": "MiniMax Code"
         },
         "currentProviderAuto": "Currently using automatic selection: {{provider}}",
         "currentProviderManual": "Currently using manually selected provider: {{provider}}",
@@ -616,6 +625,22 @@
     "versionHistoryLatest": "Dernière",
     "versionHistoryViewDetails": "Voir les détails",
     "versionHistoryViewAll": "Voir toutes les versions",
+    "community": "Communauté officielle",
+    "communityDesc": "Scannez le code QR ci-dessous pour rejoindre le groupe WeChat officiel pour obtenir les dernières nouvelles et le support technique",
+    "communityQrTip": "Scannez avec WeChat pour rejoindre la communauté",
+    "communityQrAlt": "Code QR de la communauté WeChat officielle",
+    "socialDocs": "Documentation officielle",
+    "socialTitle": "Suivez-nous",
+    "socialGithub": "Dépôt GitHub — mettez une étoile !",
+    "socialX": "X (Twitter) @ZPeng31310",
+    "socialZhihu": "Zhihu @vscodeai",
+    "socialXiaohongshu": "Xiaohongshu (RED)",
+    "socialDouyin": "Douyin — survolez pour scanner et suivre",
+    "socialYoutube": "Chaîne YouTube",
+    "douyinQrAlt": "Code QR Douyin",
+    "douyinId": "ID Douyin : nengyongai",
+    "douyinCopied": "ID Douyin copié dans le presse-papiers",
+    "douyinCopyFailed": "Échec de la copie. Veuillez copier manuellement.",
     "provider": {
       "loading": "Chargement...",
       "emptyProvider": "Aucun fournisseur configuré",
@@ -972,6 +997,10 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Failed to copy",
       "tools": {
+        "minimax": {
+          "name": "MiniMax Code",
+          "description": "Agent de code en terminal de MiniMax. Nécessite Node.js 22.19+ / 24+ (pas 23) ; commandes : minimax / mcode"
+        },
         "grok": {
           "name": "Grok CLI",
           "description": "xAI Grok terminal coding agent"
@@ -1775,16 +1804,20 @@
         "label": "Haiku 4.5",
         "description": "Haiku 4.5 · Le plus rapide pour des réponses rapides"
       },
-      "opus48": {
-        "label": "Opus 4.8",
-        "description": "Opus 4.8 · Génération Opus précédente"
+      "fable51": {
+        "label": "Fable 5.1",
+        "description": "Fable 5.1 · Le plus puissant · classe Mythos"
       },
       "fable5": {
         "label": "Fable 5",
-        "description": "Fable 5 · Le plus puissant · classe Mythos"
+        "description": "Fable 5 · Génération Fable précédente"
       }
     },
     "codex": {
+      "gpt6astra": {
+        "label": "GPT-6 Astra",
+        "description": "Vaisseau amiral de nouvelle génération pour l'utilisation autonome de l'ordinateur et les longues tâches agentiques."
+      },
       "gpt56sol": {
         "label": "GPT-5.6 Sol",
         "description": "Modèle frontier pour les travaux professionnels complexes."
@@ -1832,6 +1865,12 @@
       "tooltip": "Automatically accept file edits",
       "description": "Automatically accept file creation/editing, reducing confirmation steps"
     },
+    "auto": {
+      "label": "Approbation automatique",
+      "shortLabel": "Auto",
+      "tooltip": "Laisser le réviseur natif gérer automatiquement les demandes d'approbation",
+      "description": "Utilise le réviseur natif du fournisseur tout en conservant les limites de sécurité"
+    },
     "bypassPermissions": {
       "label": "Auto Mode",
       "shortLabel": "Auto",
@@ -1857,6 +1896,12 @@
       "label": "Auto Edit",
       "tooltip": "Codex approval_policy=on-request – asks for approval when needed",
       "description": "Balanced option. Allows normal editing flow while still requiring approvals when needed."
+    },
+    "auto": {
+      "label": "Approuver pour moi",
+      "shortLabel": "Auto",
+      "tooltip": "Codex approvals_reviewer=auto_review – un réviseur automatique traite les demandes admissibles.",
+      "description": "Conserve le bac à sable workspace-write et transmet les demandes que le réviseur ne peut pas approuver."
     },
     "bypassPermissions": {
       "label": "Full Auto",
@@ -1892,6 +1937,12 @@
     },
     "codex": {
       "label": "Codex"
+    },
+    "minimax": {
+      "label": "MiniMax Code"
+    },
+    "gemini": {
+      "label": "Gemini Cli"
     },
     "opencode": {
       "label": "OpenCode"

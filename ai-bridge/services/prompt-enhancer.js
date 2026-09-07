@@ -49,10 +49,25 @@ const DEFAULT_PROMPT_ENHANCER_CONFIG = {
   models: {
     claude: 'claude-role-sonnet',
     codex: '',
+    // Extra provider defaults are inert in CLI-only mode (normalizePromptEnhancerConfig
+    // only routes claude/codex); kept as self-contained per-provider infrastructure for
+    // the planned provider migration (incl. minimax).
+    grok: 'grok',
+    kimi: 'auto',
+    opencode: 'opencode-default',
+    pi: 'auto',
+    omp: 'auto',
+    minimax: 'auto',
   },
   availability: {
     claude: false,
     codex: false,
+    grok: false,
+    kimi: false,
+    opencode: false,
+    pi: false,
+    omp: false,
+    minimax: false,
   },
 };
 
@@ -343,6 +358,46 @@ export function extractAppendedDelta(previousText, nextText) {
  * @param {PromptEnhancerContext | undefined} context
  * @returns {Promise<string>}
  */
+/**
+ * Whether the lightweight Anthropic messages.stream ask path can serve this auth
+ * config. Kept as a pure helper so the ask-path contract stays test-covered even
+ * though direct SDK invocation is removed in CLI-only mode.
+ */
+export function canUseAnthropicAskPath(config) {
+  if (!config || !config.apiKey) return false;
+  return config.authType === 'api_key' || config.authType === 'auth_token';
+}
+
+/**
+ * Cap output tokens based on input size so long requirements are not truncated
+ * while short prompts stay cheap.
+ */
+export function computeMaxTokens(promptLength) {
+  const len = typeof promptLength === 'number' && Number.isFinite(promptLength) && promptLength > 0
+    ? promptLength
+    : 0;
+  return Math.min(8192, Math.max(2048, Math.ceil(len * 2)));
+}
+
+/**
+ * Build the messages.stream() request for the Claude ask path.
+ * thinking is disabled so reasoning models (e.g. DeepSeek via relay) do not
+ * spend the token budget on 'thinking' blocks and leave the text empty.
+ * Exposed for tests.
+ */
+export function buildEnhanceAskRequest(modelId, fullPrompt, systemPrompt, maxTokens) {
+  const request = {
+    model: modelId,
+    max_tokens: maxTokens,
+    thinking: { type: 'disabled' },
+    messages: [{ role: 'user', content: fullPrompt }],
+  };
+  if (systemPrompt && String(systemPrompt).trim()) {
+    request.system = String(systemPrompt).trim();
+  }
+  return request;
+}
+
 async function enhancePrompt(originalPrompt, systemPrompt, runtimeConfig, context) {
   const providerLabel = runtimeConfig.provider === 'codex' ? 'Codex SDK' : 'Claude Code SDK';
   throw new Error(

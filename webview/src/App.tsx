@@ -24,7 +24,7 @@ import {
   useAvatarConfig,
 } from './hooks';
 import { applyDiffTheme, getStoredDiffTheme } from './utils/diffTheme';
-import type { Attachment, ChatInputBoxHandle } from './components/ChatInputBox/types';
+import type { Attachment, ChatInputBoxHandle, PermissionMode } from './components/ChatInputBox/types';
 import { ChatHeader } from './components/ChatHeader';
 import { ChatScreen } from './components/ChatScreen';
 import { SessionCapabilitiesDrawer } from './components/SessionCapabilitiesDrawer';
@@ -103,6 +103,7 @@ const App = () => {
     setCurrentView,
     settingsInitialTab,
     setSettingsInitialTab,
+    setSettingsProviderSubTab,
     addToast,
     clearToasts,
     setContextInfo,
@@ -670,6 +671,7 @@ const App = () => {
         onHistory={() => setCurrentView('history')}
         onSettings={() => {
           setSettingsInitialTab(undefined);
+          setSettingsProviderSubTab(undefined);
           setCurrentView('settings');
         }}
         onOpenSearch={() => setSearchOpen(true)}
@@ -832,6 +834,7 @@ const App = () => {
         onRewindConfirm={handleRewindConfirm}
         onRewindCancel={handleRewindCancel}
         permissionDialogTimeoutSeconds={permissionDialogTimeoutSeconds}
+        onPlanApprovalModeChange={(mode) => handleModeSelect(mode as PermissionMode)}
       />
     </>
   );

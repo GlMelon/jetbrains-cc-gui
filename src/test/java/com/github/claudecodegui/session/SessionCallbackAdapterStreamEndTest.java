@@ -157,6 +157,22 @@ public class SessionCallbackAdapterStreamEndTest {
         assertEquals("onStreamEnd:20", jsTarget.calls.get(2));
     }
 
+    @Test
+    public void duplicateSessionIdsAreForwardedOnlyOnce() {
+        RecordingJsTarget jsTarget = new RecordingJsTarget();
+        SessionCallbackAdapter adapter = new SessionCallbackAdapter(
+                null, jsTarget, () -> true, null, () -> true, () -> true);
+
+        adapter.onSessionIdReceived("session-1");
+        adapter.onSessionIdReceived("session-1");
+        adapter.onSessionIdReceived("session-2");
+
+        assertEquals(2, jsTarget.calls.size());
+        assertEquals("setSessionId:session-1", jsTarget.calls.get(0));
+        assertEquals("setSessionId:session-2", jsTarget.calls.get(1));
+        adapter.deactivate();
+    }
+
     /**
      * Verify the flush LongConsumer callback contract:
      * when StreamMessageCoalescer.flush() invokes the callback with a
@@ -206,16 +222,17 @@ public class SessionCallbackAdapterStreamEndTest {
                 () -> true
         );
 
+        // The response-phase dispatch and onBlockReset's JS notification go through
+        // invokeLater, which has no Application in headless tests. Install the
+        // benign inline stub before any callback fires.
+        // Not restored afterwards: setApplication(null, ...) is rejected by the
+        // platform's @NotNull contract, and each Gradle test fork owns its JVM.
+        ApplicationManager.setApplication(invokeLaterInlineApplication());
+
         // Deltas arrive and sit in the throttlers' 33ms window...
         adapter.onContentDelta("text-tail");
         adapter.onThinkingDelta("thinking-tail");
 
-        // onBlockReset dispatches its JS notification via invokeLater, which has
-        // no Application in headless tests. The flush-before-reset ordering under
-        // test completes before that call, so a benign proxy stub suffices.
-        // Not restored afterwards: setApplication(null, ...) is rejected by the
-        // platform's @NotNull contract, and each Gradle test fork owns its JVM.
-        ApplicationManager.setApplication(invokeLaterInlineApplication());
         adapter.onBlockReset();
 
         assertTrue(jsTarget.calls.contains("onContentDelta:text-tail"));

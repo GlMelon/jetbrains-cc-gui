@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../../i18n/config';
-import { AVAILABLE_MODES, type PermissionMode } from '../types';
-import { ChatIcon, CheckIcon, CompassIcon, RobotIcon, ZapIcon } from '../../Icons';
+import { AVAILABLE_MODES, type ModeInfo, type ModelInfo, type PermissionMode } from '../types';
+import { ChatIcon, CheckIcon, CompassIcon, RobotIcon, ShieldIcon, ZapIcon } from '../../Icons';
+import { useOmpRoles } from '../../../hooks/providers/useCliModels';
+import { NATIVE_AUTO_APPROVAL_PROVIDERS } from '../../../hooks/providers/cliProviders';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 
 const RELATIVE_INLINE_BLOCK_STYLE: React.CSSProperties = { position: 'relative', display: 'inline-block' };
@@ -23,6 +25,30 @@ const MODE_TEXT_STYLE: React.CSSProperties = { whiteSpace: 'nowrap', overflow: '
 // 在下拉项右侧标「原生管控」徽标,让"选了但不传 flag"的行为对用户可见。
 const OPENCODE_FAMILY = new Set(['opencode', 'grok', 'kimi', 'pi']);
 
+/** Icons for the well-known omp roles; any other dynamic role gets a sparkle. */
+const OMP_ROLE_ICONS: Record<string, string> = {
+  smol: 'codicon-zap',
+  slow: 'codicon-lightbulb',
+  plan: 'codicon-tasklist',
+};
+
+/**
+ * Maps a dynamic omp role (listModels payload) to a ModeInfo. Label is the
+ * capitalized role id; description/tooltip carry the resolved model selector.
+ * Roles with an ompModes.* i18n entry get translated text via getModeText.
+ */
+function roleToModeInfo(role: ModelInfo): ModeInfo {
+  return {
+    // role id 是 omp 的动态 mode 值(后端 SessionState 白名单含 smol/slow/plan;
+    // 动态 role 透传),PermissionMode 静态类型之外,与 ompModeForModelId 同样按 cast 处理。
+    id: role.id as PermissionMode,
+    label: role.id.charAt(0).toUpperCase() + role.id.slice(1),
+    icon: OMP_ROLE_ICONS[role.id] ?? 'codicon-sparkle',
+    description: role.description,
+    tooltip: role.description,
+  };
+}
+
 function getModeOptionStyle(disabled: boolean): React.CSSProperties {
   return {
     opacity: disabled ? 0.5 : 1,
@@ -38,8 +64,9 @@ interface ModeSelectProps {
 
 // Map mode ID to SVG icon component.
 // 方案一(Claude 官方风格):default=对话气泡 / plan=罗盘 / acceptEdits(Agent)=机器人 /
-// bypassPermissions(Auto)=闪电。单色 currentColor,着色由 .selector-button CSS 统一处理
-// (bypassPermissions 额外有 .mode-auto-active 橙色高亮,呼应 Auto 警示语义)。
+// auto(原生自动审批)=盾牌 / bypassPermissions(Full Auto)=闪电。单色 currentColor,
+// 着色由 .selector-button CSS 统一处理
+// (bypassPermissions 额外有 .mode-full-auto-active 橙色高亮,呼应 Full Auto 警示语义)。
 function getModeIcon(modeId: PermissionMode) {
   switch (modeId) {
     case 'default':
@@ -49,6 +76,8 @@ function getModeIcon(modeId: PermissionMode) {
     case 'acceptEdits':
     case 'autoEdit': // acceptEdits 历史别名(C2 值域对齐),UI 同为 Agent=机器人
       return <RobotIcon size={14} />;
+    case 'auto':
+      return <ShieldIcon size={14} />;
     case 'bypassPermissions':
       return <ZapIcon size={14} />;
     default:
@@ -58,7 +87,9 @@ function getModeIcon(modeId: PermissionMode) {
 
 /**
  * ModeSelect - Mode selector component
- * Supports switching between default, agent, plan, and auto modes
+ * Supports switching between default, agent, provider-native auto, plan, and
+ * Full Auto modes; for the omp provider the menu lists Default plus the
+ * dynamic model roles.
  */
 export const ModeSelect = ({ value, onChange, provider }: ModeSelectProps) => {
   const { t } = useTranslation();
@@ -72,12 +103,29 @@ export const ModeSelect = ({ value, onChange, provider }: ModeSelectProps) => {
     preferredAlignment: 'right',
   });
 
+  // Dynamic omp model roles (subscribed unconditionally per hook rules; only
+  // consumed for provider 'omp'). Static smol/slow/plan until roles load.
+  const ompRoles = useOmpRoles();
+
   const modeOptions = useMemo(() => {
-    if (provider === 'codex') {
-      return AVAILABLE_MODES;
+    if (provider === 'omp') {
+      // OMP model-role modes: [Default, ...roles]. Roles are dynamic from the
+      // listModels payload, falling back to static smol/slow/plan (460a62b5
+      // 语义:roles 只出现在 mode selector,不进模型下拉)。
+      const defaultMode = AVAILABLE_MODES.find((mode) => mode.id === 'default');
+      const roleModes = ompRoles.map(roleToModeInfo);
+      return defaultMode ? [defaultMode, ...roleModes] : roleModes;
     }
-    return AVAILABLE_MODES;
-  }, [provider]);
+    const effectiveProvider = provider ?? 'claude';
+    return AVAILABLE_MODES.filter((mode) => {
+      // plan 仅 claude 有真实等价物;后端(SessionSendService)对其它 provider
+      // 统一降级为 default,菜单不暴露(omp 的 plan 是 model role,走上方分支)。
+      if (mode.id === 'plan') return effectiveProvider === 'claude';
+      // auto(原生自动审批)仅 claude/codex/grok 可用,静态集合镜像后端降级规则。
+      if (mode.id === 'auto') return NATIVE_AUTO_APPROVAL_PROVIDERS.has(effectiveProvider);
+      return true;
+    });
+  }, [provider, ompRoles]);
 
   const currentMode = modeOptions.find(m => m.id === value) || modeOptions[0];
 
@@ -170,7 +218,7 @@ export const ModeSelect = ({ value, onChange, provider }: ModeSelectProps) => {
     <div style={RELATIVE_INLINE_BLOCK_STYLE}>
       <button
         ref={buttonRef}
-        className={`selector-button${value === 'bypassPermissions' ? ' mode-auto-active' : ' mode-active-highlight'}`}
+        className={`selector-button${value === 'bypassPermissions' ? ' mode-full-auto-active' : ''}`}
         onClick={handleToggle}
         title={getModeText(currentMode.id, 'tooltip') || `${t('chat.currentMode', { mode: getModeText(currentMode.id, 'label') })}`}
       >

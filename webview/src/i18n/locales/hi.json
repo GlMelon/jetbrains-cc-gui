@@ -93,6 +93,14 @@
     "global": "वैश्विक",
     "localProject": "स्थानीय",
     "disabled": "अक्षम",
+    "sdkNotInstalled": "{{provider}} SDK इंस्टॉल नहीं है। चैट शुरू करने के लिए कृपया SDK इंस्टॉल करें।",
+    "sdkStatusLoading": "Checking SDK status...",
+    "sdkStatusUnavailable": "SDK स्थिति की जांच नहीं हो सकी।",
+    "retrySdkStatus": "पुनः प्रयास करें",
+    "openSourceBanner": "यह प्रोजेक्ट 100% ओपन सोर्स और मुफ़्त है (नकली प्रोजेक्ट से सावधान रहें)",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarAria": "GitHub पर रिपॉजिटरी खोलें और स्टार करें",
+    "goInstallSdk": "इंस्टॉल करने जाएं",
     "commandNotImplemented": "`{{command}}` सुविधा अभी तक लागू नहीं की गई है।",
     "clearCommandDescription": "बातचीत इतिहास साफ़ करें और नया सत्र शुरू करें",
     "helpCommandTitle": "उपलब्ध कमांड",
@@ -350,7 +358,8 @@
           "kimi": "Kimi CLI",
           "opencode": "OpenCode",
           "pi": "PI CLI",
-          "omp": "OMP CLI"
+          "omp": "OMP CLI",
+          "minimax": "MiniMax Code"
         },
         "currentProviderAuto": "Currently using automatic selection: {{provider}}",
         "currentProviderManual": "Currently using manually selected provider: {{provider}}",
@@ -616,6 +625,22 @@
     "versionHistoryLatest": "नवीनतम",
     "versionHistoryViewDetails": "विवरण देखें",
     "versionHistoryViewAll": "सभी संस्करण देखें",
+    "community": "आधिकारिक समुदाय",
+    "communityDesc": "नवीनतम जानकारी और तकनीकी सहायता के लिए आधिकारिक WeChat समूह में शामिल होने के लिए नीचे QR कोड स्कैन करें",
+    "communityQrTip": "WeChat से स्कैन करके समुदाय में शामिल हों",
+    "communityQrAlt": "आधिकारिक WeChat समुदाय QR कोड",
+    "socialDocs": "आधिकारिक दस्तावेज़",
+    "socialTitle": "हमें फॉलो करें",
+    "socialGithub": "GitHub रिपॉजिटरी — Star करें!",
+    "socialX": "X (Twitter) @ZPeng31310",
+    "socialZhihu": "Zhihu @vscodeai",
+    "socialXiaohongshu": "Xiaohongshu (RED)",
+    "socialDouyin": "Douyin — फॉलो करने के लिए होवर करके स्कैन करें",
+    "socialYoutube": "YouTube चैनल",
+    "douyinQrAlt": "Douyin QR कोड",
+    "douyinId": "Douyin ID: nengyongai",
+    "douyinCopied": "Douyin ID क्लिपबोर्ड पर कॉपी हो गया",
+    "douyinCopyFailed": "कॉपी करने में विफल। कृपया मैन्युअल रूप से कॉपी करें।",
     "provider": {
       "loading": "लोड हो रहा है...",
       "emptyProvider": "कोई प्रदाता कॉन्फ़िगर नहीं",
@@ -972,6 +997,10 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Failed to copy",
       "tools": {
+        "minimax": {
+          "name": "MiniMax Code",
+          "description": "MiniMax terminal coding agent. Node.js 22.19+ / 24+ (23 नहीं) आवश्यक; कमांड: minimax / mcode"
+        },
         "grok": {
           "name": "Grok CLI",
           "description": "xAI Grok terminal coding agent"
@@ -1741,16 +1770,20 @@
         "label": "Haiku 4.5",
         "description": "Haiku 4.5 · सबसे तेज़, त्वरित उत्तरों के लिए उपयुक्त"
       },
-      "opus48": {
-        "label": "Opus 4.8",
-        "description": "Opus 4.8 · पिछली Opus पीढ़ी"
+      "fable51": {
+        "label": "Fable 5.1",
+        "description": "Fable 5.1 · सबसे शक्तिशाली · Mythos-श्रेणी"
       },
       "fable5": {
         "label": "Fable 5",
-        "description": "Fable 5 · सबसे शक्तिशाली · Mythos-श्रेणी"
+        "description": "Fable 5 · पिछली Fable पीढ़ी"
       }
     },
     "codex": {
+      "gpt6astra": {
+        "label": "GPT-6 Astra",
+        "description": "स्वायत्त कंप्यूटर उपयोग और लंबे एजेंटिक कार्यों के लिए नई पीढ़ी का फ्लैगशिप मॉडल।"
+      },
       "gpt56sol": {
         "label": "GPT-5.6 Sol",
         "description": "जटिल पेशेवर कार्यों के लिए फ्रंटियर मॉडल।"
@@ -1807,6 +1840,12 @@
       "tooltip": "Automatically accept file edits",
       "description": "Automatically accept file creation/editing, reducing confirmation steps"
     },
+    "auto": {
+      "label": "स्वचालित अनुमोदन",
+      "shortLabel": "स्वचालित",
+      "tooltip": "प्रदाता के मूल समीक्षक को अनुमोदन अनुरोध स्वचालित रूप से संभालने दें",
+      "description": "सुरक्षा सीमाएँ बनाए रखते हुए प्रदाता के मूल समीक्षक का उपयोग करता है"
+    },
     "bypassPermissions": {
       "label": "Auto Mode",
       "shortLabel": "Auto",
@@ -1832,6 +1871,12 @@
       "label": "Auto Edit",
       "tooltip": "Codex approval_policy=on-request – asks for approval when needed",
       "description": "Balanced option. Allows normal editing flow while still requiring approvals when needed."
+    },
+    "auto": {
+      "label": "मेरे लिए अनुमोदित करें",
+      "shortLabel": "स्वचालित",
+      "tooltip": "Codex approvals_reviewer=auto_review – स्वचालित समीक्षक योग्य अनुरोधों को संभालता है।",
+      "description": "workspace-write सैंडबॉक्स बनाए रखता है और अस्वीकृत अनुरोधों को आगे भेजता है।"
     },
     "bypassPermissions": {
       "label": "Full Auto",
@@ -1867,6 +1912,12 @@
     },
     "codex": {
       "label": "Codex"
+    },
+    "minimax": {
+      "label": "MiniMax Code"
+    },
+    "gemini": {
+      "label": "Gemini Cli"
     },
     "opencode": {
       "label": "OpenCode"

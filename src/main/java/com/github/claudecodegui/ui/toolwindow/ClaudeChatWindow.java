@@ -174,9 +174,9 @@ public class ClaudeChatWindow {
     private boolean sessionReloadInFlight = false;
     private boolean sessionReloadPending = false;
     // A session_updated reload that arrived while a turn was streaming is parked
-    // here and drained at stream end (onStreamEnded). See {@link DeferredReload}.
+    // here and drained at stream end (onStreamCompleted). See {@link DeferredReload}.
     private final DeferredReload deferredReload = new DeferredReload();
-    // Backstop for the parked reload. onStreamEnded is the fast drain path, but it
+    // Backstop for the parked reload. onStreamCompleted is the fast drain path, but it
     // is edge-triggered: a defer that lands just after the stream-end edge (a
     // cross-thread check-then-act between the defer caller's isStreamActive() read
     // and the stream reader's streamActive=false + drain), or the LAST background
@@ -250,13 +250,13 @@ public class ClaudeChatWindow {
             }
 
             @Override
-            public JBCefBrowser getBrowser() {
-                return browser;
+            public boolean isDisposed() {
+                return disposed;
             }
 
             @Override
-            public boolean isDisposed() {
-                return disposed;
+            public JBCefBrowser getBrowser() {
+                return browser;
             }
 
             @Override
@@ -790,6 +790,7 @@ public class ClaudeChatWindow {
         chatWindowDelegate.sendQuickFixMessage(prompt, isQuickFix, callback);
     }
 
+    /** Execute raw JavaScript through the same ordered webview queue as callback events. */
     public void executeJavaScriptCode(String jsCode) {
         webviewEventQueue.enqueueRaw(jsCode);
     }
@@ -1020,6 +1021,10 @@ public class ClaudeChatWindow {
             @Override
             public void onSessionIdReceived(String newSessionId) {
                 super.onSessionIdReceived(newSessionId);
+                if (newSessionId == null || newSessionId.trim().isEmpty()
+                        || newSessionId.equals(sessionId)) {
+                    return;
+                }
                 String provider = session != null ? session.getProvider() : handlerContext.getCurrentProvider();
                 String runtimeEpoch = session != null ? session.getRuntimeSessionEpoch() : null;
                 if (runtimeEpoch != null && !runtimeEpoch.isBlank()) {
@@ -1092,12 +1097,14 @@ public class ClaudeChatWindow {
      * streaming. Reloading mid-stream is unsafe: {@code loadFromServer()} runs
      * {@code clearMessages()} on SessionState off the EDT, which would race the
      * streaming append and disturb the live streaming bubble. So the target
-     * session id is parked here and drained at stream end (onStreamEnded),
+     * session id is parked here and drained at stream end (onStreamCompleted),
      * making background-turn answers appear at the next turn boundary instead of
      * only after the user reopens the session.
      *
      * <p>Thread-safety: {@code defer} is called from background callback threads,
-     * {@code takeIfRunnable} from the coalescer's onStreamEnded hook; both are
+     * {@code takeIfRunnable} from the adapter's stream-end callback (ordered
+     * after the final snapshot enters the webview queue) and the safety-drain
+     * alarm; both are
      * fully synchronized so a defer/drain interleave never loses or duplicates a
      * pending reload. {@code take} atomically reads-clears-and-gates in one
      * critical section (no read/clear window). Coalescing is last-writer-wins:
@@ -1280,6 +1287,18 @@ public class ClaudeChatWindow {
         if (!disposed && completedSession != null && historyRefreshService != null) {
             historyRefreshService.onStreamCompleted(completedSession.getProvider());
         }
+        // Runs as the adapter's stream-end callback, already ordered after the
+        // final snapshot and the onStreamEnd signal have entered the webview
+        // queue — the safe point to reconcile and drain a deferred reload.
+        ClaudeSession current = this.session;
+        if (current != null && shouldReconcileTranscriptAtStreamEnd(
+                current.getProvider(), current.getSessionId())) {
+            // Grok's live ACP stream can omit file-tool blocks that are present
+            // in chat_history.jsonl. Reuse the proven same-session reload path
+            // once the turn is idle so derived edit statistics use final data.
+            this.deferredReload.defer(current.getSessionId());
+        }
+        this.drainDeferredReload();
         // 从流读取线程调用,而 notificationAlarm 是 SWING_THREAD Alarm,
         // cancelAllRequests/addRequest 必须在 EDT 执行,否则违反 Alarm 线程约束
         // (非 EDT 操作 SWING_THREAD Alarm 行为未定义,可能丢失请求或抛异常)。
@@ -1290,6 +1309,19 @@ public class ClaudeChatWindow {
             notificationAlarm.cancelAllRequests();
             notificationAlarm.addRequest(this::maybeShowTaskCompletionNotification, 500);
         });
+    }
+
+    private void drainDeferredReload() {
+        String target = deferredReload.takeIfRunnable(disposed);
+        if (target == null) {
+            return;
+        }
+        LOG.info("[ClaudeChatWindow] draining deferred session_updated reload after stream end, sessionId=" + target);
+        requestSessionReload(target);
+    }
+
+    static boolean shouldReconcileTranscriptAtStreamEnd(String provider, String sessionId) {
+        return CommonConstants.PROVIDER_GROK.equals(provider) && sessionId != null && !sessionId.isBlank();
     }
 
     public void onSendStarted() {
@@ -1719,6 +1751,11 @@ public class ClaudeChatWindow {
             @Override
             public void callJavaScript(String fn, String... args) {
                 ClaudeChatWindow.this.callJavaScript(fn, args);
+            }
+
+            @Override
+            public void executeJavaScriptCode(String jsCode) {
+                ClaudeChatWindow.this.executeJavaScriptCode(jsCode);
             }
 
             @Override

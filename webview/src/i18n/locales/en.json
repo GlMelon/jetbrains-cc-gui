@@ -95,6 +95,16 @@
     "localProject": "Local",
     "disabled": "Disabled",
     "planModeEnabled": "Plan mode enabled",
+    "sdkNotInstalled": "{{provider}} SDK is not installed. Please install the SDK to start chatting.",
+    "sdkStatusLoading": "Checking SDK status...",
+    "sdkStatusUnavailable": "Could not check SDK status.",
+    "retrySdkStatus": "Retry",
+    "openSourceBanner": "This project is guaranteed to be 100% open source and free (beware of pirated projects)",
+    "openSourceBannerStar": "Star",
+    "openSourceBannerStarAria": "Open the repository on GitHub and star it",
+    "goInstallSdk": "Go to Install",
+    "sdkTooLowForFable": "Claude SDK version is too low for the Fable model. Update the Claude Code SDK in Settings.",
+    "updateSdk": "Update SDK",
     "commandNotImplemented": "`{{command}}` feature is not yet implemented.",
     "clearCommandDescription": "Clear conversation history and start a new session",
     "helpCommandTitle": "Available commands",
@@ -248,6 +258,226 @@
   },
   "settings": {
     "title": "Settings",
+    "pet": {
+      "title": "Codex Pet",
+      "description": "Manage the pet that floats across the current IDE window.",
+      "temporarilyUnavailable": "The pet feature is temporarily unavailable. Stay tuned.",
+      "scopeLabel": "Configuration scope",
+      "scopeDescriptions": {
+        "project": "Use independent pet, size, opacity, and bubble settings for this project.",
+        "global": "Share pet, size, opacity, and bubble settings across all projects."
+      },
+      "scopePositionHint": "Pet position is always saved separately for each IDE window.",
+      "scopeOptions": {
+        "project": "Project",
+        "global": "Global"
+      },
+      "tabs": {
+        "basic": "Basic",
+        "actions": "Actions",
+        "bubble": "Bubbles",
+        "local": "Custom",
+        "petdex": "Petdex"
+      },
+      "floatingTitle": "IDE floating pet",
+      "floatingDescription": "The pet stays above editors and tool windows and can be dragged anywhere inside the IDE.",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "preview": "Pet preview",
+      "currentPet": "Current pet",
+      "currentPetHint": "Choose from locally installed pets.",
+      "petSearchPlaceholder": "Search alias, original name, or ID",
+      "noMatchingLocalPets": "No matching installed pets",
+      "alias": "Local alias",
+      "aliasPlaceholder": "For example: {{name}}",
+      "aliasDescription": "Aliases only change the local display name. The remote slug, install directory, and pet assets remain unchanged.",
+      "saveAlias": "Save alias",
+      "clearAlias": "Clear alias",
+      "size": "Size",
+      "sizeHint": "Applied to the pet in the current window.",
+      "opacity": "Opacity",
+      "opacityHint": "Reduce obstruction over the editor while inactive.",
+      "showStatusIndicator": "Show status dot",
+      "showStatusIndicatorHint": "Show the current task state next to the floating pet.",
+      "confirmBeforeDelete": "Confirm before deleting a pet",
+      "confirmBeforeDeleteHint": "Require confirmation before removing a local pet.",
+      "displayAndOperations": "Pet display and operations",
+      "refreshAssets": "Refresh assets",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete local pet?",
+      "deleteConfirm": "Delete {{name}} from local pet storage? This cannot be undone.",
+      "deleteSuccess": "Pet deleted",
+      "resetPosition": "Reset position",
+      "actionsTitle": "Status actions",
+      "actionsDescription": "Choose one or more sprite actions for each task status.",
+      "actionsHint": "One selected action is chosen at random when a status begins. Action mappings apply to animated 8x9 pets; static images use the full image.",
+      "actionStateLabel": "Task status",
+      "actionMappingTitle": "Action mapping",
+      "actionSelectedCount": "{{count}} selected",
+      "actionStateDescriptions": {
+        "idle": "Choose an animation while waiting for the next task.",
+        "success": "Choose an animation when a task completes.",
+        "thinking": "Choose an animation while the model is reasoning.",
+        "running": "Choose an animation while a tool or task is running.",
+        "error": "Choose an animation when a task needs attention."
+      },
+      "actionDescriptions": {
+        "idle": "Default resting frame",
+        "running-right": "Continuous rightward motion",
+        "running-left": "Continuous leftward motion",
+        "waving": "Short greeting loop",
+        "jumping": "Completion or reminder",
+        "failed": "Exceptional state animation",
+        "waiting": "Brief pause",
+        "running": "Loop while running",
+        "review": "Review animation"
+      },
+      "actionPreview": "Action preview",
+      "actionPreviewHint": "Choose a sprite action to inspect.",
+      "previewAction": "Preview action",
+      "previewFrame": "Frame",
+      "playPreview": "Play preview",
+      "pausePreview": "Pause preview",
+      "actionPreviewSpriteHint": "Shows the selected spritesheet action frame.",
+      "actionPreviewStaticHint": "Static images have no action frames; the full image is shown.",
+      "visualStates": {
+        "idle": "Idle",
+        "success": "Success",
+        "thinking": "Thinking",
+        "running": "Running",
+        "error": "Error"
+      },
+      "actions": {
+        "idle": "Idle",
+        "running-right": "Running right",
+        "running-left": "Running left",
+        "waving": "Waving",
+        "jumping": "Jumping",
+        "failed": "Failed",
+        "waiting": "Waiting",
+        "running": "Working",
+        "review": "Review"
+      },
+      "refreshLocalPets": "Refresh local pets",
+      "openPetDirectory": "Open pet directory",
+      "localPetOperationFailed": "The local pet operation failed. Check ~/.codex/pets permissions.",
+      "petDirectoryUnavailable": "The ~/.codex/pets directory could not be created or opened.",
+      "hatchTitle": "Create pets with hatch-pet",
+      "hatchDescription": "Detect the official curated Skill and place an editable command in the active Codex input. The plugin never runs the Skill in the background.",
+      "hatchStatus": {
+        "loading": "Checking hatch-pet Skill",
+        "missing": "hatch-pet Skill not installed",
+        "broken": "hatch-pet Skill install is broken",
+        "installed": "hatch-pet Skill installed"
+      },
+      "prepareInstallSkill": "Prepare install command",
+      "prepareRepairSkill": "Prepare Skill repair command",
+      "hatchOfficialSource": "Official Skill source",
+      "refreshSkillStatus": "Check Skill again",
+      "hatchName": "Pet name",
+      "hatchStyle": "Visual style",
+      "hatchPrompt": "Pet description",
+      "referenceImage": "Reference image",
+      "petDirectory": "Pet directory",
+      "petDirectoryHint": "Local pets and generated assets are managed together.",
+      "hatchCommandHint": "The command is sent to the active Codex input for execution.",
+      "noReference": "No reference image selected",
+      "chooseReference": "Choose reference",
+      "clearReference": "Clear reference",
+      "prepareCreatePet": "Prepare create command",
+      "prepareRepairPet": "Prepare repair command",
+      "hatchCommandPrepared": "Command added to the active Codex input. Review it before sending.",
+      "hatchReplaceDraftConfirmTitle": "Replace current chat draft?",
+      "hatchReplaceDraftConfirm": "Replace the current chat draft with this hatch-pet command?",
+      "hatchReplaceDraftAction": "Replace draft",
+      "hatchCommandFailed": "The hatch-pet command could not be prepared.",
+      "hatchSkillNotReady": "The hatch-pet Skill is not installed correctly.",
+      "hatchInputRequired": "Enter a name or description, or choose a reference image.",
+      "hatchRequiresCodex": "Switch to a Codex tab before preparing a hatch-pet command.",
+      "bubbleTitle": "Pet bubbles",
+      "bubbleDescription": "Show short status bubbles for live Claude Code and Codex tasks. Bubble text uses templates only and never includes chat content.",
+      "bubbleDuration": "Bubble duration (seconds)",
+      "bubbleSize": "Bubble size",
+      "bubbleShowForBackgroundTabs": "Show bubbles from background tabs",
+      "templateVariables": "Available variables",
+      "templateVariableTable": {
+        "variable": "Variable",
+        "content": "Inserted content",
+        "tabTitle": "Custom conversation title; falls back to the IDE tab title when unavailable.",
+        "provider": "Current AI provider, such as Codex or Claude.",
+        "model": "Currently selected model name.",
+        "duration": "Elapsed time for the current task, for example 12.8s."
+      },
+      "bubbleSizes": {
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large",
+        "xlarge": "Extra large"
+      },
+      "bubbleEvents": {
+        "task_started": "Task started",
+        "thinking": "Thinking",
+        "running": "Running",
+        "task_success": "Task completed",
+        "task_error": "Task failed",
+        "idle": "Idle"
+      },
+      "petdexTitle": "Petdex community",
+      "petdexDescription": "Browse and install verified pet packages from the official Petdex repository.",
+      "refreshCatalog": "Refresh Petdex catalog",
+      "searchPlaceholder": "Search name, author, type, or slug",
+      "catalogError": "Unable to load Petdex: {{error}}",
+      "noPets": "No matching pets",
+      "loadingCatalog": "Loading Petdex pets...",
+      "install": "Install",
+      "pagination": "Pet catalog pages",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "pageStatus": "{{current}} / {{total}}",
+      "previewUnavailable": "Preview unavailable",
+      "connectTimeout": "Connect timeout (seconds)",
+      "requestTimeout": "Request timeout (seconds)",
+      "retryAttempts": "Retry attempts",
+      "catalogColumns": "Cards per row",
+      "catalogPageSize": "Items per page",
+      "catalogSort": "Sort order",
+      "pageSizeOption": "{{count}} per page",
+      "pageJump": "Go to",
+      "goToPage": "Go to page",
+      "sort": {
+        "default": "Default order",
+        "name_asc": "Name ascending",
+        "name_desc": "Name descending",
+        "author_asc": "Author ascending",
+        "kind_asc": "Kind ascending",
+        "slug_asc": "Slug ascending"
+      },
+      "columns3": "3 columns",
+      "columns4": "4 columns",
+      "columns5": "5 columns",
+      "columns6": "6 columns",
+      "connectTimeoutError": "Connection to Petdex timed out. Check your network or proxy, or increase the connection timeout.",
+      "requestTimeoutError": "The Petdex download timed out. Increase the request timeout and try again.",
+      "networkError": "Petdex is unreachable. Check your network, proxy, or firewall and try again.",
+      "petNotFound": "This pet is no longer available in Petdex.",
+      "alreadyInstalled": "This pet is already installed.",
+      "resourceTooLarge": "The pet package exceeds the allowed size.",
+      "invalidPackage": "The downloaded pet package is invalid or cannot be decoded.",
+      "aliasTooLong": "Pet aliases cannot exceed 60 characters.",
+      "invalidAlias": "The pet alias contains unsupported control characters.",
+      "aliasUpdateFailed": "The pet metadata could not be written. Check the permissions and file usage under ~/.codex/pets.",
+      "httpError": "Petdex returned HTTP {{status}}. Please try again later.",
+      "unknownError": "Operation failed ({{code}}). Check idea.log for details.",
+      "uninstall": "Uninstall",
+      "uninstallConfirmTitle": "Uninstall Pet?",
+      "uninstallConfirm": "Uninstall {{name}} and remove its managed local files?",
+      "processing": "Processing",
+      "installedExternally": "Installed locally",
+      "installSuccess": "Pet installed and selected",
+      "uninstallSuccess": "Pet uninstalled",
+      "aliasSuccess": "Pet alias updated",
+      "operationFailed": "Pet operation failed: {{error}}"
+    },
     "basic": {
       "title": "Basic Configuration",
       "description": "Configure page theme, language and Node.js environment",
@@ -359,7 +589,8 @@
           "kimi": "Kimi CLI",
           "opencode": "OpenCode",
           "pi": "PI CLI",
-          "omp": "OMP CLI"
+          "omp": "OMP CLI",
+          "minimax": "MiniMax Code"
         },
         "currentProviderAuto": "Currently using automatic selection: {{provider}}",
         "currentProviderManual": "Currently using manually selected provider: {{provider}}",
@@ -665,6 +896,10 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Failed to copy",
       "tools": {
+        "minimax": {
+          "name": "MiniMax Code",
+          "description": "MiniMax terminal coding agent. Requires Node.js 22.19+ / 24+ (not 23); commands: minimax / mcode"
+        },
         "grok": {
           "name": "Grok CLI",
           "description": "xAI Grok terminal coding agent"
@@ -885,6 +1120,20 @@
     "versionHistoryLatest": "Latest",
     "versionHistoryViewDetails": "View Details",
     "versionHistoryViewAll": "View All Versions",
+    "communityQrTip": "Scan with WeChat to join the community",
+    "communityQrAlt": "Official WeChat community QR code",
+    "socialDocs": "Official Documentation",
+    "socialTitle": "Follow Us",
+    "socialGithub": "GitHub repository — star us!",
+    "socialX": "X (Twitter) @ZPeng31310",
+    "socialZhihu": "Zhihu @vscodeai",
+    "socialXiaohongshu": "Xiaohongshu (RED)",
+    "socialDouyin": "Douyin — hover to scan and follow",
+    "socialYoutube": "YouTube channel",
+    "douyinQrAlt": "Douyin QR code",
+    "douyinId": "Douyin ID: nengyongai",
+    "douyinCopied": "Douyin ID copied to clipboard",
+    "douyinCopyFailed": "Failed to copy. Please copy manually.",
     "provider": {
       "loading": "Loading...",
       "emptyProvider": "No provider configured",
@@ -2124,16 +2373,20 @@
         "label": "Haiku 4.5",
         "description": "Haiku 4.5 · Fastest for quick answers"
       },
-      "opus48": {
-        "label": "Opus 4.8",
-        "description": "Opus 4.8 · Previous Opus generation"
+      "fable51": {
+        "label": "Fable 5.1",
+        "description": "Fable 5.1 · Most powerful · Mythos-class"
       },
       "fable5": {
         "label": "Fable 5",
-        "description": "Fable 5 · Most powerful · Mythos-class"
+        "description": "Fable 5 · Previous Fable generation"
       }
     },
     "codex": {
+      "gpt6astra": {
+        "label": "GPT-6 Astra",
+        "description": "New-generation flagship for autonomous computer use and long agentic tasks."
+      },
       "gpt56sol": {
         "label": "GPT-5.6 Sol",
         "description": "Frontier model for complex professional work."
@@ -2190,9 +2443,15 @@
       "tooltip": "Automatically accept file edits",
       "description": "Automatically accept file creation/editing, reducing confirmation steps"
     },
-    "bypassPermissions": {
+    "auto": {
       "label": "Auto Mode",
       "shortLabel": "Auto",
+      "tooltip": "Let the provider review approval requests automatically",
+      "description": "Uses the provider-native reviewer while retaining safety boundaries"
+    },
+    "bypassPermissions": {
+      "label": "Full Auto",
+      "shortLabel": "Full Auto",
       "tooltip": "Bypass all permission checks",
       "description": "Fully automated, bypassing all permission checks [Use with caution]"
     },
@@ -2215,6 +2474,12 @@
       "label": "Auto Edit",
       "tooltip": "Codex approval_policy=on-request – asks for approval when needed",
       "description": "Balanced option. Allows normal editing flow while still requiring approvals when needed."
+    },
+    "auto": {
+      "label": "Approve for me",
+      "shortLabel": "Auto",
+      "tooltip": "Codex approvals_reviewer=auto_review – an automatic reviewer handles eligible approval requests.",
+      "description": "Keeps the workspace-write sandbox and escalates requests the reviewer cannot approve."
     },
     "bypassPermissions": {
       "label": "Full Auto",
@@ -2250,6 +2515,12 @@
     },
     "codex": {
       "label": "Codex"
+    },
+    "minimax": {
+      "label": "MiniMax Code"
+    },
+    "gemini": {
+      "label": "Gemini Cli"
     },
     "opencode": {
       "label": "OpenCode"

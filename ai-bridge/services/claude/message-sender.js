@@ -214,6 +214,7 @@ function getRetryDelayMs(attempt) {
  * @param {string} [params.model]        Model name/id
  * @param {string} [params.reasoningEffort] 'low' | 'medium' | 'high'
  * @param {boolean} [params.streaming]   Enable streaming deltas
+ * @param {boolean} [params.disableThinking] Disable extended thinking (MAX_THINKING_TOKENS=0)
  * @param {any} [params.mcpServers]      MCP servers config
  * @param {string} [params.systemPromptAppend] Extra system prompt
  * @returns {Promise<void>}
@@ -226,6 +227,7 @@ async function spawnCliAndStream({
   model = '',
   reasoningEffort = '',
   streaming = false,
+  disableThinking = false,
   mcpServers = null,
   systemPromptAppend = '',
 }) {
@@ -270,6 +272,13 @@ async function spawnCliAndStream({
   // Build environment
   const cliEnv = buildCliEnv();
   const env = { ...process.env, ...cliEnv, CLAUDE_NO_COLOR: '1', CLAUDE_USE_STDIN: '1' };
+  if (disableThinking) {
+    // CLI equivalent of the SDK's `thinking: { type: 'disabled' }`: reasoning
+    // models (e.g. DeepSeek via an Anthropic-compatible endpoint) otherwise emit
+    // only `thinking` blocks and never a `text` answer, which leaves one-shot
+    // consumers (commit message generation) with an empty response.
+    env.MAX_THINKING_TOKENS = '0';
+  }
 
   // Resolve working directory
   const workCwd = cwd && cwd !== 'undefined' && cwd !== 'null' ? cwd : process.cwd();
@@ -521,6 +530,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
       model: resolvedModel || model || '',
       reasoningEffort: normalizedReasoningEffort || '',
       streaming: streamingEnabled,
+      disableThinking,
       mcpServers,
       systemPromptAppend,
     });

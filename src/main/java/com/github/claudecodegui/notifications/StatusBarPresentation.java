@@ -104,6 +104,7 @@ final class StatusBarPresentation {
             case CommonConstants.PERMISSION_MODE_PLAN -> ClaudeCodeGuiBundle.message("status.mode.plan");
             case CommonConstants.PERMISSION_MODE_ACCEPT_EDITS -> ClaudeCodeGuiBundle.message("status.mode.acceptEdits");
             case CommonConstants.PERMISSION_MODE_AUTO_EDIT -> ClaudeCodeGuiBundle.message("status.mode.autoEdit");
+            case CommonConstants.PERMISSION_MODE_AUTO -> ClaudeCodeGuiBundle.message("status.mode.auto");
             case CommonConstants.PERMISSION_MODE_BYPASS -> ClaudeCodeGuiBundle.message("status.mode.bypassPermissions");
             default -> normalized;
         };

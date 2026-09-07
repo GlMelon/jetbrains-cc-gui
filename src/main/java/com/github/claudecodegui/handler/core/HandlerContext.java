@@ -60,6 +60,9 @@ public class HandlerContext {
             callJavaScript("window.__bridge.dispatch", type,
                     JsUtils.escapeJs(payloadJson == null ? "" : payloadJson));
         }
+
+        default void executeJavaScript(String jsCode) {
+        }
     }
 
     public HandlerContext(
@@ -231,6 +234,17 @@ public class HandlerContext {
 
     public String escapeJs(String str) {
         return jsCallback.escapeJs(str);
+    }
+
+    /**
+     * Execute JavaScript through the window's ordered webview event queue
+     * (which marshals to the EDT and batches with callback events).
+     */
+    public void executeJavaScriptQueued(String jsCode) {
+        if (this.disposed || this.jsCallback == null) {
+            return;
+        }
+        this.jsCallback.executeJavaScript(jsCode);
     }
 
     /**

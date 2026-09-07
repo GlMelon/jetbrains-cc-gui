@@ -20,8 +20,10 @@
  * (no TTY). `canUseTool` never returns `ask` — it synchronously blocks on the GUI
  * verdict and returns only `allow`/`deny` — so we never emit `ask` here.
  */
+import { pathToFileURL } from 'node:url';
 import { canUseTool } from '../permission-handler.js';
 import { debugLog } from '../permission-ipc.js';
+import { normalizePermissionMode, YIELD_TO_CLI } from '../services/claude/permission-mode.js';
 
 /**
  * Read all of stdin as a UTF-8 string. Mirrors the verified pattern used by
@@ -96,6 +98,27 @@ function emitDecision(result) {
   emit(buildDenyPayload(reason));
 }
 
+/**
+ * Native auto review (`--permission-mode auto`): the CLI's own classifier owns the
+ * verdict, so the GUI-bridge must NOT pre-empt it. The mode is read from the hook
+ * stdin payload — the CLI reports its current permission mode on every hook
+ * invocation (`permission_mode` field), which stays correct across mid-session mode
+ * switches because a mode change rebuilds the CLI process (permissionMode is part
+ * of the persistent-process fingerprint). Missing/unknown values normalize to
+ * 'default' (older CLIs without the field keep the bridge-dialog behavior).
+ *
+ * Alignment note: upstream has no hook interaction for auto (no hooks/ dir at all),
+ * so auto follows "fully yield to the native classifier" semantics — the
+ * permission-safety dangerous-path deny inside canUseTool is bypassed in auto,
+ * matching upstream permission-mode.js, which also yields without canUseTool.
+ *
+ * @param {any} payload - parsed hook stdin payload
+ * @returns {boolean}
+ */
+export function shouldYieldToNativeClassifier(payload) {
+  return normalizePermissionMode(payload?.permission_mode) === 'auto';
+}
+
 async function main() {
   let payload;
   try {
@@ -115,6 +138,12 @@ async function main() {
     return;
   }
 
+  if (shouldYieldToNativeClassifier(payload)) {
+    debugLog('HOOK_AUTO_YIELD', `permission_mode=auto — yielding ${toolName} to the CLI native classifier`);
+    emit(YIELD_TO_CLI);
+    return;
+  }
+
   try {
     const result = await canUseTool(toolName, toolInput);
     emitDecision(result);
@@ -126,10 +155,12 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  // Last-resort fail-closed: never let the hook hang or crash without a verdict,
-  // which would leave the CLI blocked on a tool decision.
-  emit(buildDenyPayload(
-    'Permission hook: fatal — ' + (e instanceof Error ? e.message : String(e))
-  ));
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => {
+    // Last-resort fail-closed: never let the hook hang or crash without a verdict,
+    // which would leave the CLI blocked on a tool decision.
+    emit(buildDenyPayload(
+      'Permission hook: fatal — ' + (e instanceof Error ? e.message : String(e))
+    ));
+  });
+}

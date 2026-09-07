@@ -19,6 +19,9 @@ import {
   resolveSandboxModeOverride,
   resolveApprovalPolicyOverride,
   buildCodexCliEnvironment,
+  applyCodexApprovalsReviewerConfig,
+  isCodexNativeAutoReviewSupported,
+  CODEX_NATIVE_AUTO_REVIEW_MIN_VERSION,
   buildErrorPayload,
 } from './codex-utils.js';
 import { collectAgentsInstructions } from './codex-agents-loader.js';
@@ -41,19 +44,23 @@ function resolveCodexCliPath() {
 }
 
 /**
- * Synchronous path probe — returns true if the CLI binary exists and is executable.
+ * Synchronous path probe — returns the CLI's `--version` output when the binary
+ * exists and runs, or null otherwise.
  * @param {string} bin
+ * @returns {string|null}
  */
-function probeCliBin(bin) {
+function probeCliVersion(bin) {
   try {
     const r = spawnSync(bin, ['--version'], {
       timeout: 5000,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, NO_COLOR: '1' },
+      encoding: 'utf8',
     });
-    return r.status === 0;
+    if (r.status !== 0) return null;
+    return String(r.stdout || '').trim() || 'unknown';
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -251,14 +258,17 @@ export async function sendMessage(
   try {
     const normalizedPermissionMode = normalizeCodexPermissionMode(permissionMode || 'default');
     const permissionConfig = CodexPermissionMapper.toProvider(normalizedPermissionMode);
+    const isNativeAutoReview = normalizedPermissionMode === 'auto';
 
-    // Allow Java side to force sandbox mapping override via env vars
+    // Allow Java side to force sandbox mapping override via env vars. Native auto
+    // review owns its guarded contract (workspace-write + on-request + auto_review
+    // reviewer), so env overrides are ignored in that mode.
     const sandboxOverride = resolveSandboxModeOverride();
-    if (sandboxOverride) {
+    if (sandboxOverride && !isNativeAutoReview) {
       permissionConfig.sandbox = sandboxOverride;
     }
     const approvalPolicyOverride = resolveApprovalPolicyOverride();
-    if (approvalPolicyOverride) {
+    if (approvalPolicyOverride && !isNativeAutoReview) {
       permissionConfig.approvalPolicy = approvalPolicyOverride;
     }
 
@@ -276,11 +286,26 @@ export async function sendMessage(
 
     // Resolve CLI path
     const bin = resolveCodexCliPath();
-    if (!probeCliBin(bin)) {
+    const cliVersion = probeCliVersion(bin);
+    if (!cliVersion) {
       const errorPayload = buildErrorPayload(new Error('Codex CLI not found. Install Codex CLI and ensure `codex` is on PATH.'));
       console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
       console.log(JSON.stringify(errorPayload));
       return;
+    }
+
+    if (isNativeAutoReview) {
+      // `codex --version` prints e.g. "codex-cli 0.146.0" — extract the semver token.
+      const versionMatch = cliVersion.match(/(\d+\.\d+\.\d+)/);
+      if (!isCodexNativeAutoReviewSupported(versionMatch?.[1] ?? null)) {
+        const errorPayload = buildErrorPayload(new Error(
+          `Codex native auto review requires Codex CLI >= ${CODEX_NATIVE_AUTO_REVIEW_MIN_VERSION}`
+          + ` (installed: ${cliVersion}). Please update the Codex CLI.`
+        ));
+        console.error('[SEND_ERROR]', JSON.stringify(errorPayload));
+        console.log(JSON.stringify(errorPayload));
+        return;
+      }
     }
 
     // Build message with AGENTS.md instructions
@@ -302,6 +327,14 @@ export async function sendMessage(
       approvalPolicy: permissionConfig.approvalPolicy || '',
       sandboxMode: permissionConfig.sandbox || '',
     });
+
+    // Select the approvals reviewer explicitly: native auto review uses the CLI's
+    // `auto_review` reviewer; other modes pin `user` so resumed threads cannot
+    // inherit a reviewer left behind by an earlier configuration.
+    const reviewerOptions = applyCodexApprovalsReviewerConfig({}, permissionConfig);
+    for (const [configKey, configValue] of Object.entries(reviewerOptions.config)) {
+      args.push('-c', `${configKey}=${configValue}`);
+    }
 
     // If we pre-assigned a new session id, surface it
     const sessionFlagIndex = args.indexOf('-s');

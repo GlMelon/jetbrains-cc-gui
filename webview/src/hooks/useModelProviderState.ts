@@ -207,7 +207,7 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
       return;
     }
     if (isCliOnlyProvider(currentProvider)) {
-      const cliMode = normalizeCliPermissionMode(mode);
+      const cliMode = normalizeCliPermissionMode(mode, currentProvider);
       setPermissionMode(cliMode);
       if (currentProvider === 'grok') setGrokPermissionMode(cliMode);
       if (currentProvider === 'kimi') setKimiPermissionMode(cliMode);
@@ -261,11 +261,11 @@ export function useModelProviderState({ addToast, t }: { addToast: (message: str
     } else if (providerId === 'opencode') {
       modeToSet = 'default';
     } else if (providerId === 'grok') {
-      modeToSet = normalizeCliPermissionMode(grokPermissionMode);
+      modeToSet = normalizeCliPermissionMode(grokPermissionMode, 'grok');
     } else if (providerId === 'kimi') {
-      modeToSet = normalizeCliPermissionMode(kimiPermissionMode);
+      modeToSet = normalizeCliPermissionMode(kimiPermissionMode, 'kimi');
     } else if (providerId === 'pi') {
-      modeToSet = normalizeCliPermissionMode(piPermissionMode);
+      modeToSet = normalizeCliPermissionMode(piPermissionMode, 'pi');
     }
     setPermissionMode(modeToSet);
     sendAction(UPSTREAM.SET_SESSION_MODE, modeToSet);

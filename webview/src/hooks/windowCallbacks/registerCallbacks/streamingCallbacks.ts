@@ -2,7 +2,9 @@
  * streamingCallbacks.ts
  *
  * Registers window bridge callbacks for streaming:
- * onStreamStart, onContentDelta, onThinkingDelta, onStreamEnd, onPermissionDenied.
+ * onStreamStart, onContentDelta, onThinkingDelta, onStreamEnd, onBlockReset,
+ * onStreamingHeartbeat, onPermissionDenied, plus __flushDeferredStreamingRenders
+ * (called after a pending structural snapshot is applied to resume delta rendering).
  */
 
 import { sendAction, subscribePassthroughEvent } from '../../../bridge/typed';

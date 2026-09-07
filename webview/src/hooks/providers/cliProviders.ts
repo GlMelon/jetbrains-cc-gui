@@ -25,13 +25,28 @@ export function ompModeForModelId(modelId: string, roles: ModelInfo[]): Permissi
 }
 
 /**
- * Plan mode is not exposed for CLI providers (always-approve / auto permission),
- * so it is coerced to default. OMP is the exception: its modes are model roles
- * (default / smol / slow / plan) and must be preserved as-is.
+ * Providers with a native auto-approval reviewer ('auto' mode). Aligned with the
+ * backend degrade rule in SessionSendService.resolveEffectivePermissionMode:
+ * auto downgrades to default everywhere except claude/codex/grok.
+ */
+export const NATIVE_AUTO_APPROVAL_PROVIDERS: ReadonlySet<string> = new Set(['claude', 'codex', 'grok']);
+
+/**
+ * Plan mode and provider-native auto review are not exposed for headless CLI providers,
+ * so they are coerced to default. The legacy autoEdit alias is migrated to acceptEdits
+ * (or default for OMP), while OMP preserves model-role ids (default / smol / slow / plan).
+ * Grok is the exception among CLI providers: its ACP harness has a native auto-approve
+ * alias, so 'auto' passes through (see NATIVE_AUTO_APPROVAL_PROVIDERS).
  */
 export function normalizeCliPermissionMode(mode: PermissionMode, provider?: string | null): PermissionMode {
   if (provider === 'omp') {
-    return mode;
+    return mode === 'auto' || mode === 'autoEdit' ? 'default' : mode;
+  }
+  if (mode === 'autoEdit') {
+    return 'acceptEdits';
+  }
+  if (mode === 'auto') {
+    return provider && NATIVE_AUTO_APPROVAL_PROVIDERS.has(provider) ? mode : 'default';
   }
   return mode === 'plan' ? 'default' : mode;
 }

@@ -73,6 +73,8 @@
     <depends optional="true" config-file="java-features.xml">com.intellij.java</depends>
     <!-- Optional: Python support for enhanced context collection in PyCharm/IDEA with Python plugin -->
     <depends optional="true" config-file="python-features.xml">com.intellij.modules.python</depends>
+    <!-- JCEF is a separate platform module in IntelliJ IDEA 2026.2+, but older
+         IDEs may provide JCEF from the platform without exposing this module. -->
     <depends optional="true" config-file="jcef-features.xml">com.intellij.modules.jcef</depends>
 
     <!-- Custom extension points (A5) -->

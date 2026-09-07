@@ -43,6 +43,15 @@ public class ClaudeCliPermissionModeTest {
     }
 
     @Test
+    public void autoModeIsForwardedNativelyAsPermissionModeFlag() {
+        // Claude CLI natively supports `--permission-mode auto` (classifier-based
+        // approval); it must pass through, not degrade to acceptEdits.
+        List<String> cmd = new ArrayList<>();
+        ClaudeCliPermissionMode.apply(cmd, "auto");
+        assertEquals(List.of("--permission-mode", "auto"), cmd);
+    }
+
+    @Test
     public void nullPermissionModeFallsBackToAcceptEditsNotBypass() {
         List<String> cmd = new ArrayList<>();
         ClaudeCliPermissionMode.apply(cmd, null);

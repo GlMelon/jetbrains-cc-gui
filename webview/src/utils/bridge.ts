@@ -3,6 +3,9 @@ import { bridgeHub } from '../bridge';
 import { sendAction } from '../bridge/typed';
 import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
 
+/** Canonical GitHub repository URL, used by star/promo banners across the UI. */
+export const GITHUB_REPO_URL = 'https://github.com/zhukunpenglinyutong/jetbrains-cc-gui';
+
 const SAFE_BROWSER_PROTOCOLS = /^(https?|mailto):/i;
 
 /** Regex to detect path traversal: matches ".." as a path segment, not as part of filenames */

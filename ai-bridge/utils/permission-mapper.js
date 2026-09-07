@@ -33,6 +33,8 @@ export const UnifiedPermissionMode = {
   DEFAULT: 'default',
   /** Read-only: No file modifications or command execution */
   SANDBOX: 'sandbox',
+  /** Native automatic review: provider classifier/reviewer decides approval requests */
+  AUTO: 'auto',
   /** Full access: Auto-approve all operations */
   YOLO: 'yolo'
 };
@@ -52,6 +54,10 @@ function normalizeUnifiedMode(mode) {
 
   const raw = mode.toString().trim();
   const normalized = raw.toLowerCase();
+
+  if (normalized === 'auto') {
+    return { core: UnifiedPermissionMode.AUTO };
+  }
 
   if (normalized === 'bypasspermissions') {
     return { core: UnifiedPermissionMode.YOLO, alias: 'bypassPermissions' };
@@ -91,6 +97,8 @@ export class ClaudePermissionMapper {
         return 'default';
       case UnifiedPermissionMode.SANDBOX:
         return 'sandbox';
+      case UnifiedPermissionMode.AUTO:
+        return 'auto';
       case UnifiedPermissionMode.YOLO:
         return 'yolo';
       default:
@@ -115,6 +123,8 @@ export class ClaudePermissionMapper {
  * Codex uses a different permission model based on:
  * - skipGitRepoCheck: boolean (safety check bypass)
  * - sandbox: 'read-only' | 'workspace-write' | 'danger-full-access'
+ * - approvalPolicy: 'never' | 'on-request' | 'on-failure'
+ * - approvalsReviewer: optional native approval reviewer
  *
  * We map these to our unified modes.
  *
@@ -125,13 +135,24 @@ export class CodexPermissionMapper {
   /**
    * Convert unified permission mode to Codex configuration
    * @param {string} unifiedMode - One of UnifiedPermissionMode values
-   * @returns {{skipGitRepoCheck: boolean, sandbox: string, approvalPolicy: string}} Codex permission config
+   * @returns {{skipGitRepoCheck: boolean, sandbox?: string, approvalPolicy?: string, approvalsReviewer?: string}} Codex permission config
    */
   static toProvider(unifiedMode) {
     const { core, alias } = normalizeUnifiedMode(unifiedMode);
 
     // Check if running on Windows - sandbox is experimental on Windows
     const onWindows = isWindows();
+
+    // Native auto review uses Codex's guarded contract: the reviewer handles approval
+    // requests while workspace-write keeps execution inside the project sandbox.
+    if (core === UnifiedPermissionMode.AUTO) {
+      return {
+        skipGitRepoCheck: true,
+        sandbox: 'workspace-write',
+        approvalPolicy: 'on-request',
+        approvalsReviewer: 'auto_review'
+      };
+    }
 
     // Treat bypassPermissions (Full Auto / trusted) as workspace-write but completely auto-approved.
     // On Windows, use danger-full-access since sandbox is experimental
@@ -187,10 +208,14 @@ export class CodexPermissionMapper {
 
   /**
    * Convert Codex configuration to unified permission mode
-   * @param {{skipGitRepoCheck?: boolean, sandbox?: string}} codexConfig
+   * @param {{skipGitRepoCheck?: boolean, sandbox?: string, approvalsReviewer?: string, approvals_reviewer?: string}} codexConfig
    * @returns {string} Unified permission mode
    */
   static fromProvider(codexConfig) {
+    const approvalsReviewer = codexConfig?.approvalsReviewer ?? codexConfig?.approvals_reviewer;
+    if (approvalsReviewer === 'auto_review') {
+      return UnifiedPermissionMode.AUTO;
+    }
     if (!codexConfig || !codexConfig.sandbox) {
       return UnifiedPermissionMode.DEFAULT;
     }

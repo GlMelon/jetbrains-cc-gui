@@ -86,7 +86,7 @@ class HistoryMetadataService {
                         String jsCode = "if (window.addToast) { " +
                                                 "  window.addToast('更新标题失败: " + context.escapeJs(error) + "', 'error'); " +
                                                 "}";
-                        context.executeJavaScriptOnEDT(jsCode);
+                        context.executeJavaScriptQueued(jsCode);
                     });
                 }
 
@@ -96,7 +96,7 @@ class HistoryMetadataService {
                     String jsCode = "if (window.addToast) { " +
                                             "  window.addToast('更新标题失败: " + context.escapeJs(e.getMessage() != null ? e.getMessage() : "未知错误") + "', 'error'); " +
                                             "}";
-                    context.executeJavaScriptOnEDT(jsCode);
+                    context.executeJavaScriptQueued(jsCode);
                 });
             } finally {
                 titleFileLock.unlock();

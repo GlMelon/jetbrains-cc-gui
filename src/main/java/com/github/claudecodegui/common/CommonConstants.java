@@ -49,6 +49,8 @@ public final class CommonConstants {
     public static final String PERMISSION_MODE_ACCEPT_EDITS = "acceptEdits";
     /** 自动编辑模式：与 acceptEdits 类似的自动编辑策略 */
     public static final String PERMISSION_MODE_AUTO_EDIT = "autoEdit";
+    /** 原生自动审批：provider 侧分类器/审查器先行裁决,残留请求仍询问用户(仅 Claude/Codex 支持) */
+    public static final String PERMISSION_MODE_AUTO = "auto";
     /** 绕过所有权限检查：所有操作自动批准（仅限受信环境） */
     public static final String PERMISSION_MODE_BYPASS = "bypassPermissions";
 

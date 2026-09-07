@@ -140,10 +140,12 @@ public class SessionStateTest {
     }
 
     @Test
-    public void setModelMigratesRetiredOpus46ToOpus48() {
+    public void setModelMigratesRetiredOpus46ToOpus5() {
         SessionState state = new SessionState();
         state.setModel("claude-opus-4-6");
-        assertEquals("claude-opus-4-8", state.getModel());
+        assertEquals("claude-opus-5", state.getModel());
+        state.setModel("claude-opus-4-8");
+        assertEquals("claude-opus-5", state.getModel());
     }
 
     @Test
@@ -158,8 +160,8 @@ public class SessionStateTest {
         SessionState state = new SessionState();
         state.setModel("claude-sonnet-5");
         assertEquals("claude-sonnet-5", state.getModel());
-        state.setModel("claude-opus-4-8[1m]");
-        assertEquals("claude-opus-4-8[1m]", state.getModel());
+        state.setModel("claude-fable-5-1[1m]");
+        assertEquals("claude-fable-5-1[1m]", state.getModel());
     }
 
     @Test
@@ -180,6 +182,29 @@ public class SessionStateTest {
         // Blank input is trimmed like every other normalizeRetiredModelId path.
         state.setModel("  ");
         assertEquals("", state.getModel());
+    }
+
+    @Test
+    public void nativeAutoIsAValidPermissionMode() {
+        SessionState state = new SessionState();
+        state.setPermissionMode("auto");
+        assertEquals("auto", state.getPermissionMode());
+        assertTrue(SessionState.isValidPermissionMode("auto"));
+    }
+
+    @Test
+    public void unknownPermissionModeDoesNotReplaceCurrentMode() {
+        SessionState state = new SessionState();
+        state.setPermissionMode("auto");
+        state.setPermissionMode("automatic-but-unknown");
+        assertEquals("auto", state.getPermissionMode());
+    }
+
+    @Test
+    public void legacyAutoEditPermissionModeMigratesToAcceptEdits() {
+        SessionState state = new SessionState();
+        state.setPermissionMode(" autoEdit ");
+        assertEquals("acceptEdits", state.getPermissionMode());
     }
 
     @Test

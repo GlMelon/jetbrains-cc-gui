@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ModelConfigSelect, SUBMENU_HOVER_DELAY_MS } from './ModelConfigSelect';
+import { ModelConfigSelect, SUBMENU_HOVER_DELAY_MS, SUBMENU_TRIGGER_DELAY_MS } from './ModelConfigSelect';
 import { __setModelRegistryForTests, resetModelRegistryForTests } from '../../../utils/modelRegistry';
 
 vi.mock('antd/es/switch', () => ({
@@ -235,11 +235,19 @@ describe('ModelConfigSelect', () => {
     expect(trigger.textContent).toContain('GPT-5.6 Sol');
     expect(trigger.textContent).not.toContain('Standard');
 
-    fireEvent.click(trigger);
-    fireEvent.mouseEnter(screen.getByTestId('model-config-option-speed'));
-    fireEvent.click(screen.getByText('Fast'));
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(trigger);
+      fireEvent.mouseEnter(screen.getByTestId('model-config-option-speed'));
+      act(() => {
+        vi.advanceTimersByTime(SUBMENU_TRIGGER_DELAY_MS);
+      });
+      fireEvent.click(screen.getByText('Fast'));
 
-    expect(onCodexFastModeChange).toHaveBeenCalledWith('fast');
+      expect(onCodexFastModeChange).toHaveBeenCalledWith('fast');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('toggles Claude 1M context from the trailing rows', () => {
@@ -293,6 +301,9 @@ describe('ModelConfigSelect', () => {
 
       fireEvent.click(screen.getByTestId('model-config-trigger'));
       fireEvent.mouseEnter(screen.getByTestId('model-config-option-effort'));
+      act(() => {
+        vi.advanceTimersByTime(SUBMENU_TRIGGER_DELAY_MS);
+      });
       expect(screen.getByTestId('reasoning-selector-dropdown')).toBeTruthy();
 
       fireEvent.mouseEnter(screen.getByTestId('model-config-option-preset'));
@@ -331,6 +342,9 @@ describe('ModelConfigSelect', () => {
 
       fireEvent.click(screen.getByTestId('model-config-trigger'));
       fireEvent.mouseEnter(screen.getByTestId('model-config-option-effort'));
+      act(() => {
+        vi.advanceTimersByTime(SUBMENU_TRIGGER_DELAY_MS);
+      });
       expect(screen.getByTestId('reasoning-selector-dropdown')).toBeTruthy();
 
       fireEvent.mouseEnter(screen.getByTestId('model-selector-dropdown'));
@@ -361,12 +375,50 @@ describe('ModelConfigSelect', () => {
       fireEvent.mouseEnter(screen.getByTestId('model-config-option-preset'));
 
       act(() => {
-        vi.advanceTimersByTime(SUBMENU_HOVER_DELAY_MS);
+        vi.advanceTimersByTime(SUBMENU_TRIGGER_DELAY_MS);
       });
       expect(screen.getByTestId('dsh-preset-dropdown')).toBeTruthy();
       expect(screen.queryByTestId('reasoning-selector-dropdown')).toBeNull();
 
       fireEvent.click(screen.getByTestId('model-config-option-effort'));
+      expect(screen.getByTestId('reasoning-selector-dropdown')).toBeTruthy();
+    });
+
+    it('delays the first fly-out so a passing pointer does not trigger it', () => {
+      render(
+        <ModelConfigSelect
+          selectedModel="grok-4.6"
+          onModelSelect={vi.fn()}
+          models={dshModels}
+          currentProvider="dsh"
+          reasoningEffort="high"
+          onReasoningChange={vi.fn()}
+          dshPreset=""
+          onDshPresetChange={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByTestId('model-config-trigger'));
+      fireEvent.mouseEnter(screen.getByTestId('model-config-option-effort'));
+
+      // Passing by: no fly-out yet.
+      act(() => {
+        vi.advanceTimersByTime(SUBMENU_TRIGGER_DELAY_MS - 1);
+      });
+      expect(screen.queryByTestId('reasoning-selector-dropdown')).toBeNull();
+
+      // Leaving the row before the delay cancels the pending open.
+      fireEvent.mouseEnter(screen.getByTestId('model-selector-dropdown'));
+      act(() => {
+        vi.advanceTimersByTime(SUBMENU_TRIGGER_DELAY_MS);
+      });
+      expect(screen.queryByTestId('reasoning-selector-dropdown')).toBeNull();
+
+      // Resting on the row for the full delay opens the fly-out.
+      fireEvent.mouseEnter(screen.getByTestId('model-config-option-effort'));
+      act(() => {
+        vi.advanceTimersByTime(SUBMENU_TRIGGER_DELAY_MS);
+      });
       expect(screen.getByTestId('reasoning-selector-dropdown')).toBeTruthy();
     });
   });

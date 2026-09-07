@@ -11,7 +11,7 @@ import java.util.Optional;
  *
  * <p>值域对齐 {@code session/SessionState#VALID_PERMISSION_MODES}(session 权威校验入口,
  * 见 {@code SessionState#isValidPermissionMode}):default / acceptEdits / plan /
- * bypassPermissions / autoEdit。
+ * bypassPermissions / auto / autoEdit。
  *
  * <p>{@code AUTO_EDIT} 是 {@code ACCEPT_EDITS} 的历史别名,语义同 ACCEPT_EDITS
  * ({@code session/ClaudeSession} 与 {@code cli/codex/CodexCliCommandUtils} 均按 ACCEPT_EDITS
@@ -26,6 +26,11 @@ public enum PermissionMode implements ProtocolValue {
     ACCEPT_EDITS("acceptEdits"),
     PLAN("plan"),
     BYPASS_PERMISSIONS("bypassPermissions"),
+    /**
+     * Claude/Codex 原生自动审批(classifier 审决,非绕过权限)。仅 claude/codex/grok
+     * 真实支持;其余 provider 由 SessionSendService 降级为 default。
+     */
+    AUTO("auto"),
     /**
      * acceptEdits 的历史别名,语义同 ACCEPT_EDITS(ClaudeSession/Codex 均按 ACCEPT_EDITS 处理)
      */

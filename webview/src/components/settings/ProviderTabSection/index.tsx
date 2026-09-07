@@ -21,6 +21,11 @@ import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
 const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
 
+// Deep-link target from the provider dropdown / UIStateContext. Local providers
+// settings has per-provider tabs instead of upstream's 'cli' surface; 'cli' is
+// rerouted to the dependencies tab (CliEnvironmentSection) by settings/index.tsx.
+export type ProviderManageTab = 'claude' | 'codex' | 'cli';
+
 type ProviderTab = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh';
 const PROVIDER_TABS: readonly ProviderTab[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi', 'omp', 'dsh'];
 const PROVIDER_TAB_IDS: Record<ProviderTab, string> = {
@@ -67,6 +72,8 @@ const tabIconPaths: Record<string, string> = {
 
 interface ProviderTabSectionProps {
   currentProvider: 'claude' | 'codex' | string;
+  /** Deep-linked sub-tab (e.g. from the provider dropdown's CLI entry); wins over currentProvider inference */
+  initialSubTab?: ProviderManageTab;
   // Claude provider props
   providers: ProviderConfig[];
   loading: boolean;
@@ -96,6 +103,7 @@ interface ProviderTabSectionProps {
 
 const ProviderTabSection = ({
   currentProvider,
+  initialSubTab,
   providers,
   loading,
   onAddProvider,
@@ -120,16 +128,19 @@ const ProviderTabSection = ({
 }: ProviderTabSectionProps) => {
   const { t } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<ProviderTab>(() =>
-    currentProvider === 'codex' ? 'codex'
+  // Deep-linked sub-tab (claude/codex) wins over currentProvider inference;
+  // 'cli' is rerouted to the dependencies tab by settings/index.tsx and never lands here.
+  const [activeTab, setActiveTab] = useState<ProviderTab>(() => {
+    if (initialSubTab === 'claude' || initialSubTab === 'codex') return initialSubTab;
+    return currentProvider === 'codex' ? 'codex'
       : currentProvider === 'opencode' ? 'opencode'
         : currentProvider === 'grok' ? 'grok'
           : currentProvider === 'kimi' ? 'kimi'
             : currentProvider === 'pi' ? 'pi'
               : currentProvider === 'omp' ? 'omp'
                 : currentProvider === 'dsh' ? 'dsh'
-                  : 'claude',
-  );
+                  : 'claude';
+  });
   // CLI 未安装门控(方案A):6 个 CLI 类 tab 未安装→置灰+badge+拦截进入;
   // omp/dsh 不在 CLI 检测范围,判定天然放行
   const cliInstall = useCliInstallStatus();

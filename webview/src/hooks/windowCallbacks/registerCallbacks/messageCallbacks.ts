@@ -45,9 +45,8 @@ function getStructuralValueSignature(value: unknown): string {
 }
 
 /**
- * Build a lightweight string signature from non-text raw blocks so we can
- * cheaply detect structural changes (new tool_use/tool_result blocks) without
- * a full JSON.stringify of arbitrary objects.
+ * Build a lightweight signature from non-text raw blocks so structural changes
+ * can be detected without retaining another full JSON snapshot.
  */
 function getStructuralRawBlockSignature(
   message: ClaudeMessage,
@@ -134,12 +133,11 @@ export function registerMessageCallbacks(
   };
 
   // During streaming, buffer updateMessages calls and process only the latest
-  // one per animation frame. This prevents JSON.parse of large payloads from
-  // blocking the main thread on every coalescer push (which can arrive every
-  // 50ms), eliminating the "fake freeze" symptom.
+  // one per short (~16ms) timer. Structural snapshots are sparse, but a single
+  // snapshot can still be large enough to block the browser while parsing.
   //
   // Stored on `window` so that if registerMessageCallbacks is called again
-  // (e.g., HMR, parent re-render), the previous pending rAF is cancelled
+  // (e.g., HMR, parent re-render), the previous pending timer is cancelled
   // first — preventing stale closures from executing.
   if (window.__pendingUpdateRaf != null) {
     clearTimeout(window.__pendingUpdateRaf);

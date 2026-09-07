@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { ToastAction, ToastMessage } from '../components/Toast';
 import type { SettingsTab } from '../components/settings/SettingsSidebar';
+import type { ProviderManageTab } from '../components/settings/ProviderTabSection';
 import type { ContextInfo, ViewMode } from '../hooks';
 import { APP_VERSION } from '../version/version';
 import { DEFAULT_STATUS } from './MessagesContext';
@@ -14,6 +15,9 @@ interface UIStateContextValue {
   setCurrentView: React.Dispatch<React.SetStateAction<ViewMode>>;
   settingsInitialTab: SettingsTab | undefined;
   setSettingsInitialTab: React.Dispatch<React.SetStateAction<SettingsTab | undefined>>;
+  /** Deep link into Settings → Providers sub-tab (claude/codex/cli) */
+  settingsProviderSubTab: ProviderManageTab | undefined;
+  setSettingsProviderSubTab: React.Dispatch<React.SetStateAction<ProviderManageTab | undefined>>;
 
   // Toasts
   toasts: ToastMessage[];
@@ -51,6 +55,7 @@ const UIStateContext = createContext<UIStateContextValue | null>(null);
 export function UIStateProvider({ children }: { children: ReactNode }) {
   const [currentView, setCurrentView] = useState<ViewMode>('chat');
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab | undefined>(undefined);
+  const [settingsProviderSubTab, setSettingsProviderSubTab] = useState<ProviderManageTab | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [showChangelogDialog, setShowChangelogDialog] = useState<boolean>(false);
   const [changelogInitialPage, setChangelogInitialPage] = useState<number>(0);
@@ -88,6 +93,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
     () => ({
       currentView, setCurrentView,
       settingsInitialTab, setSettingsInitialTab,
+      settingsProviderSubTab, setSettingsProviderSubTab,
       toasts, addToast, dismissToast, clearToasts,
       showChangelogDialog, closeChangelogDialog, openChangelogDialog, changelogInitialPage,
       contextInfo, setContextInfo,
@@ -96,6 +102,7 @@ export function UIStateProvider({ children }: { children: ReactNode }) {
     }),
     [
       currentView, settingsInitialTab,
+      settingsProviderSubTab,
       toasts, addToast, dismissToast, clearToasts,
       showChangelogDialog, closeChangelogDialog, openChangelogDialog, changelogInitialPage,
       contextInfo, draftInput,
