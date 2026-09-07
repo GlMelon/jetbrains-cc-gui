@@ -190,6 +190,11 @@
                 class="com.github.claudecodegui.action.tab.CreateNewTabAction"
                 icon="AllIcons.General.Add"/>
 
+        <!-- Show Opened Tabs Action (searchable tab list popup in the tool window title bar) -->
+        <action id="ClaudeCodeGUI.ShowOpenedTabsAction"
+                class="com.github.claudecodegui.action.tab.ShowOpenedTabsAction"
+                icon="AllIcons.Actions.ListFiles"/>
+
         <!-- Rename Tab Action -->
         <action id="ClaudeCodeGUI.RenameTabAction"
                 class="com.github.claudecodegui.action.tab.RenameTabAction"
