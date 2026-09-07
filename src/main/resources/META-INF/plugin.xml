@@ -129,7 +129,7 @@
         <toolWindow id="AICG"
                     anchor="right"
                     factoryClass="com.github.claudecodegui.ui.toolwindow.ClaudeChatToolWindow"
-                    icon="/icons/logo.svg"
+                    icon="/icons/logo.png"
                     canCloseContents="true"/>
 
         <!-- Pre-extract AI Bridge on project open to avoid EDT freeze -->
@@ -208,7 +208,7 @@
         <!-- Save As Template Action -->
         <action id="ClaudeCodeGUI.SaveAsTemplateAction"
                 class="com.github.claudecodegui.action.SaveAsTemplateAction"
-                icon="/icons/logo.svg"/>
+                icon="/icons/logo.png"/>
 
         <!-- Create From Template Action -->
         <action id="ClaudeCodeGUI.CreateFromTemplateAction"

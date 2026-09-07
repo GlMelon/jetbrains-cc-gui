@@ -189,7 +189,7 @@ public class ClaudeStatusBarWidget implements CustomStatusBarWidget, StatusBarWi
     }
 
     private static Icon createScaledLogoIcon() {
-        Icon raw = IconLoader.getIcon("/icons/logo.svg", ClaudeStatusBarWidget.class);
+        Icon raw = IconLoader.getIcon("/icons/logo.png", ClaudeStatusBarWidget.class);
         return new Icon() {
             @Override
             public int getIconWidth() { return LOGO_ICON_SIZE; }

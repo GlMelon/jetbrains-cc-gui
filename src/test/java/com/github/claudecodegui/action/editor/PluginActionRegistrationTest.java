@@ -82,7 +82,7 @@ public class PluginActionRegistrationTest {
                 hasOptionalJcefDependency);
 
         ActionRegistration saveAsTemplateAction = getActionRegistration("ClaudeCodeGUI.SaveAsTemplateAction");
-        Assert.assertEquals("/icons/logo.svg", saveAsTemplateAction.icon);
+        Assert.assertEquals("/icons/logo.png", saveAsTemplateAction.icon);
     }
 
     private static Set<String> getActionGroupIds(String actionId) throws Exception {
