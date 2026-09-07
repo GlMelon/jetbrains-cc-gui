@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { OPENCODE_PERMISSION_FAMILY } from '../../../hooks/providers/cliProviders';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../../i18n/config';
 import { AVAILABLE_MODES, type ModeInfo, type ModelInfo, type PermissionMode } from '../types';
@@ -23,7 +24,7 @@ const MODE_TEXT_STYLE: React.CSSProperties = { whiteSpace: 'nowrap', overflow: '
 // OpenCode 系列(opencode/grok/kimi/pi 共用 OpenCode CLI 内核)无 plan/acceptEdits 能力:
 // 这两个模式不传 flag,由 opencode.json 原生权限配置(allow/ask/deny)管控。
 // 在下拉项右侧标「原生管控」徽标,让"选了但不传 flag"的行为对用户可见。
-const OPENCODE_FAMILY = new Set(['opencode', 'grok', 'kimi', 'pi']);
+const OPENCODE_FAMILY = OPENCODE_PERMISSION_FAMILY; // 分类表 opencodePermissionFamily 维度(cliProviders.ts SSOT)
 
 /** Icons for the well-known omp roles; any other dynamic role gets a sparkle. */
 const OMP_ROLE_ICONS: Record<string, string> = {

@@ -298,31 +298,21 @@ export const DEFAULT_CLAUDE_MODEL_ID = CLAUDE_ROLE_MODEL_IDS.sonnet;
 // C5 SSOT:context window 默认值由后端 CommonConstants 经生成链产出
 // (generated/protocol.ts#DEFAULT_CONTEXT_WINDOW / ONE_MILLION_CONTEXT_WINDOW),
 // 此处 re-export 消除手抄(原 200_000 / 1_000_000 与后端逐字重复的第二真相源)。
-import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../generated/protocol';
+import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW, PROVIDER_TYPE, type ProviderType } from '../../generated/protocol';
+import { ALL_PROVIDER_IDS, PROVIDER_DEFAULT_CONTEXT_WINDOW } from '../../hooks/providers/cliProviders';
 export { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW };
-
-// Provider 级别默认上下文窗口（与后端 CommonConstants 保持一致）
-const CLAUDE_DEFAULT_CONTEXT_WINDOW = 200_000;
-const CODEX_DEFAULT_CONTEXT_WINDOW = 200_000;
-const OPENCODE_DEFAULT_CONTEXT_WINDOW = 200_000;
-const GROK_DEFAULT_CONTEXT_WINDOW = 256_000;
-const KIMI_DEFAULT_CONTEXT_WINDOW = 256_000;
-const PI_DEFAULT_CONTEXT_WINDOW = 200_000;
 
 /**
  * 获取指定 provider 的默认上下文窗口大小。
- * 与后端 CommonConstants.getDefaultContextWindowForProvider 保持一致。
+ * 数据源 = cliProviders.PROVIDER_CLASSIFICATION 的 defaultContextWindow 维度
+ * （Record<ProviderType,…> 穷尽表,与后端 CommonConstants.getDefaultContextWindowForProvider 对齐);
+ * 未知 provider 回退全局默认(对称后端 default 分支)。
  */
 export function getDefaultContextWindowForProvider(provider: string): number {
-  switch (provider) {
-    case 'claude': return CLAUDE_DEFAULT_CONTEXT_WINDOW;
-    case 'codex': return CODEX_DEFAULT_CONTEXT_WINDOW;
-    case 'opencode': return OPENCODE_DEFAULT_CONTEXT_WINDOW;
-    case 'grok': return GROK_DEFAULT_CONTEXT_WINDOW;
-    case 'kimi': return KIMI_DEFAULT_CONTEXT_WINDOW;
-    case 'pi': return PI_DEFAULT_CONTEXT_WINDOW;
-    default: return DEFAULT_CONTEXT_WINDOW;
+  if ((ALL_PROVIDER_IDS as readonly string[]).includes(provider)) {
+    return PROVIDER_DEFAULT_CONTEXT_WINDOW[provider as ProviderType];
   }
+  return DEFAULT_CONTEXT_WINDOW;
 }
 
 export const GROK_DEFAULT_MODEL_ID = 'grok';
@@ -358,20 +348,31 @@ interface ProviderInfo {
 }
 
 /**
- * Available AI providers
+ * Provider 展示元数据(label/icon;穷尽表 —— 后端新增 provider 未补条目时编译报错)。
+ * omp/dsh/minimax 均为纯 CLI provider(经 ai-bridge 或直 spawn),beta 标记语义见
+ * promptEnhancer/commitAi 的 provider 白名单(aiFeatureConfig)。
  */
-export const AVAILABLE_PROVIDERS: ProviderInfo[] = [
-  { id: 'claude', label: 'Claude Code', icon: 'codicon-terminal', enabled: true },
-  { id: 'codex', label: 'Codex', icon: 'codicon-terminal', enabled: true },
-  { id: 'opencode', label: 'OpenCode', icon: 'codicon-terminal', enabled: true },
-  { id: 'grok', label: 'Grok', icon: 'codicon-terminal', enabled: true },
-  { id: 'kimi', label: 'Kimi', icon: 'codicon-terminal', enabled: true },
-  { id: 'pi', label: 'Pi', icon: 'codicon-terminal', enabled: true },
-  // omp(pi fork,marker CLI via ai-bridge)/dsh(host RPC via ai-bridge):上游 v0.5.4 新增,
-  // 后端经 ChannelCliSession spawn channel-manager.js,前端 beta 标记(promptEnhancer/commitAi 的 provider 白名单另见 aiFeatureConfig)
-  { id: 'omp', label: 'OMP', icon: 'codicon-terminal', enabled: true },
-  { id: 'dsh', label: 'DeepSeek Harness', icon: 'codicon-terminal', enabled: true },
-];
+const PROVIDER_INFO: Record<ProviderType, { label: string; icon: string }> = {
+  [PROVIDER_TYPE.CLAUDE]: { label: 'Claude Code', icon: 'codicon-terminal' },
+  [PROVIDER_TYPE.CODEX]: { label: 'Codex', icon: 'codicon-terminal' },
+  [PROVIDER_TYPE.OPENCODE]: { label: 'OpenCode', icon: 'codicon-terminal' },
+  [PROVIDER_TYPE.GROK]: { label: 'Grok', icon: 'codicon-terminal' },
+  [PROVIDER_TYPE.KIMI]: { label: 'Kimi', icon: 'codicon-terminal' },
+  [PROVIDER_TYPE.PI]: { label: 'Pi', icon: 'codicon-terminal' },
+  [PROVIDER_TYPE.OMP]: { label: 'OMP', icon: 'codicon-terminal' },
+  [PROVIDER_TYPE.DSH]: { label: 'DeepSeek Harness', icon: 'codicon-terminal' },
+  [PROVIDER_TYPE.MINIMAX]: { label: 'MiniMax', icon: 'codicon-terminal' },
+};
+
+/**
+ * Available AI providers(id 集合派生自协议 SSOT,顺序 = Java 枚举声明序)。
+ */
+export const AVAILABLE_PROVIDERS: ProviderInfo[] = ALL_PROVIDER_IDS.map((id) => ({
+  id,
+  label: PROVIDER_INFO[id].label,
+  icon: PROVIDER_INFO[id].icon,
+  enabled: true,
+}));
 
 /**
  * Built-in DSH (DeepSeek Harness) agent preset ids. User-installed presets

@@ -8,12 +8,15 @@ import { ClickSpark } from '../../react-bits';
 import type { ModelRegistryItem } from '../../../utils/modelRegistry';
 import { DEFAULT_CONTEXT_WINDOW, ONE_MILLION_CONTEXT_WINDOW } from '../../../components/ChatInputBox/types';
 import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
+import { ALL_PROVIDER_IDS } from '../../../hooks/providers/cliProviders';
+import type { ProviderType } from '../../../generated/protocol';
 
 // 与 ModelRegistrySection 内 EMPTY_MODEL 保持同构的弹窗默认表单(解耦,各自维护)
-type Provider = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh';
+// Provider 即协议 SSOT 的 ProviderType;名单由 ALL_PROVIDER_IDS 派生(Java 枚举生成)。
+type Provider = ProviderType;
 type Role = NonNullable<ModelRegistryItem['role']>;
 
-const PROVIDERS: Provider[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi', 'omp', 'dsh'];
+const PROVIDERS: readonly Provider[] = ALL_PROVIDER_IDS;
 const ROLES: Role[] = ['sonnet', 'opus', 'fable', 'haiku'];
 
 const EMPTY_FORM: ModelRegistryItem = {

@@ -18,6 +18,8 @@ import {
   subscribeProviderList,
 } from '../../../utils/runtimeProviderCapabilities';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
+import { ALL_PROVIDER_IDS, NATIVE_CONFIG_ONLY_PROVIDERS } from '../../../hooks/providers/cliProviders';
+import { PROVIDER_TYPE, type ProviderType } from '../../../generated/protocol';
 import { UnifiedLoader } from '../../UnifiedLoader';
 
 const DISABLED_OPTION_STYLE: React.CSSProperties = { cursor: 'default' };
@@ -35,12 +37,11 @@ interface RuntimeProviderSelectProps {
 
 type RuntimeProvider = ProviderConfig | CodexProviderConfig | OpenCodeProviderConfig;
 
-type ProviderKind = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh';
+// ProviderKind 即协议 SSOT 的 ProviderType(generated/protocol.ts,Java 枚举生成)。
+type ProviderKind = ProviderType;
 
 const isProviderKind = (provider: string): provider is ProviderKind =>
-  provider === 'claude' || provider === 'codex' || provider === 'opencode'
-  || provider === 'grok' || provider === 'kimi' || provider === 'pi'
-  || provider === 'omp' || provider === 'dsh';
+  (ALL_PROVIDER_IDS as readonly string[]).includes(provider);
 
 const parseProviderList = (json: string): RuntimeProvider[] => {
   const parsed = JSON.parse(json);
@@ -55,16 +56,9 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [providersByKind, setProvidersByKind] = useState<Record<ProviderKind, RuntimeProvider[]>>({
-    claude: [],
-    codex: [],
-    opencode: [],
-    grok: [],
-    kimi: [],
-    pi: [],
-    omp: [],
-    dsh: [],
-  });
+  const [providersByKind, setProvidersByKind] = useState<Record<ProviderKind, RuntimeProvider[]>>(
+    () => Object.fromEntries(ALL_PROVIDER_IDS.map((id) => [id, []])) as unknown as Record<ProviderKind, RuntimeProvider[]>,
+  );
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { positionedStyle, maxHeight: viewportMaxHeight, maxWidth, recalculate } = useDropdownPosition({
@@ -76,21 +70,10 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
     maxWidth: 360,
   });
 
-  const providerKind: ProviderKind = currentProvider === 'codex'
-    ? 'codex'
-    : currentProvider === 'opencode'
-      ? 'opencode'
-      : currentProvider === 'grok'
-        ? 'grok'
-        : currentProvider === 'kimi'
-          ? 'kimi'
-          : currentProvider === 'pi'
-            ? 'pi'
-            : currentProvider === 'omp'
-              ? 'omp'
-              : currentProvider === 'dsh'
-                ? 'dsh'
-                : 'claude';
+  // 未知/未就绪时回落 claude(SSOT 集合内直取,不再维护手写推导链)。
+  const providerKind: ProviderKind = isProviderKind(currentProvider)
+    ? (currentProvider as ProviderKind)
+    : PROVIDER_TYPE.CLAUDE;
   const visibleProviders = providersByKind[providerKind];
   const activeProvider = useMemo(
     () => visibleProviders.find((provider) => provider.isActive),
@@ -127,8 +110,9 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
       sendAction(UPSTREAM.GET_CODEX_PROVIDERS);
     } else if (kind === 'opencode') {
       sendAction(UPSTREAM.GET_OPENCODE_PROVIDERS);
-    } else if (kind === 'grok' || kind === 'kimi' || kind === 'pi') {
+    } else if (NATIVE_CONFIG_ONLY_PROVIDERS.has(kind)) {
       // CLI-only providers: no backend provider management, show fixed native config option
+      // (名单 = 分类表 nativeConfigOnly 维度,见 cliProviders.ts PROVIDER_CLASSIFICATION)
       setLoading(false);
       setProvidersByKind((previous) => ({
         ...previous,
@@ -161,7 +145,7 @@ export const RuntimeProviderSelect = ({ currentProvider, embedded = false, trigg
       sendAction(UPSTREAM.SWITCH_CODEX_PROVIDER, JSON.stringify({ id: provider.id }));
     } else if (providerKind === 'opencode') {
       sendAction(UPSTREAM.SWITCH_OPENCODE_PROVIDER, JSON.stringify({ id: provider.id }));
-    } else if (providerKind === 'grok' || providerKind === 'kimi' || providerKind === 'pi') {
+    } else if (NATIVE_CONFIG_ONLY_PROVIDERS.has(providerKind)) {
       // CLI-only providers: no backend switch action needed, just close the dropdown
     } else {
       sendAction(UPSTREAM.SWITCH_PROVIDER, JSON.stringify({ id: provider.id }));

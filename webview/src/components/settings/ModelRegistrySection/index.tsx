@@ -12,6 +12,8 @@ import { EditIcon, LockIcon, PlusIcon, TrashIcon } from '../../Icons';
 import ModelEditDialog from './ModelEditDialog';
 import { FadeContent } from '../../react-bits';
 import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
+import { ALL_PROVIDER_IDS } from '../../../hooks/providers/cliProviders';
+import { PROVIDER_TYPE, type ProviderType } from '../../../generated/protocol';
 
 interface ModelRegistrySectionProps {
   addToast: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
@@ -33,7 +35,7 @@ const EMPTY_MODEL: ModelRegistryItem = {
 export default function ModelRegistrySection({ addToast }: ModelRegistrySectionProps) {
   const { t } = useTranslation();
   const [registry, setRegistry] = useState<ModelRegistryPayload>(() => getModelRegistrySnapshot());
-  const [providerFilter, setProviderFilter] = useState<'all' | 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh'>('all');
+  const [providerFilter, setProviderFilter] = useState<'all' | ProviderType>('all');
   const [editing, setEditing] = useState<ModelRegistryItem | null>(null);
   const [editingOriginalKey, setEditingOriginalKey] = useState<string | null>(null);
   // CLI 安装门控(方案A):未安装 provider 的筛选标记「未安装」;
@@ -86,7 +88,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
     return registry.items.filter((model) => model.provider === providerFilter);
   }, [providerFilter, registry.items]);
 
-  const startAdd = useCallback((provider: 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh' = 'claude') => {
+  const startAdd = useCallback((provider: ProviderType = PROVIDER_TYPE.CLAUDE) => {
     setEditing(provider === 'claude'
       ? { ...EMPTY_MODEL, provider, id: '', role: 'sonnet', actualModel: '' }
       : { ...EMPTY_MODEL, provider, id: '', role: undefined, actualModel: '' });
@@ -143,7 +145,7 @@ export default function ModelRegistrySection({ addToast }: ModelRegistrySectionP
 
       <div className={styles.toolbar}>
         <div className={styles.filters}>
-          {(['all', 'claude', 'codex', 'opencode', 'grok', 'kimi', 'pi', 'omp', 'dsh'] as const).map((provider) => {
+          {(['all', ...ALL_PROVIDER_IDS] as const).map((provider) => {
             const cliMissing = provider !== 'all' && cliInstall.isNotInstalled(provider);
             const hasModels = provider === 'all' || registry.items.some((m) => m.provider === provider);
             const filterBlocked = cliMissing && !hasModels;

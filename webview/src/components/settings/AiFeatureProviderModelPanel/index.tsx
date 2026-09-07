@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
 import type { AiFeatureConfig, AiFeatureProvider } from '../../../types/aiFeatureConfig';
+import { AI_FEATURE_CAPABLE_PROVIDERS } from '../../../hooks/providers/cliProviders';
 import { getModelsForProvider, subscribeModelRegistry } from '../../../utils/modelRegistry';
 import { readClaudeModelMapping, resolveMappedModelName } from '../../../utils/claudeModelMapping';
 import { CLAUDE_ROLE_MODEL_IDS } from '../../ChatInputBox/types';
@@ -96,7 +97,7 @@ const AiFeatureProviderModelPanel = ({
             onChange={(e) => onProviderChange(e.target.value as AiFeatureProvider)}
             aria-label={t(`${settingsKeyPrefix}.label`)}
           >
-            {(['claude', 'codex', 'opencode'] as AiFeatureProvider[]).map((provider) => (
+            {AI_FEATURE_CAPABLE_PROVIDER_IDS.map((provider) => (
               <option key={provider} value={provider} disabled={!config.availability[provider]}>
                 {getProviderLabel(provider)}{!config.availability[provider] ? ` (${t(`${settingsKeyPrefix}.providerUnavailable`)})` : ''}
               </option>
@@ -133,5 +134,7 @@ const AiFeatureProviderModelPanel = ({
     </div>
   );
 };
+
+const AI_FEATURE_CAPABLE_PROVIDER_IDS: readonly AiFeatureProvider[] = [...AI_FEATURE_CAPABLE_PROVIDERS] as readonly AiFeatureProvider[];
 
 export default AiFeatureProviderModelPanel;

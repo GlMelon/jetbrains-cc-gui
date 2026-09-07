@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { ALL_PROVIDER_IDS } from './cliProviders';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   isValidPermissionMode,
@@ -118,9 +119,9 @@ export function useModelStatePersistence(options: {
       if (saved) {
         const state = JSON.parse(saved);
 
-        // 白名单与 SessionState.VALID_PROVIDERS / utils/modelRegistry.normalizeProvider 对齐;
-        // 漏 omp/dsh 曾导致其切换后重启恢复失败、静默回退 claude。
-        if (['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi', 'omp', 'dsh'].includes(state.provider)) {
+        // 合法 provider 集合 = 协议 SSOT 派生(generated/protocol.ts ← Java ProviderType)。
+        // ⚠️历史上手抄名单漏过 omp/dsh/minimax,导致切换后重启恢复失败、静默回退 claude。
+        if (typeof state.provider === 'string' && ALL_PROVIDER_IDS.includes(state.provider)) {
           restoredProvider = state.provider;
           setCurrentProvider(state.provider);
         }

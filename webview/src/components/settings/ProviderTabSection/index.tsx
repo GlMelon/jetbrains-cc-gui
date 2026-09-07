@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
   ProviderConfig,
@@ -11,12 +11,15 @@ import OpenCodeProviderSection from '../OpenCodeProviderSection';
 import GrokProviderSection from '../GrokProviderSection';
 import OmpProviderSection from '../OmpProviderSection';
 import DshProviderSection from '../DshProviderSection';
+import MiniMaxProviderSection from '../MiniMaxProviderSection';
 import KimiProviderSection from '../KimiProviderSection';
 import PiProviderSection from '../PiProviderSection';
 import styles from './style.module.less';
 import { useRovingTabs } from '../../shared/useRovingTabs';
 import { FadeContent } from '../../react-bits';
 import { useCliInstallStatus } from '../../../hooks/useCliInstallStatus';
+import { ALL_PROVIDER_IDS } from '../../../hooks/providers/cliProviders';
+import { type ProviderType } from '../../../generated/protocol';
 
 const BLOCK_STYLE: React.CSSProperties = { display: 'block' };
 const NONE_STYLE: React.CSSProperties = { display: 'none' };
@@ -26,28 +29,17 @@ const NONE_STYLE: React.CSSProperties = { display: 'none' };
 // rerouted to the dependencies tab (CliEnvironmentSection) by settings/index.tsx.
 export type ProviderManageTab = 'claude' | 'codex' | 'cli';
 
-type ProviderTab = 'claude' | 'codex' | 'opencode' | 'grok' | 'kimi' | 'pi' | 'omp' | 'dsh';
-const PROVIDER_TABS: readonly ProviderTab[] = ['claude', 'codex', 'opencode', 'grok', 'kimi', 'pi', 'omp', 'dsh'];
-const PROVIDER_TAB_IDS: Record<ProviderTab, string> = {
-  claude: 'tab-claude-providers',
-  codex: 'tab-codex-providers',
-  opencode: 'tab-opencode-providers',
-  grok: 'tab-grok-providers',
-  kimi: 'tab-kimi-providers',
-  pi: 'tab-pi-providers',
-  omp: 'tab-omp-providers',
-  dsh: 'tab-dsh-providers',
-};
-const PROVIDER_PANEL_IDS: Record<ProviderTab, string> = {
-  claude: 'panel-claude-providers',
-  codex: 'panel-codex-providers',
-  opencode: 'panel-opencode-providers',
-  grok: 'panel-grok-providers',
-  kimi: 'panel-kimi-providers',
-  pi: 'panel-pi-providers',
-  omp: 'panel-omp-providers',
-  dsh: 'panel-dsh-providers',
-};
+// ProviderTab 即协议 SSOT 的 ProviderType(generated/protocol.ts,Java 枚举生成);
+// tab/panel id 与 label fallback 均为 Record<ProviderType,…> 穷尽表 —— 后端新增 provider
+// 而此处未接线时编译报错,不再依赖人工记忆同步。
+type ProviderTab = ProviderType;
+const PROVIDER_TABS: readonly ProviderTab[] = ALL_PROVIDER_IDS;
+const PROVIDER_TAB_IDS = Object.fromEntries(
+  PROVIDER_TABS.map((id) => [id, `tab-${id}-providers`]),
+) as Record<ProviderTab, string>;
+const PROVIDER_PANEL_IDS = Object.fromEntries(
+  PROVIDER_TABS.map((id) => [id, `panel-${id}-providers`]),
+) as Record<ProviderTab, string>;
 
 // SVG tab icon paths (24×24 viewBox, stroke-based)
 const tabIconPaths: Record<string, string> = {
@@ -68,6 +60,21 @@ const tabIconPaths: Record<string, string> = {
   plugin: '<path d="M12 2v6M6 8h12M8 8v8a4 4 0 0 0 8 0V8"/>',
   // DSH - hexagon node
   dsh: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>',
+  // MiniMax - four-point star
+  minimax: '<path d="M12 3l2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z"/>',
+};
+
+/** i18n 缺 key 时的页签 fallback 文案(穷尽表;有 locale 走 locale)。 */
+const TAB_FALLBACK_LABELS: Record<ProviderTab, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  opencode: 'OpenCode',
+  grok: 'Grok',
+  kimi: 'Kimi',
+  pi: 'Pi',
+  omp: 'OMP',
+  dsh: 'DeepSeek Harness',
+  minimax: 'MiniMax',
 };
 
 interface ProviderTabSectionProps {
@@ -139,6 +146,7 @@ const ProviderTabSection = ({
             : currentProvider === 'pi' ? 'pi'
               : currentProvider === 'omp' ? 'omp'
                 : currentProvider === 'dsh' ? 'dsh'
+                : currentProvider === 'minimax' ? 'minimax'
                   : 'claude';
   });
   // CLI 未安装门控(方案A):6 个 CLI 类 tab 未安装→置灰+badge+拦截进入;
@@ -165,330 +173,103 @@ const ProviderTabSection = ({
     onActivate: handleTabActivate,
   });
 
+  // Panel 渲染表:Record<ProviderTab,…> 穷尽 —— 后端新增 provider 未接线时编译报错。
+  // claude/codex/opencode 闭包捕获各自管理 props;其余为固定原生配置提示组件。
+  const panelContent: Record<ProviderTab, ReactNode> = {
+    claude: (
+      <ProviderManageSection
+        providers={providers}
+        loading={loading}
+        onAddProvider={onAddProvider}
+        onEditProvider={onEditProvider}
+        onDeleteProvider={onDeleteProvider}
+        onSwitchProvider={onSwitchProvider}
+        addToast={addToast}
+        showHeader={false}
+      />
+    ),
+    codex: (
+      <CodexProviderSection
+        codexProviders={codexProviders}
+        codexLoading={codexLoading}
+        onAddCodexProvider={onAddCodexProvider}
+        onEditCodexProvider={onEditCodexProvider}
+        onDeleteCodexProvider={onDeleteCodexProvider}
+        onSwitchCodexProvider={onSwitchCodexProvider}
+        onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
+        addToast={addToast}
+        showHeader={false}
+      />
+    ),
+    opencode: (
+      <OpenCodeProviderSection
+        openCodeProviders={openCodeProviders}
+        openCodeLoading={openCodeLoading}
+        onAddOpenCodeProvider={onAddOpenCodeProvider}
+        onEditOpenCodeProvider={onEditOpenCodeProvider}
+        onDeleteOpenCodeProvider={onDeleteOpenCodeProvider}
+        onSwitchOpenCodeProvider={onSwitchOpenCodeProvider}
+        onRevokeOpenCodeLocalConfigAuthorization={onRevokeOpenCodeLocalConfigAuthorization}
+        showHeader={false}
+      />
+    ),
+    grok: <GrokProviderSection showHeader={false} />,
+    kimi: <KimiProviderSection showHeader={false} />,
+    pi: <PiProviderSection showHeader={false} />,
+    omp: <OmpProviderSection showHeader={false} />,
+    dsh: <DshProviderSection showHeader={false} />,
+    minimax: <MiniMaxProviderSection showHeader={false} />,
+  };
+
   return (
     <div className={styles.providerTabSection}>
       <h3 className={styles.sectionTitle}>{t('settings.providers')}</h3>
       <p className={styles.sectionDesc}>{t('settings.providersDesc')}</p>
 
       <div className={styles.tabSelector} role="tablist" aria-label={t('settings.providers')}>
-        <button
-          {...getTabProps('claude')}
-          id={PROVIDER_TAB_IDS.claude}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'claude'}
-          aria-controls={PROVIDER_PANEL_IDS.claude}
-          aria-disabled={cliBlocked('claude')}
-          className={`${styles.tabBtn} ${activeTab === 'claude' ? styles.active : ''} ${cliBlocked('claude') ? styles.tabBlocked : ''}`}
-          onClick={() => handleTabActivate('claude')}
-        >
-          <span className={styles.tabIcon}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.claude }}
-            />
-          </span>
-          {t('settings.providerTab.claude')}
-          {cliBlocked('claude') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
-        </button>
-        <button
-          {...getTabProps('codex')}
-          id={PROVIDER_TAB_IDS.codex}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'codex'}
-          aria-controls={PROVIDER_PANEL_IDS.codex}
-          aria-disabled={cliBlocked('codex')}
-          className={`${styles.tabBtn} ${activeTab === 'codex' ? styles.active : ''} ${cliBlocked('codex') ? styles.tabBlocked : ''}`}
-          onClick={() => handleTabActivate('codex')}
-        >
-          <span className={styles.tabIcon}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.codex }}
-            />
-          </span>
-          {t('settings.providerTab.codex')}
-          {cliBlocked('codex') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
-        </button>
-        <button
-          {...getTabProps('opencode')}
-          id={PROVIDER_TAB_IDS.opencode}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'opencode'}
-          aria-controls={PROVIDER_PANEL_IDS.opencode}
-          aria-disabled={cliBlocked('opencode')}
-          className={`${styles.tabBtn} ${activeTab === 'opencode' ? styles.active : ''} ${cliBlocked('opencode') ? styles.tabBlocked : ''}`}
-          onClick={() => handleTabActivate('opencode')}
-        >
-          <span className={styles.tabIcon}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.opencode }}
-            />
-          </span>
-          {t('settings.providerTab.opencode')}
-          {cliBlocked('opencode') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
-        </button>
-        <button
-          {...getTabProps('grok')}
-          id={PROVIDER_TAB_IDS.grok}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'grok'}
-          aria-controls={PROVIDER_PANEL_IDS.grok}
-          aria-disabled={cliBlocked('grok')}
-          className={`${styles.tabBtn} ${activeTab === 'grok' ? styles.active : ''} ${cliBlocked('grok') ? styles.tabBlocked : ''}`}
-          onClick={() => handleTabActivate('grok')}
-        >
-          <span className={styles.tabIcon}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.grok }}
-            />
-          </span>
-          {t('settings.providerTab.grok', 'Grok')}
-          {cliBlocked('grok') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
-        </button>
-        <button
-          {...getTabProps('kimi')}
-          id={PROVIDER_TAB_IDS.kimi}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'kimi'}
-          aria-controls={PROVIDER_PANEL_IDS.kimi}
-          aria-disabled={cliBlocked('kimi')}
-          className={`${styles.tabBtn} ${activeTab === 'kimi' ? styles.active : ''} ${cliBlocked('kimi') ? styles.tabBlocked : ''}`}
-          onClick={() => handleTabActivate('kimi')}
-        >
-          <span className={styles.tabIcon}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.kimi }}
-            />
-          </span>
-          {t('settings.providerTab.kimi', 'Kimi')}
-          {cliBlocked('kimi') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
-        </button>
-        <button
-          {...getTabProps('pi')}
-          id={PROVIDER_TAB_IDS.pi}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'pi'}
-          aria-controls={PROVIDER_PANEL_IDS.pi}
-          aria-disabled={cliBlocked('pi')}
-          className={`${styles.tabBtn} ${activeTab === 'pi' ? styles.active : ''} ${cliBlocked('pi') ? styles.tabBlocked : ''}`}
-          onClick={() => handleTabActivate('pi')}
-        >
-          <span className={styles.tabIcon}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.pi }}
-            />
-          </span>
-          {t('settings.providerTab.pi', 'Pi')}
-          {cliBlocked('pi') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
-        </button>
-        <button
-          {...getTabProps('omp')}
-          id={PROVIDER_TAB_IDS.omp}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'omp'}
-          aria-controls={PROVIDER_PANEL_IDS.omp}
-          aria-disabled={cliBlocked('omp')}
-          className={`${styles.tabBtn} ${activeTab === 'omp' ? styles.active : ''} ${cliBlocked('omp') ? styles.tabBlocked : ''}`}
-          onClick={() => handleTabActivate('omp')}
-        >
-          <span className={styles.tabIcon}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.plugin }}
-            />
-          </span>
-          {t('settings.providerTab.omp', 'OMP')}
-          {cliBlocked('omp') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
-        </button>
-        <button
-          {...getTabProps('dsh')}
-          id={PROVIDER_TAB_IDS.dsh}
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'dsh'}
-          aria-controls={PROVIDER_PANEL_IDS.dsh}
-          aria-disabled={cliBlocked('dsh')}
-          className={`${styles.tabBtn} ${activeTab === 'dsh' ? styles.active : ''} ${cliBlocked('dsh') ? styles.tabBlocked : ''}`}
-          onClick={() => handleTabActivate('dsh')}
-        >
-          <span className={styles.tabIcon}>
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              dangerouslySetInnerHTML={{ __html: tabIconPaths.dsh }}
-            />
-          </span>
-          {t('settings.providerTab.dsh', 'DeepSeek Harness')}
-          {cliBlocked('dsh') && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
-        </button>
+        {PROVIDER_TABS.map((tab) => (
+          <button
+            key={tab}
+            {...getTabProps(tab)}
+            id={PROVIDER_TAB_IDS[tab]}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
+            aria-controls={PROVIDER_PANEL_IDS[tab]}
+            aria-disabled={cliBlocked(tab)}
+            className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''} ${cliBlocked(tab) ? styles.tabBlocked : ''}`}
+            onClick={() => handleTabActivate(tab)}
+          >
+            <span className={styles.tabIcon}>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                dangerouslySetInnerHTML={{ __html: tabIconPaths[tab] }}
+              />
+            </span>
+            {t(`settings.providerTab.${tab}`, TAB_FALLBACK_LABELS[tab])}
+            {cliBlocked(tab) && <span className={styles.tabBadge}>{t('settings.cli.notInstalled')}</span>}
+          </button>
+        ))}
       </div>
 
       {/* Use display to preserve component state across tab switches */}
-      <FadeContent disabled={activeTab !== 'claude'} duration={180} offset={8}>
-        <div
-          id={PROVIDER_PANEL_IDS.claude}
-          role="tabpanel"
-          aria-labelledby={PROVIDER_TAB_IDS.claude}
-          style={activeTab === 'claude' ? BLOCK_STYLE : NONE_STYLE}
-        >
-          <ProviderManageSection
-            providers={providers}
-            loading={loading}
-            onAddProvider={onAddProvider}
-            onEditProvider={onEditProvider}
-            onDeleteProvider={onDeleteProvider}
-            onSwitchProvider={onSwitchProvider}
-            addToast={addToast}
-            showHeader={false}
-          />
-        </div>
-      </FadeContent>
-
-      <FadeContent disabled={activeTab !== 'codex'} duration={180} offset={8}>
-        <div
-          id={PROVIDER_PANEL_IDS.codex}
-          role="tabpanel"
-          aria-labelledby={PROVIDER_TAB_IDS.codex}
-          style={activeTab === 'codex' ? BLOCK_STYLE : NONE_STYLE}
-        >
-          <CodexProviderSection
-            codexProviders={codexProviders}
-            codexLoading={codexLoading}
-            onAddCodexProvider={onAddCodexProvider}
-            onEditCodexProvider={onEditCodexProvider}
-            onDeleteCodexProvider={onDeleteCodexProvider}
-            onSwitchCodexProvider={onSwitchCodexProvider}
-            onRevokeCodexLocalConfigAuthorization={onRevokeCodexLocalConfigAuthorization}
-            addToast={addToast}
-            showHeader={false}
-          />
-        </div>
-      </FadeContent>
-
-      <FadeContent disabled={activeTab !== 'opencode'} duration={180} offset={8}>
-        <div
-          id={PROVIDER_PANEL_IDS.opencode}
-          role="tabpanel"
-          aria-labelledby={PROVIDER_TAB_IDS.opencode}
-          style={activeTab === 'opencode' ? BLOCK_STYLE : NONE_STYLE}
-        >
-          <OpenCodeProviderSection
-            openCodeProviders={openCodeProviders}
-            openCodeLoading={openCodeLoading}
-            onAddOpenCodeProvider={onAddOpenCodeProvider}
-            onEditOpenCodeProvider={onEditOpenCodeProvider}
-            onDeleteOpenCodeProvider={onDeleteOpenCodeProvider}
-            onSwitchOpenCodeProvider={onSwitchOpenCodeProvider}
-            onRevokeOpenCodeLocalConfigAuthorization={onRevokeOpenCodeLocalConfigAuthorization}
-            showHeader={false}
-          />
-        </div>
-      </FadeContent>
-
-      <FadeContent disabled={activeTab !== 'grok'} duration={180} offset={8}>
-        <div
-          id={PROVIDER_PANEL_IDS.grok}
-          role="tabpanel"
-          aria-labelledby={PROVIDER_TAB_IDS.grok}
-          style={activeTab === 'grok' ? BLOCK_STYLE : NONE_STYLE}
-        >
-          <GrokProviderSection showHeader={false} />
-        </div>
-      </FadeContent>
-
-      <FadeContent disabled={activeTab !== 'kimi'} duration={180} offset={8}>
-        <div
-          id={PROVIDER_PANEL_IDS.kimi}
-          role="tabpanel"
-          aria-labelledby={PROVIDER_TAB_IDS.kimi}
-          style={activeTab === 'kimi' ? BLOCK_STYLE : NONE_STYLE}
-        >
-          <KimiProviderSection showHeader={false} />
-        </div>
-      </FadeContent>
-
-      <FadeContent disabled={activeTab !== 'pi'} duration={180} offset={8}>
-        <div
-          id={PROVIDER_PANEL_IDS.pi}
-          role="tabpanel"
-          aria-labelledby={PROVIDER_TAB_IDS.pi}
-          style={activeTab === 'pi' ? BLOCK_STYLE : NONE_STYLE}
-        >
-          <PiProviderSection showHeader={false} />
-        </div>
-      </FadeContent>
-
-      <FadeContent disabled={activeTab !== 'omp'} duration={180} offset={8}>
-        <div
-          id={PROVIDER_PANEL_IDS.omp}
-          role="tabpanel"
-          aria-labelledby={PROVIDER_TAB_IDS.omp}
-          style={activeTab === 'omp' ? BLOCK_STYLE : NONE_STYLE}
-        >
-          <OmpProviderSection showHeader={false} />
-        </div>
-      </FadeContent>
-
-      <FadeContent disabled={activeTab !== 'dsh'} duration={180} offset={8}>
-        <div
-          id={PROVIDER_PANEL_IDS.dsh}
-          role="tabpanel"
-          aria-labelledby={PROVIDER_TAB_IDS.dsh}
-          style={activeTab === 'dsh' ? BLOCK_STYLE : NONE_STYLE}
-        >
-          <DshProviderSection showHeader={false} />
-        </div>
-      </FadeContent>
+      {PROVIDER_TABS.map((tab) => (
+        <FadeContent key={tab} disabled={activeTab !== tab} duration={180} offset={8}>
+          <div
+            id={PROVIDER_PANEL_IDS[tab]}
+            role="tabpanel"
+            aria-labelledby={PROVIDER_TAB_IDS[tab]}
+            style={activeTab === tab ? BLOCK_STYLE : NONE_STYLE}
+          >
+            {panelContent[tab]}
+          </div>
+        </FadeContent>
+      ))}
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import type { ModelInfo } from './types';
+import { DYNAMIC_MODEL_PROVIDERS } from '../../hooks/providers/cliProviders';
 // A1(2026-06-23):CLAUDE_MODELS/CODEX_MODELS/GROK_MODELS/OMP_MODELS/OMP_ROLE_MODELS 本地静态表
 // 已删除(registry 为权威来源)。此 fallback 层仅在 registry 未加载时兜底,静态部分置空。
 const CLAUDE_MODELS: ModelInfo[] = [];
@@ -56,8 +57,10 @@ export function resolveProviderModels({
     return cliModels.length > 0 ? cliModels : GROK_MODELS;
   }
 
-  if (provider === 'kimi' || provider === 'opencode' || provider === 'pi' || provider === 'dsh') {
+  if (DYNAMIC_MODEL_PROVIDERS.has(provider) && provider !== 'codex') {
     // Runtime catalog from the CLI/host (static fallback list when offline).
+    // codex 单独走上方 buildCodexModelList;其余 dynamic provider(kimi/opencode/pi/dsh/minimax/…)
+    // 直接消费 get_cli_models 目录(minimax 的 'auto' 兜底项由 ai-bridge 注入)。
     return cliModels;
   }
 

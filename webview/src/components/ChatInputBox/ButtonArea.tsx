@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { DYNAMIC_MODEL_PROVIDERS } from '../../hooks/providers/cliProviders';
 import { useTranslation } from 'react-i18next';
 import type { ButtonAreaProps, CodexFastMode, ModelInfo, PermissionMode, ReasoningEffort } from './types';
 import { DEFAULT_CLAUDE_MODEL_ID } from './types';
@@ -197,12 +198,8 @@ export const ButtonArea = ({
 
   // When a dynamic model catalog arrives, ensure selection is a real entry.
   useEffect(() => {
-    const isDynamicProvider = currentProvider === 'kimi'
-      || currentProvider === 'opencode'
-      || currentProvider === 'pi' || currentProvider === 'codex'
-      || currentProvider === 'grok' || currentProvider === 'omp'
-      || currentProvider === 'dsh';
-    if (!isDynamicProvider) return;
+    // 动态模型目录 provider 名单 = 分类表 dynamicModels 维度(cliProviders.ts SSOT)。
+    if (!DYNAMIC_MODEL_PROVIDERS.has(currentProvider)) return;
     // Only correct once a *real* catalog arrived. Static fallback lists
     // (OPENCODE_MODELS = just "opencode-default", CODEX built-ins, …) must not
     // clobber the user's choice — especially when ChatScreen remounts after
