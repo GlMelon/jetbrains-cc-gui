@@ -68,7 +68,8 @@ public class GetCliModelsActionHandlerTest {
         assertNotNull(args);
         assertEquals(2, args.length);
         assertEquals(DownstreamEvent.CLI_MODELS_RESULT.value(), args[0]);
-        JsonObject json = GsonHolder.GSON.fromJson(args[1], JsonObject.class);
+        // dispatchEvent 出口统一 JsUtils.escapeJs:断言前还原 \" → "
+        JsonObject json = GsonHolder.GSON.fromJson(args[1].replace("\\\"", "\""), JsonObject.class);
         assertEquals(false, json.get("success").getAsBoolean());
         assertEquals("not-a-provider", json.get("provider").getAsString());
         assertTrue(json.get("error").getAsString().contains("Unsupported CLI provider"));
@@ -76,8 +77,9 @@ public class GetCliModelsActionHandlerTest {
     }
 
     /**
-     * spawn 链路关键要素契约:七家 provider 全支持、channel-manager listModels 命令、
-     * 经 cli.models_result 下行事件回推(与前端 useCliModels 的 subscribeEvent 约定)。
+     * spawn 链路关键要素契约:provider 支持集走 CommonConstants 常量引用(总则五禁字面量)、
+     * channel-manager listModels 命令、经 cli.models_result 下行事件回推
+     * (与前端 useCliModels 的 subscribeEvent 约定)。
      */
     @Test
     public void spawnPathContract() throws Exception {
@@ -85,9 +87,10 @@ public class GetCliModelsActionHandlerTest {
                 "src/main/java/com/github/claudecodegui/handler/settings/GetCliModelsActionHandler.java")
                 .toPath();
         String text = Files.readString(source, StandardCharsets.UTF_8);
-        for (String provider : new String[]{"\"opencode\"", "\"kimi\"", "\"pi\"",
-                "\"omp\"", "\"codex\"", "\"grok\"", "\"dsh\""}) {
-            assertTrue("SUPPORTED_PROVIDERS must contain " + provider, text.contains(provider));
+        for (String constant : new String[]{"PROVIDER_OPENCODE", "PROVIDER_KIMI", "PROVIDER_PI",
+                "PROVIDER_OMP", "PROVIDER_CODEX", "PROVIDER_GROK", "PROVIDER_DSH", "PROVIDER_MINIMAX"}) {
+            assertTrue("SUPPORTED_PROVIDERS must reference CommonConstants." + constant,
+                    text.contains("CommonConstants." + constant));
         }
         assertTrue(text.contains("channel-manager.js"));
         assertTrue(text.contains("\"listModels\""));
