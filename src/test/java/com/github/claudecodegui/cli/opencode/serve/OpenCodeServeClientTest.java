@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
@@ -112,6 +113,51 @@ public class OpenCodeServeClientTest {
         assertTrue(calls.get(0).startsWith("POST /session/ses_1/abort"));
         assertTrue(calls.get(1).startsWith("POST /session/ses_1/permissions/per_9"));
         assertTrue(calls.get(1).contains("\"response\":\"reject\""));
+    }
+
+    @Test
+    public void modelVariantsFetchesProviderCatalogAndCachesPerModel() throws Exception {
+        AtomicInteger providerHits = new AtomicInteger();
+        server.createContext("/provider", exchange -> {
+            providerHits.incrementAndGet();
+            respondJson(exchange, 200, "{\"all\":["
+                    + "{\"id\":\"openglm\",\"models\":{"
+                    + "\"glm-5.2\":{\"variants\":{\"high\":{},\"max\":{}}}},"
+                    + "\"glm-4.7\":{\"models\":{}}},"
+                    + "{\"id\":\"openai\",\"models\":{"
+                    + "\"gpt-5\":{\"variants\":{\"minimal\":{},\"high\":{}}}}}"
+                    + "],\"default\":{},\"connected\":[]}");
+        });
+        OpenCodeServeClient client = new OpenCodeServeClient(baseUrl);
+        try {
+            // 模型 id 可含后续 '/'(与 splitModelRef 同语义,首 '/' 拆 provider)
+            assertEquals(List.of("high", "max"), client.modelVariants("openglm/glm-5.2", null));
+            assertEquals(List.of("minimal", "high"), client.modelVariants("openai/gpt-5", "D:\\work"));
+            // 无 variants 字段 → 空目录(负语义:模型无 variant)
+            assertTrue(client.modelVariants("openglm/glm-4.7", null).isEmpty());
+            // 未收录模型 → 空目录
+            assertTrue(client.modelVariants("openglm/unknown", null).isEmpty());
+            // 重复查询命中缓存:4 次调用只打 1 次 HTTP(首次未命中各自 1 次,共 4?不——
+            // glm-5.2/gpt-5/glm-4.7/unknown 各首次查询 + glm-5.2 第二次命中缓存)
+            client.modelVariants("openglm/glm-5.2", null);
+            assertEquals(4, providerHits.get());
+        } finally {
+            client.close();
+        }
+    }
+
+    @Test
+    public void modelVariantsNon2xxThrowsServeApiException() throws Exception {
+        server.createContext("/provider", exchange -> respondJson(exchange, 500, "{}"));
+        OpenCodeServeClient client = new OpenCodeServeClient(baseUrl);
+        try {
+            client.modelVariants("openglm/glm-5.2", null);
+            fail("expected ServeApiException");
+        } catch (OpenCodeServeClient.ServeApiException e) {
+            assertEquals(500, e.statusCode());
+        } finally {
+            client.close();
+        }
     }
 
     @Test

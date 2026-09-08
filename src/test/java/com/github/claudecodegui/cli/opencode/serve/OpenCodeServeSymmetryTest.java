@@ -102,8 +102,10 @@ public class OpenCodeServeSymmetryTest {
         assertTrue(source.contains("PERMISSION_MODE_BYPASS"));
         assertTrue(source.contains("ServePermissionGate"));
         assertTrue(source.contains("respondPermissionQuietly"));
-        // reasoningEffort→variant 复用 one-shot 映射(总则四,不双写)
-        assertTrue(source.contains("AbstractRunOnceCliSession.mapReasoningVariant"));
+        // reasoningEffort→variant 复用 one-shot 解析(SSOT,总则四,不双写):
+        // serve 额外优先采用动态目录(GET /provider 按 model 缓存,失败回退内置表)
+        assertTrue(source.contains("AbstractRunOnceCliSession.resolveReasoningVariant"));
+        assertTrue(source.contains("queryModelVariants"));
         // model 无 '/' 拆分失败时显式告警(不再静默丢弃用户模型选择)
         assertTrue(source.contains("splitModelRef"));
         assertTrue(source.contains("model selection dropped"));
