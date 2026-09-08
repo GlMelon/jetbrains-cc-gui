@@ -994,7 +994,9 @@ public class KimiAcpCliSession implements CliSession {
      * <ol>
      *   <li>目录未知(旧版 kimi)→ 字面量直发(legacy 行为,set_config 失败非致命);</li>
      *   <li>字面量在目录中 → 直发;</li>
-     *   <li>就近 effort 档位(rank: low&lt;medium&lt;high&lt;max,非 effort 词按 medium 计,跳过 "off";并列取低档);</li>
+     *   <li>就近 effort 档位(rank: low&lt;medium&lt;high&lt;max,非 effort 词按 medium 计,跳过 "off";
+     *       <b>并列取高档</b>——官方映射 k3 洞:medium→high(2026-09-07 一手调研,
+     *       xhigh→max 由 {@link #mapThinkingEffort} 承担),取低档会与官方行为相悖);</li>
      *   <li>目录只有 "on"/无 effort 词 → "on"(kimi 侧解析为模型 defaultThinkingEffort);</li>
      *   <li>目录为空/只有 "off"(alwaysThinking 等)→ null(不发)。</li>
      * </ol>
@@ -1017,7 +1019,7 @@ public class KimiAcpCliSession implements CliSession {
                 continue;
             }
             int dist = Math.abs(effortRank(candidate) - effortRank(desired));
-            if (dist < bestDist || (dist == bestDist && best != null && effortRank(candidate) < effortRank(best))) {
+            if (dist < bestDist || (dist == bestDist && best != null && effortRank(candidate) > effortRank(best))) {
                 best = candidate;
                 bestDist = dist;
             }

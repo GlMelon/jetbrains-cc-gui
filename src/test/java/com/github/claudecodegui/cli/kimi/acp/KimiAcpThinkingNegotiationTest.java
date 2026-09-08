@@ -89,11 +89,12 @@ public class KimiAcpThinkingNegotiationTest {
     }
 
     @Test
-    public void negotiateTieBreaksToLowerEffort() {
-        // low(0) 与 high(2) 距 medium(1) 等距 → 取低档(烧 token 保守)
+    public void negotiateTieBreaksToUpperEffort() {
+        // low(0) 与 high(2) 距 medium(1) 等距 → 取高档:官方 k3 映射 medium→high
+        // (2026-09-07 一手调研;xhigh→max 由 mapThinkingEffort 承担)
         KimiAcpCliSession.ThinkingOptions options =
                 new KimiAcpCliSession.ThinkingOptions(List.of("off", "low", "high"), "off");
-        assertEquals("low", KimiAcpCliSession.negotiateThinkingValue("medium", options));
+        assertEquals("high", KimiAcpCliSession.negotiateThinkingValue("medium", options));
     }
 
     @Test
