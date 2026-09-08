@@ -9,6 +9,9 @@ import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.protocol.ReasoningEffort;
+import com.github.claudecodegui.reasoning.ReasoningCapabilities;
+import com.github.claudecodegui.reasoning.ReasoningEffortResolver;
 import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.ui.toolwindow.TabPerformanceLogger;
@@ -569,7 +572,7 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
             cmd.add(CliConstants.OPENCODE_ARG_MODEL);
             cmd.add(model);
         }
-        String variant = mapReasoningVariant(request.reasoningEffort());
+        String variant = resolveReasoningVariant(request.reasoningEffort(), model, null);
         if (variant != null) {
             cmd.add(CliConstants.OPENCODE_ARG_VARIANT);
             cmd.add(variant);
@@ -610,6 +613,59 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
             case "xhigh", "max" -> "max";
             default -> null;
         };
+    }
+
+    /**
+     * 解析 opencode reasoningEffort → variant id(unknown variant 模型解析 fail-fast,必须本地拦,
+     * 官方调研 2026-09-07)。one-shot 与 serve(prompt_async variant 字段)共用(SSOT,总则四):
+     * <ul>
+     *   <li>{@code availableVariantIds == null}(one-shot 无目录 / serve 查询失败回退)→
+     *       按内置能力表 {@link ReasoningCapabilities#levelsFor} 安全子集 clamp 后走
+     *       {@link #mapReasoningVariant}(xhigh/max 钳到 high,不盲发);</li>
+     *   <li>{@code availableVariantIds != null}(serve GET /provider 动态目录)→
+     *       档位集 = 目录 id 反查的协议档位,clamp 后取目录内实际 id
+     *       (LOW 优先 {@code minimal},与 {@code mapReasoningVariant} 一致;
+     *       MEDIUM 省略 variant = 默认档语义;空目录/无已知档位 id → null 不携带)。</li>
+     * </ul>
+     * 返回 null = 请求体 / 命令行不携带 variant。
+     */
+    public static String resolveReasoningVariant(String reasoningEffort, String model,
+                                                 List<String> availableVariantIds) {
+        List<String> levels = availableVariantIds != null
+                ? levelsFromVariantIds(availableVariantIds)
+                : ReasoningCapabilities.levelsFor(ProviderType.OPENCODE.value(), model);
+        String clamped = ReasoningEffortResolver.clamp(reasoningEffort, levels);
+        if (clamped == null || ReasoningEffort.MEDIUM.value().equals(clamped)) {
+            return null;
+        }
+        if (availableVariantIds == null) {
+            return mapReasoningVariant(clamped);
+        }
+        if (ReasoningEffort.LOW.value().equals(clamped)) {
+            for (String candidate : List.of("minimal", ReasoningEffort.LOW.value())) {
+                if (availableVariantIds.contains(candidate)) {
+                    return candidate;
+                }
+            }
+            return null;
+        }
+        return availableVariantIds.contains(clamped) ? clamped : null;
+    }
+
+    /** variant 目录 id(与协议档位同名者)→ 协议档位集;未知 id(如 beam)忽略。 */
+    private static List<String> levelsFromVariantIds(List<String> ids) {
+        List<String> levels = new ArrayList<>();
+        for (String id : ids) {
+            if (id == null) {
+                continue;
+            }
+            String value = ReasoningEffort.fromValue(id.trim().toLowerCase(Locale.ROOT))
+                    .map(ReasoningEffort::value).orElse(null);
+            if (value != null && !levels.contains(value)) {
+                levels.add(value);
+            }
+        }
+        return levels;
     }
 
     /**

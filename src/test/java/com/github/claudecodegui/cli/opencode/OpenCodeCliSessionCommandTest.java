@@ -152,4 +152,23 @@ public class OpenCodeCliSessionCommandTest {
         assertEquals("high", cmd.get(variantIdx + 1));
         assertFalse("showThinking=false omits --thinking", cmd.contains("--thinking"));
     }
+
+    @Test
+    public void b15_clampsXhighAndMaxToHighVariant() {
+        // one-shot 无动态目录:按内置安全子集 [low,medium,high] clamp——
+        // xhigh/max → high(unknown variant 模型解析 fail-fast,不盲发 max;官方调研 2026-09-07)
+        for (String effort : new String[]{"xhigh", "max"}) {
+            CliSendRequest request = new CliSendRequest(
+                    "tab-1", CommonConstants.PROVIDER_OPENCODE, "hi",
+                    null, "/work", List.of(), new JsonObject(), List.of(),
+                    null, CommonConstants.PERMISSION_MODE_DEFAULT, "anthropic/claude-3-5-sonnet",
+                    "anthropic/claude-3-5-sonnet", effort, null, java.util.Map.of()
+            );
+            OpenCodeCliSession session = new OpenCodeCliSession("t");
+            List<String> cmd = session.buildRunCommand(request, null, List.of());
+            int variantIdx = indexOf(cmd, "--variant");
+            assertTrue("variant flag present for " + effort, variantIdx >= 0);
+            assertEquals("high", cmd.get(variantIdx + 1));
+        }
+    }
 }
