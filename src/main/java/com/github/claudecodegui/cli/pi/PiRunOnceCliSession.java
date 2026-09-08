@@ -8,6 +8,9 @@ import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliImagePromptInjections;
 import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.protocol.ReasoningEffort;
+import com.github.claudecodegui.reasoning.ReasoningCapabilities;
+import com.github.claudecodegui.reasoning.ReasoningEffortResolver;
 import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 
@@ -27,8 +30,8 @@ import java.util.regex.Pattern;
  * 与基类 opencode 默认布局的有意差异(总则六记录):
  * <ul>
  *   <li>消息为末尾位置参数(pi 无 --prompt flag),--print/--mode 等价于 grok/kimi 的输出格式声明;</li>
- *   <li>{@code reasoningEffort} 全量映射 {@code --thinking}(off/minimal/low/medium/high/xhigh/max),
- *       由 showThinking 门控(对称 opencode --thinking 开关语义);</li>
+ *   <li>{@code reasoningEffort} 全量映射 {@code --thinking}(能力表 clamp 后 wire 映射,
+ *       协议 {@code none} → wire {@code off}),由 showThinking 门控(对称 opencode --thinking 开关语义);</li>
  *   <li>续接用 --session-id(pi 官方 resume 是交互 -r,非交互续接只有显式 id;--continue/-c
  *       是「继续最近会话」,与插件按 tab 显式管理 sessionId 的模型不符);</li>
  *   <li>permissionMode 不映射:pi 无审批弹窗设计(工具直接执行);</li>
@@ -40,8 +43,8 @@ public class PiRunOnceCliSession extends AbstractRunOnceCliSession {
     private static final Set<String> MODEL_SENTINELS = Set.of(
             "__config_default__", "auto", "default", "(default)", "config-default", "config_default",
             "pi-default", "pi default");
-    private static final Set<String> THINKING_LEVELS = Set.of(
-            "off", "minimal", "low", "medium", "high", "xhigh", "max");
+    /** pi {@code --thinking} 关闭档 wire 值(协议 {@code none};pi CLI 词表用 off 表达关闭)。 */
+    private static final String PI_THINKING_OFF = "off";
 
     public PiRunOnceCliSession(String tabId) {
         this(tabId, null);
@@ -86,8 +89,9 @@ public class PiRunOnceCliSession extends AbstractRunOnceCliSession {
         cmd.add(CliConstants.PI_ARG_MODE);
         cmd.add(CliConstants.PI_FORMAT_JSON);
 
-        String modelFlag = resolveModelFlag(request.actualModel() != null && !request.actualModel().isBlank()
-                ? request.actualModel() : request.model());
+        String rawModel = request.actualModel() != null && !request.actualModel().isBlank()
+                ? request.actualModel() : request.model();
+        String modelFlag = resolveModelFlag(rawModel);
         if (modelFlag != null) {
             cmd.add(CliConstants.PI_ARG_MODEL);
             cmd.add(modelFlag);
@@ -98,7 +102,7 @@ public class PiRunOnceCliSession extends AbstractRunOnceCliSession {
         }
         // showThinking 开启时透传 thinking 级别(off 显式关闭思考,其余为强度)
         if (request.thinkingOutputEnabled()) {
-            String level = resolveThinkingLevel(request.reasoningEffort());
+            String level = resolveThinkingLevel(request.reasoningEffort(), rawModel);
             if (level != null) {
                 cmd.add(CliConstants.PI_ARG_THINKING);
                 cmd.add(level);
@@ -149,12 +153,18 @@ public class PiRunOnceCliSession extends AbstractRunOnceCliSession {
         return result.toString();
     }
 
-    /** reasoningEffort → pi --thinking level(小写归一后白名单校验)。 */
-    static String resolveThinkingLevel(String reasoningEffort) {
-        if (reasoningEffort == null || reasoningEffort.isBlank()) {
+    /**
+     * reasoningEffort → pi {@code --thinking} level(能力表 clamp 后 wire 映射):
+     * 协议档位经 {@link ReasoningCapabilities} 按 (pi, model) 钳制(pi 收到不支持的档位会
+     * warning + 静默丢参,官方调研 2026-09-07),协议 {@code none} 映射 wire {@code off}
+     * (pi CLI 词表用 off 表达关闭思考);null/空/非法 → null(flag 整个省略)。
+     */
+    static String resolveThinkingLevel(String reasoningEffort, String model) {
+        String clamped = ReasoningEffortResolver.clamp(reasoningEffort,
+                ReasoningCapabilities.levelsFor(ProviderType.PI.value(), model));
+        if (clamped == null) {
             return null;
         }
-        String normalized = reasoningEffort.trim().toLowerCase(Locale.ROOT);
-        return THINKING_LEVELS.contains(normalized) ? normalized : null;
+        return ReasoningEffort.NONE.value().equals(clamped) ? PI_THINKING_OFF : clamped;
     }
 }

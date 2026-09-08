@@ -15,8 +15,9 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * PiRunOnceCliSession thinking 级别映射与命令组装验证:
- * 7 档(off/minimal/low/medium/high/xhigh/max)白名单透传 --thinking,
- * 由 thinkingOutputEnabled 门控。
+ * 协议档位经能力表 clamp 后透传 --thinking(协议 none → wire off),
+ * 由 thinkingOutputEnabled 门控(官方调研 2026-09-07:pi 收到不支持的档位
+ * warning + 静默丢参,必须本地钳制)。
  */
 public class PiRunOnceCliSessionCommandTest {
 
@@ -30,28 +31,34 @@ public class PiRunOnceCliSessionCommandTest {
     }
 
     @Test
-    public void resolveThinkingLevelPassesAllSevenLevelsThrough() {
-        assertEquals("off", PiRunOnceCliSession.resolveThinkingLevel("off"));
-        assertEquals("minimal", PiRunOnceCliSession.resolveThinkingLevel("minimal"));
-        assertEquals("low", PiRunOnceCliSession.resolveThinkingLevel("low"));
-        assertEquals("medium", PiRunOnceCliSession.resolveThinkingLevel("medium"));
-        assertEquals("high", PiRunOnceCliSession.resolveThinkingLevel("high"));
-        assertEquals("xhigh", PiRunOnceCliSession.resolveThinkingLevel("xhigh"));
-        assertEquals("max", PiRunOnceCliSession.resolveThinkingLevel("max"));
+    public void resolveThinkingLevelPassesAllProtocolLevelsThrough() {
+        assertEquals("minimal", PiRunOnceCliSession.resolveThinkingLevel("minimal", null));
+        assertEquals("low", PiRunOnceCliSession.resolveThinkingLevel("low", null));
+        assertEquals("medium", PiRunOnceCliSession.resolveThinkingLevel("medium", null));
+        assertEquals("high", PiRunOnceCliSession.resolveThinkingLevel("high", null));
+        assertEquals("xhigh", PiRunOnceCliSession.resolveThinkingLevel("xhigh", null));
+        assertEquals("max", PiRunOnceCliSession.resolveThinkingLevel("max", null));
+    }
+
+    @Test
+    public void resolveThinkingLevelMapsProtocolNoneToWireOff() {
+        // 协议词表用 none,pi CLI 词表用 off 表达关闭思考
+        assertEquals("off", PiRunOnceCliSession.resolveThinkingLevel("none", null));
+        assertEquals("off", PiRunOnceCliSession.resolveThinkingLevel(" NONE ", null));
     }
 
     @Test
     public void resolveThinkingLevelNormalizesCaseAndWhitespace() {
-        assertEquals("max", PiRunOnceCliSession.resolveThinkingLevel("MAX"));
-        assertEquals("xhigh", PiRunOnceCliSession.resolveThinkingLevel(" XHigh "));
+        assertEquals("max", PiRunOnceCliSession.resolveThinkingLevel("MAX", null));
+        assertEquals("xhigh", PiRunOnceCliSession.resolveThinkingLevel(" XHigh ", null));
     }
 
     @Test
     public void resolveThinkingLevelReturnsNullForNullBlankAndUnknown() {
-        assertNull(PiRunOnceCliSession.resolveThinkingLevel(null));
-        assertNull(PiRunOnceCliSession.resolveThinkingLevel(""));
-        assertNull(PiRunOnceCliSession.resolveThinkingLevel("   "));
-        assertNull(PiRunOnceCliSession.resolveThinkingLevel("turbo"));
+        assertNull(PiRunOnceCliSession.resolveThinkingLevel(null, null));
+        assertNull(PiRunOnceCliSession.resolveThinkingLevel("", null));
+        assertNull(PiRunOnceCliSession.resolveThinkingLevel("   ", null));
+        assertNull(PiRunOnceCliSession.resolveThinkingLevel("turbo", null));
     }
 
     @Test
