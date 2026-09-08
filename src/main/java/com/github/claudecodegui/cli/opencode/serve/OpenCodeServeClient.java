@@ -16,6 +16,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,6 +49,7 @@ public final class OpenCodeServeClient implements Closeable {
     // serve HTTP API 路径(外部契约,同文件系统约定名,保留字面量)
     private static final String PATH_EVENT = "/event";
     private static final String PATH_SESSION = "/session";
+    private static final String PATH_PROVIDER = "/provider";
     private static final String SUFFIX_PROMPT_ASYNC = "/prompt_async";
     private static final String SUFFIX_ABORT = "/abort";
     private static final String SEGMENT_PERMISSIONS = "/permissions/";
@@ -109,6 +111,8 @@ public final class OpenCodeServeClient implements Closeable {
     private final Gson gson = GsonHolder.GSON;
     private final String baseUrl;
     private final ConcurrentHashMap<String, TurnEventHandler> turnHandlers = new ConcurrentHashMap<>();
+    /** modelKey("providerID/modelID")→ 可用 variant id(含空列表负缓存);serve 生命周期内目录视为稳定。 */
+    private final ConcurrentHashMap<String, List<String>> variantIdsByModel = new ConcurrentHashMap<>();
     private final AtomicBoolean closed = new AtomicBoolean(false);
     /** 最近一次 SSE 行到达时间(心跳即活性,看门狗据此判定半开)。 */
     private final AtomicLong lastActivityAt = new AtomicLong(System.currentTimeMillis());
@@ -178,6 +182,69 @@ public final class OpenCodeServeClient implements Closeable {
         JsonObject body = new JsonObject();
         body.addProperty("response", response);
         post(PATH_SESSION + "/" + sessionId + SEGMENT_PERMISSIONS + permissionId, body);
+    }
+
+    /**
+     * 查询模型可用的 reasoning variant id(GET /provider → {@code all[].models[modelID].variants}
+     * 的 keys,Provider.Info 契约,opencode v1.18.26)。按 modelKey("providerID/modelID")缓存,
+     * 含空目录负缓存(模型明确无 variant);查询失败向上抛,由调用方回退内置能力表
+     * (variant unknown 模型解析 fail-fast,必须本地拦)。
+     */
+    public List<String> modelVariants(String modelKey, String directory)
+            throws IOException, InterruptedException {
+        List<String> cached = variantIdsByModel.get(modelKey);
+        if (cached != null) {
+            return cached;
+        }
+        String path = PATH_PROVIDER;
+        if (directory != null && !directory.isBlank()) {
+            path += QUERY_DIRECTORY + URLEncoder.encode(directory, StandardCharsets.UTF_8);
+        }
+        List<String> ids = parseModelVariantIds(getJson(path), modelKey);
+        variantIdsByModel.put(modelKey, ids);
+        return ids;
+    }
+
+    /**
+     * 从 GET /provider 响应提取 modelKey("providerID/modelID",首 '/' 拆分)的 variant id 集。
+     * 目录缺失 / 模型未收录 / 无 variants 字段 → 空列表(模型无 variant,负语义)。
+     */
+    static List<String> parseModelVariantIds(JsonObject response, String modelKey) {
+        if (response == null || modelKey == null) {
+            return List.of();
+        }
+        int slash = modelKey.indexOf('/');
+        if (slash <= 0 || slash >= modelKey.length() - 1) {
+            return List.of();
+        }
+        String providerId = modelKey.substring(0, slash);
+        String modelId = modelKey.substring(slash + 1);
+        if (!response.has("all") || !response.get("all").isJsonArray()) {
+            return List.of();
+        }
+        for (var providerElement : response.getAsJsonArray("all")) {
+            if (!providerElement.isJsonObject()) {
+                continue;
+            }
+            JsonObject provider = providerElement.getAsJsonObject();
+            if (!providerId.equals(getString(provider, "id"))) {
+                continue;
+            }
+            JsonObject models = asObject(provider, "models");
+            JsonObject model = models != null ? asObject(models, modelId) : null;
+            JsonObject variants = model != null ? asObject(model, "variants") : null;
+            if (variants == null || variants.isEmpty()) {
+                return List.of();
+            }
+            List<String> ids = new java.util.ArrayList<>(variants.size());
+            for (String id : variants.keySet()) {
+                if (id != null && !id.isBlank()) {
+                    ids.add(id);
+                }
+            }
+            return List.copyOf(ids);
+        }
+        return List.of();
     }
 
     // ── SSE 长连接 ────────────────────────────────────────────────────────────
@@ -361,6 +428,20 @@ public final class OpenCodeServeClient implements Closeable {
                 .header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
                 .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body), StandardCharsets.UTF_8))
                 .build();
+        return sendExpectJsonObject(request, path);
+    }
+
+    private JsonObject getJson(String path) throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + path))
+                .timeout(CONTROL_TIMEOUT)
+                .GET()
+                .build();
+        return sendExpectJsonObject(request, path);
+    }
+
+    /** 发送请求并按契约解析响应:非 2xx 抛 {@link ServeApiException};空体/非 JSON object 包装返回。 */
+    private JsonObject sendExpectJsonObject(HttpRequest request, String path)
+            throws IOException, InterruptedException {
         HttpResponse<String> response =
                 HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         if (response.statusCode() < 200 || response.statusCode() >= 300) {

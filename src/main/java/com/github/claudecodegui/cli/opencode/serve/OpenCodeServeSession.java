@@ -206,7 +206,7 @@ public class OpenCodeServeSession implements CliSession {
             }
             turnSessionId = effectiveSessionId;
 
-            JsonObject body = buildPromptBody(request, tempFiles);
+            JsonObject body = buildPromptBody(client, request, tempFiles);
             OpenCodeServeTurn turn = new OpenCodeServeTurn(callback);
             activeTurn = turn;
             activeTurnSessionId = turnSessionId;
@@ -356,9 +356,10 @@ public class OpenCodeServeSession implements CliSession {
     /**
      * prompt_async 请求体:{model:{providerID, modelID}, variant?, parts:[text + file...]}。
      * model 把插件的 "provider/model" 串拆两段(无 '/' 时告警并省略 model,用 serve 会话默认);
-     * variant 复用 one-shot 的 reasoningEffort→variant 映射(SSOT,总则四)。
+     * variant 复用 one-shot 的 reasoningEffort→variant 解析(SSOT,总则四),并优先采用
+     * serve 动态目录(GET /provider,按 model 缓存;失败回退内置能力表)。
      */
-    JsonObject buildPromptBody(CliSendRequest request, List<File> tempFiles) {
+    JsonObject buildPromptBody(OpenCodeServeClient client, CliSendRequest request, List<File> tempFiles) {
         JsonObject body = new JsonObject();
         String model = firstNonBlank(request.actualModel(), request.model());
         if (model != null) {
@@ -373,7 +374,8 @@ public class OpenCodeServeSession implements CliSession {
                         + " using serve session default model");
             }
         }
-        String variant = AbstractRunOnceCliSession.mapReasoningVariant(request.reasoningEffort());
+        String variant = AbstractRunOnceCliSession.resolveReasoningVariant(
+                request.reasoningEffort(), model, queryModelVariants(client, request, model));
         if (variant != null) {
             body.addProperty("variant", variant);
         }
@@ -511,6 +513,26 @@ public class OpenCodeServeSession implements CliSession {
     }
 
     // ── 内部 ──────────────────────────────────────────────────────────────────
+
+    /**
+     * 模型可用 variant 动态查询(GET /provider,client 按 model 缓存):
+     * 目录不可得(模型无 '/' 双段 / 查询失败)→ 返回 null,调用方回退内置能力表。
+     * 查询失败不缓存(下轮重试),仅记日志——variant 是 fail-fast 参数,查询失败时
+     * 宁可用安全子集钳制也不让整轮降级。
+     */
+    private static List<String> queryModelVariants(OpenCodeServeClient client, CliSendRequest request,
+                                                   String model) {
+        if (model == null || model.isBlank() || model.indexOf('/') <= 0) {
+            return null;
+        }
+        try {
+            return client.modelVariants(model, effectiveCwd(request));
+        } catch (Exception e) {
+            LOG.debug("[OpenCodeServeSession] model variant catalog query failed"
+                    + " (falling back to builtin capability table): model=" + model + ", " + e.getMessage());
+            return null;
+        }
+    }
 
     private CliSession fallbackSession() {
         if (fallbackOverride != null) {
