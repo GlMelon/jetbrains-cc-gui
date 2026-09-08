@@ -129,7 +129,9 @@ export const ModelConfigSelect = ({
   const [isOpen, setIsOpen] = useState(false);
   const [activeSubmenu, setActiveSubmenu] = useState<ActiveSubmenu>('none');
   const activeSubmenuRef = useRef<ActiveSubmenu>(activeSubmenu);
-  activeSubmenuRef.current = activeSubmenu;
+  useEffect(() => {
+    activeSubmenuRef.current = activeSubmenu;
+  }, [activeSubmenu]);
   const hoverTimerRef = useRef<number | undefined>(undefined);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);

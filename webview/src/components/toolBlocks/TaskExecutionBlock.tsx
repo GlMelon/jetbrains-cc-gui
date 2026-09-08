@@ -289,7 +289,13 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
               </div>
             )}
 
-            {Object.entries(rest).map(([key, value]) => (
+            {Object.entries(rest).flatMap(([key, value]) => {
+              // spawn_agent 内部字段(agent 消息体/任务名)已由专属展示区呈现,
+              // 不再进入通用 rest 键值回显,避免重复与噪音。
+              if (isSpawnAgent && ['message', 'items', 'task_name', 'taskName'].includes(key)) {
+                return [];
+              }
+              return [
               <div key={key} className="task-field">
                 <div className="task-field-label">{key}</div>
                 <div className="task-field-content">
@@ -297,8 +303,9 @@ const TaskExecutionBlock = memo(function TaskExecutionBlock({ name, input, resul
                     ? JSON.stringify(value, null, 2)
                     : String(value)}
                 </div>
-              </div>
-            ))}
+              </div>,
+              ];
+            })}
           </div>
         </div>
       )}

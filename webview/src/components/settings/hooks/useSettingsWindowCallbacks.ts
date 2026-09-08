@@ -81,7 +81,9 @@ export function useSettingsWindowCallbacks(deps: SettingsWindowCallbacksDeps) {
 
   // Use ref to avoid stale closures - callbacks always read latest deps
   const depsRef = useRef(deps);
-  depsRef.current = deps;
+  useEffect(() => {
+    depsRef.current = deps;
+  });
 
   useEffect(() => {
     const d = () => depsRef.current;

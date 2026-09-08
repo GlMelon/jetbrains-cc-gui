@@ -115,6 +115,19 @@ type AvatarDrawerTab = 'assistant' | 'user';
 const AVATAR_DRAWER_TABS: readonly AvatarDrawerTab[] = ['assistant', 'user'];
 
 const NODE_PATH_SECTION_STYLE: React.CSSProperties = { marginTop: 12 };
+const LANGUAGE_OPTIONS = [
+  { value: FOLLOW_IDEA_LANGUAGE, label: 'settings.basic.language.followIde' },
+  { value: 'zh', label: 'settings.basic.language.simplifiedChinese' },
+  { value: 'zh-TW', label: 'settings.basic.language.traditionalChinese' },
+  { value: 'en', label: 'settings.basic.language.english' },
+  { value: 'hi', label: 'settings.basic.language.hindi' },
+  { value: 'es', label: 'settings.basic.language.spanish' },
+  { value: 'fr', label: 'settings.basic.language.french' },
+  { value: 'ja', label: 'settings.basic.language.japanese' },
+  { value: 'ru', label: 'settings.basic.language.russian' },
+  { value: 'ko', label: 'settings.basic.language.korean' },
+  { value: 'pt-BR', label: 'settings.basic.language.portuguese' },
+];
 
 function getSwatchStyle(color: string): React.CSSProperties {
   return { backgroundColor: color };
@@ -496,19 +509,7 @@ const AppearanceTab = ({
     },
   ];
 
-  const languageOptions = [
-    { value: FOLLOW_IDEA_LANGUAGE, label: 'settings.basic.language.followIde' },
-    { value: 'zh', label: 'settings.basic.language.simplifiedChinese' },
-    { value: 'zh-TW', label: 'settings.basic.language.traditionalChinese' },
-    { value: 'en', label: 'settings.basic.language.english' },
-    { value: 'hi', label: 'settings.basic.language.hindi' },
-    { value: 'es', label: 'settings.basic.language.spanish' },
-    { value: 'fr', label: 'settings.basic.language.french' },
-    { value: 'ja', label: 'settings.basic.language.japanese' },
-    { value: 'ru', label: 'settings.basic.language.russian' },
-    { value: 'ko', label: 'settings.basic.language.korean' },
-    { value: 'pt-BR', label: 'settings.basic.language.portuguese' },
-  ];
+  const languageOptions = LANGUAGE_OPTIONS;
 
   const handleLanguageChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const language = event.target.value;

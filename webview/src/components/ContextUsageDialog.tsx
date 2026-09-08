@@ -465,7 +465,7 @@ const ContextUsageDialog = memo(function ContextUsageDialog({
               rowKey={(file) => `${file.type}-${file.path}`}
               renderRow={(file) => {
                 const shortPath = file.path.length > 60 ? '...' + file.path.slice(-57) : file.path;
-                return [file.type, <span title={file.path}>{shortPath}</span>, formatTokens(file.tokens)];
+                return [file.type, <span key="path" title={file.path}>{shortPath}</span>, formatTokens(file.tokens)];
               }}
             />
           )}

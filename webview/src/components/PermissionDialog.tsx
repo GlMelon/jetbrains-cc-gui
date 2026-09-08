@@ -26,6 +26,73 @@ interface PermissionDialogProps {
   timeoutSeconds?: number;
 }
 
+// Format a single tool-input value for display. Pure helper hoisted to module
+// scope so it is not recreated on every render (the dialog re-renders once per
+// second while the timeout countdown ticks).
+const formatInputValue = (value: unknown): string => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((item) => {
+        const text = formatInputValue(item);
+        return text ? [text] : [];
+      })
+      .join('\n');
+  }
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (typeof record.text === 'string') {
+      return record.text;
+    }
+    if (typeof record.content === 'string') {
+      return record.content;
+    }
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value);
+};
+
+// Derive the primary command / action content from the tool inputs.
+const getCommandContent = (inputs: Record<string, unknown>): string => {
+  // Get primary content based on tool type
+  if ('command' in inputs && inputs.command !== undefined) {
+    return formatInputValue(inputs.command);
+  }
+  if ('content' in inputs && inputs.content !== undefined) {
+    return formatInputValue(inputs.content);
+  }
+  if ('text' in inputs && inputs.text !== undefined) {
+    return formatInputValue(inputs.text);
+  }
+  // For other tools, format all inputs (skip internal policy fields)
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(inputs)) {
+    if (!key.startsWith('_')) {
+      lines.push(`${key}: ${formatInputValue(value)}`);
+    }
+  }
+  return lines.join('\n');
+};
+
+// Derive the working-directory / path label from the tool inputs.
+const getWorkingDirectory = (inputs: Record<string, unknown>): string => {
+  if (typeof inputs.cwd === 'string' && inputs.cwd) {
+    return inputs.cwd;
+  }
+  if (typeof inputs.file_path === 'string' && inputs.file_path) {
+    return inputs.file_path;
+  }
+  if (typeof inputs.path === 'string' && inputs.path) {
+    return inputs.path;
+  }
+  return '~';
+};
+
 const PermissionDialog = ({
   isOpen,
   request,
@@ -118,52 +185,6 @@ const PermissionDialog = ({
 
   const inputs = (request.inputs && typeof request.inputs === 'object') ? request.inputs : {};
 
-  // Format input parameters for display
-  const formatInputValue = (value: any): string => {
-    if (value === null || value === undefined) {
-      return '';
-    }
-    if (typeof value === 'string') {
-      return value;
-    }
-    if (typeof value === 'object') {
-      return JSON.stringify(value, null, 2);
-    }
-    return String(value);
-  };
-
-  // Get the command or primary action content
-  const getCommandContent = (): string => {
-    // Get primary content based on tool type
-    if (inputs.command) {
-      return inputs.command;
-    }
-    if (inputs.content) {
-      return inputs.content;
-    }
-    if (inputs.text) {
-      return inputs.text;
-    }
-    // For other tools, format all inputs
-    return Object.entries(inputs)
-      .map(([key, value]) => `${key}: ${formatInputValue(value)}`)
-      .join('\n');
-  };
-
-  // Get working directory
-  const getWorkingDirectory = (): string => {
-    if (inputs.cwd) {
-      return inputs.cwd;
-    }
-    if (inputs.file_path) {
-      return inputs.file_path;
-    }
-    if (inputs.path) {
-      return inputs.path;
-    }
-    return '~';
-  };
-
   // Map tool name to display title
   const getToolTitle = (toolName: string): string => {
     const key = `permission.tools.${toolName}`;
@@ -188,8 +209,8 @@ const PermissionDialog = ({
     return null;
   };
 
-  const commandContent = getCommandContent();
-  const workingDirectory = getWorkingDirectory();
+  const commandContent = getCommandContent(inputs);
+  const workingDirectory = getWorkingDirectory(inputs);
   const toolBadge = getToolBadge(request.toolName);
   const ringProgress = timeoutSeconds > 0 ? Math.max(0, remainingSeconds / timeoutSeconds) : 0;
   const ringColor = isTimeWarning

@@ -18,7 +18,7 @@ export default function AgentExportDialog({
 }: AgentExportDialogProps) {
   const { t } = useTranslation();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(agents.map(agent => agent.id))
+    () => new Set(agents.map(agent => agent.id))
   );
 
   const toggleSelect = (id: string) => {

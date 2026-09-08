@@ -20,7 +20,7 @@ export default function PromptImportConfirmDialog({
 }: PromptImportConfirmDialogProps) {
   const { t } = useTranslation();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(previewData.items.map(item => item.data.id))
+    () => new Set(previewData.items.map(item => item.data.id))
   );
   const [strategy, setStrategy] = useState<ConflictStrategy>('skip');
 

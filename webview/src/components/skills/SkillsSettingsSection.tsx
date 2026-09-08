@@ -69,6 +69,39 @@ function normalizeSkillsConfig(value: unknown): SkillsConfig {
   };
 }
 
+// Icon colors (module scope: pure constants/helpers, not recreated per render)
+const ICON_COLORS = [
+  '#3B82F6',
+  '#10B981',
+  '#8B5CF6',
+  '#F59E0B',
+  '#EF4444',
+  '#EC4899',
+  '#06B6D4',
+  '#6366F1',
+];
+
+function getIconColor(skillId: string): string {
+  let hash = 0;
+  for (let i = 0; i < skillId.length; i++) {
+    hash = skillId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return ICON_COLORS[Math.abs(hash) % ICON_COLORS.length];
+}
+
+/** 按 skill 名关键词匹配辨识图标,未命中回退 FolderIcon */
+function getSkillIcon(name: string): React.ReactElement {
+  const n = name.toLowerCase();
+  if (/(code|refactor|lint|format)/.test(n)) return <CodeIcon size={16} />;
+  if (/(terminal|shell|bash|cmd)/.test(n)) return <TerminalIcon size={16} />;
+  if (/(doc|readme|markdown|note)/.test(n)) return <FileTextIcon size={16} />;
+  if (/(spark|ai|brain|gen)/.test(n)) return <SparklesIcon size={16} />;
+  if (/(idea|light|tip|hint)/.test(n)) return <LightbulbIcon size={16} />;
+  if (/(deploy|ship|release|publish)/.test(n)) return <RocketIcon size={16} />;
+  if (/(file|script)/.test(n)) return <FileCodeIcon size={16} />;
+  return <FolderIcon size={16} />;
+}
+
 /**
  * Skills settings component
  * Manages Claude/Codex Skills
@@ -186,39 +219,6 @@ export function SkillsSettingsSection({ currentProvider = 'claude' }: SkillsSett
     for (const s of allSkillList) if (s.enabled) enabled++;
     return { enabledCount: enabled, disabledCount: allSkillList.length - enabled };
   }, [allSkillList]);
-
-  // Icon colors
-  const iconColors = [
-    '#3B82F6',
-    '#10B981',
-    '#8B5CF6',
-    '#F59E0B',
-    '#EF4444',
-    '#EC4899',
-    '#06B6D4',
-    '#6366F1',
-  ];
-
-  const getIconColor = (skillId: string): string => {
-    let hash = 0;
-    for (let i = 0; i < skillId.length; i++) {
-      hash = skillId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return iconColors[Math.abs(hash) % iconColors.length];
-  };
-
-  /** 按 skill 名关键词匹配辨识图标,未命中回退 FolderIcon */
-  const getSkillIcon = (name: string): React.ReactElement => {
-    const n = name.toLowerCase();
-    if (/(code|refactor|lint|format)/.test(n)) return <CodeIcon size={16} />;
-    if (/(terminal|shell|bash|cmd)/.test(n)) return <TerminalIcon size={16} />;
-    if (/(doc|readme|markdown|note)/.test(n)) return <FileTextIcon size={16} />;
-    if (/(spark|ai|brain|gen)/.test(n)) return <SparklesIcon size={16} />;
-    if (/(idea|light|tip|hint)/.test(n)) return <LightbulbIcon size={16} />;
-    if (/(deploy|ship|release|publish)/.test(n)) return <RocketIcon size={16} />;
-    if (/(file|script)/.test(n)) return <FileCodeIcon size={16} />;
-    return <FolderIcon size={16} />;
-  };
 
   const loadSkills = useCallback(() => {
     setLoading(true);
