@@ -10,6 +10,8 @@ import com.github.claudecodegui.cli.CliSessionExecutor;
 import com.github.claudecodegui.cli.common.*;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.mcp.McpGatewayCliConfig;
+import com.github.claudecodegui.reasoning.ReasoningCapabilities;
+import com.github.claudecodegui.reasoning.ReasoningEffortResolver;
 import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.mcp.McpGatewayService;
 import com.github.claudecodegui.session.runtime.CodexCliResolver;
@@ -1319,13 +1321,7 @@ public class CodexCliSession implements CliSession {
             cmd.add(CliConstants.CODEX_ARG_M);
             cmd.add(effectiveModel);
         }
-        if (request.reasoningEffort() != null && !request.reasoningEffort().isBlank()) {
-            cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
-            cmd.add(codexConfigOverride(
-                    CliConstants.CODEX_CONFIG_MODEL_REASONING_EFFORT,
-                    request.reasoningEffort()
-            ));
-        }
+        appendReasoningEffortOverride(cmd, request, effectiveModel);
         appendServiceTierOverride(cmd, request);
         if (request.thinkingOutputEnabled()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
@@ -1353,6 +1349,30 @@ public class CodexCliSession implements CliSession {
 
     private static String codexConfigOverride(String key, String value) {
         return CodexCliCommandUtils.codexConfigOverride(key, value);
+    }
+
+    /**
+     * 发送前把 reasoningEffort 钳制到 (codex, model) 支持集(exec / exec resume 两路径共用)。
+     * <p>
+     * codex 对不支持的档位返回 HTTP 400(fail-fast,官方调研 2026-09-07),必须本地拦截:
+     * {@link ReasoningEffortResolver#clamp} 按内置能力表 {@link ReasoningCapabilities}
+     * (gpt-5.1 无 xhigh、gpt-5 无 xhigh/max 等)取「不超过请求值的最高支持档」。
+     * 钳制结果为 null(空/非法/无能力)→ 整个 {@code -c model_reasoning_effort} 省略。
+     * 400 兜底降档重试经评估不落地:clamp 后残余 400 仅来自内置表滞后,重试无法修复数据问题,
+     * 反而引入进程级重发复杂度(见 docs/reasoning-effort-capability-adaptation-2026-09-07.md)。
+     */
+    static String clampReasoningEffort(String reasoningEffort, String model) {
+        return ReasoningEffortResolver.clamp(reasoningEffort,
+                ReasoningCapabilities.levelsFor(ProviderType.CODEX.value(), model));
+    }
+
+    /** -c model_reasoning_effort 覆盖项(clamp 后仍非空才携带)。 */
+    private static void appendReasoningEffortOverride(List<String> cmd, CliSendRequest request, String model) {
+        String effort = clampReasoningEffort(request.reasoningEffort(), model);
+        if (effort != null) {
+            cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
+            cmd.add(codexConfigOverride(CliConstants.CODEX_CONFIG_MODEL_REASONING_EFFORT, effort));
+        }
     }
 
     private void appendServiceTierOverride(List<String> cmd, CliSendRequest request) {
@@ -1391,13 +1411,7 @@ public class CodexCliSession implements CliSession {
             cmd.add(CliConstants.CODEX_ARG_M);
             cmd.add(effectiveModel);
         }
-        if (request.reasoningEffort() != null && !request.reasoningEffort().isBlank()) {
-            cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
-            cmd.add(codexConfigOverride(
-                    CliConstants.CODEX_CONFIG_MODEL_REASONING_EFFORT,
-                    request.reasoningEffort()
-            ));
-        }
+        appendReasoningEffortOverride(cmd, request, effectiveModel);
         appendServiceTierOverride(cmd, request);
         if (request.thinkingOutputEnabled()) {
             cmd.add(CliConstants.CODEX_ARG_C_CONFIG);
