@@ -3,11 +3,12 @@ import {
   __setModelRegistryForTests,
   createCodexCatalogModels,
   getModelsForProvider,
+  getProviderDefaultReasoningLevels,
+  resolveReasoningLevels,
   normalizeProvider,
   parseModelRegistryPayload,
   resetModelRegistryForTests,
   resolveClaudeModelId,
-  resolveClaudeRoleForModel,
 } from '../../src/utils/modelRegistry';
 
 describe('modelRegistry', () => {
@@ -20,6 +21,7 @@ describe('modelRegistry', () => {
       items: [
         {
           id: 'mimo-v2.5-pro',
+          identifier: 'reg-mimo-v2.5-pro',
           provider: 'claude',
           label: 'Mimo',
           contextWindow: 1_000_000,
@@ -32,6 +34,7 @@ describe('modelRegistry', () => {
 
     expect(parsed?.items[0]).toMatchObject({
       id: 'mimo-v2.5-pro',
+      identifier: 'reg-mimo-v2.5-pro',
       provider: 'claude',
       contextWindow: 1_000_000,
     });
@@ -42,6 +45,7 @@ describe('modelRegistry', () => {
       items: [
         {
           id: 'claude-role-sonnet',
+          identifier: 'reg-claude-role-sonnet',
           provider: 'claude',
           role: 'sonnet',
           label: 'GLM 5.2',
@@ -56,6 +60,7 @@ describe('modelRegistry', () => {
 
     expect(parsed?.items[0]).toMatchObject({
       id: 'claude-role-sonnet',
+      identifier: 'reg-claude-role-sonnet',
       provider: 'claude',
       role: 'sonnet',
       actualModel: 'glm5.2',
@@ -66,7 +71,7 @@ describe('modelRegistry', () => {
   it('defaults contextWindow to 200000 when absent, aligning with backend', () => {
     const parsed = parseModelRegistryPayload({
       items: [
-        { id: 'mimo', provider: 'claude', label: 'Mimo' },
+        { identifier: 'reg-mimo', id: 'mimo', provider: 'claude', label: 'Mimo' },
       ],
     });
     expect(parsed?.items[0].contextWindow).toBe(200_000);
@@ -75,7 +80,7 @@ describe('modelRegistry', () => {
   it('defaults contextWindow to 200000 when non-positive, aligning with backend', () => {
     const parsed = parseModelRegistryPayload({
       items: [
-        { id: 'mimo', provider: 'claude', label: 'Mimo', contextWindow: 0 },
+        { identifier: 'reg-mimo', id: 'mimo', provider: 'claude', label: 'Mimo', contextWindow: 0 },
       ],
     });
     expect(parsed?.items[0].contextWindow).toBe(200_000);
@@ -92,6 +97,7 @@ describe('modelRegistry', () => {
       items: [
         {
           id: 'claude-role-sonnet',
+          identifier: 'reg-claude-role-sonnet',
           provider: 'claude',
           label: 'Sonnet',
           contextWindow: 200000,
@@ -105,7 +111,7 @@ describe('modelRegistry', () => {
   it('defaults readOnly to false when absent', () => {
     const parsed = parseModelRegistryPayload({
       items: [
-        { id: 'mimo', provider: 'claude', label: 'Mimo', contextWindow: 200000 },
+        { identifier: 'reg-mimo', id: 'mimo', provider: 'claude', label: 'Mimo', contextWindow: 200000 },
       ],
     });
     expect(parsed?.items[0].readOnly).toBe(false);
@@ -122,7 +128,7 @@ describe('modelRegistry', () => {
     const parsed = parseModelRegistryPayload({
       items: [
         {
-          id: 'mimo-v2.5', provider: 'claude', role: 'sonnet', label: 'MiMo',
+          id: 'mimo-v2.5', identifier: 'reg-mimo-v2.5', provider: 'claude', role: 'sonnet', label: 'MiMo',
           actualModel: 'mimo-v2.5', description: 'desc', contextWindow: 1_000_000,
           supports1MContext: true, enabled: true, readOnly: false,
         },
@@ -171,6 +177,7 @@ describe('modelRegistry', () => {
       items: [
         {
           id: 'mimo-v2.5',
+          identifier: 'reg-mimo-v2.5',
           provider: 'codex',
           label: 'MiMo v2.5',
           contextWindow: 262_144,
@@ -184,6 +191,7 @@ describe('modelRegistry', () => {
     expect(getModelsForProvider('codex')).toEqual([
       expect.objectContaining({
         id: 'mimo-v2.5',
+        identifier: 'reg-mimo-v2.5',
         label: 'MiMo v2.5',
       }),
     ]);
@@ -194,6 +202,7 @@ describe('modelRegistry', () => {
       items: [
         {
           id: 'claude-role-sonnet',
+          identifier: 'reg-claude-role-sonnet',
           provider: 'claude',
           role: 'sonnet',
           label: 'GLM 5.2',
@@ -209,6 +218,7 @@ describe('modelRegistry', () => {
     expect(getModelsForProvider('claude')).toEqual([
       expect.objectContaining({
         id: 'claude-role-sonnet',
+        identifier: 'reg-claude-role-sonnet',
         label: 'GLM 5.2',
         description: 'Sonnet · glm5.2',
       }),
@@ -226,6 +236,7 @@ describe('resolveClaudeModelId', () => {
       items: [
         {
           id: 'claude-role-sonnet',
+          identifier: 'reg-claude-role-sonnet',
           provider: 'claude',
           role: 'sonnet',
           label: 'Sonnet',
@@ -237,6 +248,7 @@ describe('resolveClaudeModelId', () => {
         },
         {
           id: 'mimo-v2.5',
+          identifier: 'reg-mimo-v2.5',
           provider: 'claude',
           role: 'sonnet',
           label: 'mimo-v2.5',
@@ -257,6 +269,7 @@ describe('resolveClaudeModelId', () => {
       items: [
         {
           id: 'mimo-v2.5',
+          identifier: 'reg-mimo-v2.5',
           provider: 'claude',
           label: 'mimo-v2.5',
           contextWindow: 1_000_000,
@@ -275,6 +288,7 @@ describe('resolveClaudeModelId', () => {
       items: [
         {
           id: 'claude-role-sonnet',
+          identifier: 'reg-claude-role-sonnet',
           provider: 'claude',
           role: 'sonnet',
           label: 'Sonnet',
@@ -300,6 +314,7 @@ describe('resolveClaudeModelId', () => {
       items: [
         {
           id: 'mimo-v2.5',
+          identifier: 'reg-mimo-v2.5',
           provider: 'claude',
           label: 'mimo-v2.5',
           contextWindow: 1_000_000,
@@ -322,123 +337,92 @@ describe('resolveClaudeModelId', () => {
   });
 });
 
-describe('resolveClaudeRoleForModel', () => {
+
+describe('resolveReasoningLevels', () => {
   beforeEach(() => {
     resetModelRegistryForTests();
   });
 
-  it('reads the role field from registry for built-in claude-role-* model IDs', () => {
-    // A3:registry 未加载时(空)即使传入 claude-role-* id 也返回 null——不再从 id 离线推导。
-    expect(resolveClaudeRoleForModel('claude-role-sonnet')).toBeNull();
-
-    __setModelRegistryForTests({
-      items: [
-        { id: 'claude-role-sonnet', provider: 'claude', role: 'sonnet', label: 'Sonnet', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true },
-        { id: 'claude-role-opus', provider: 'claude', role: 'opus', label: 'Opus', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true },
-        { id: 'claude-role-fable', provider: 'claude', role: 'fable', label: 'Fable', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true },
-        { id: 'claude-role-haiku', provider: 'claude', role: 'haiku', label: 'Haiku', contextWindow: 200_000, supports1MContext: false, readOnly: false, enabled: true },
-      ],
-    });
-
-    // registry.role 权威下发后回填。
-    expect(resolveClaudeRoleForModel('claude-role-sonnet')).toBe('sonnet');
-    expect(resolveClaudeRoleForModel('claude-role-opus')).toBe('opus');
-    expect(resolveClaudeRoleForModel('claude-role-fable')).toBe('fable');
-    expect(resolveClaudeRoleForModel('claude-role-haiku')).toBe('haiku');
-  });
-
-  it('returns the configured role for custom models in the registry', () => {
+  it('returns item levels when the model hits the registry', () => {
     __setModelRegistryForTests({
       items: [
         {
+          identifier: 'reg-mimo-v2.5',
           id: 'mimo-v2.5',
-          provider: 'claude',
-          role: 'opus',
+          provider: 'codex',
           label: 'MiMo v2.5',
-          contextWindow: 1_000_000,
-          supports1MContext: false,
-          readOnly: false,
-          enabled: true,
+          contextWindow: 262_144,
+          supportedReasoningLevels: ['low', 'medium', 'high'],
         },
       ],
     });
 
-    // 自定义模型走 registry.role —— 修复点:不再因不在 model-id 白名单而被隐藏。
-    expect(resolveClaudeRoleForModel('mimo-v2.5')).toBe('opus');
+    expect(resolveReasoningLevels('codex', 'mimo-v2.5')).toEqual(['low', 'medium', 'high']);
+    // [1m] 容量后缀剥离后命中
+    expect(resolveReasoningLevels('codex', 'mimo-v2.5[1m]')).toEqual(['low', 'medium', 'high']);
   });
 
-  it('returns null for custom models without a role field', () => {
+  it('returns empty array when the item exists without supportedReasoningLevels', () => {
+    // 条目在但字段未下发 = 后端判定该模型无 reasoning 能力(如 dsh/minimax)
     __setModelRegistryForTests({
       items: [
-        {
-          id: 'legacy-custom',
-          provider: 'claude',
-          label: 'Legacy',
-          contextWindow: 200_000,
-          supports1MContext: false,
-          readOnly: false,
-          enabled: true,
-        },
+        { identifier: 'reg-x', id: 'x', provider: 'dsh', label: 'X', contextWindow: 200_000 },
       ],
     });
 
-    expect(resolveClaudeRoleForModel('legacy-custom')).toBeNull();
+    expect(resolveReasoningLevels('dsh', 'x')).toEqual([]);
   });
 
-  it('ignores disabled registry entries', () => {
+  it('falls back to providerDefaults when the model misses the registry', () => {
     __setModelRegistryForTests({
       items: [
-        {
-          id: 'mimo-v2.5',
-          provider: 'claude',
-          role: 'sonnet',
-          label: 'MiMo v2.5',
-          contextWindow: 1_000_000,
-          supports1MContext: false,
-          readOnly: false,
-          enabled: false,
-        },
+        { identifier: 'reg-x', id: 'x', provider: 'kimi', label: 'X', contextWindow: 200_000 },
       ],
+      providerDefaults: {
+        grok: ['low', 'medium', 'high'],
+      },
     });
 
-    expect(resolveClaudeRoleForModel('mimo-v2.5')).toBeNull();
+    expect(resolveReasoningLevels('grok', 'grok-unknown')).toEqual(['low', 'medium', 'high']);
+    expect(getProviderDefaultReasoningLevels('grok')).toEqual(['low', 'medium', 'high']);
+    expect(getProviderDefaultReasoningLevels('claude')).toBeNull();
+    expect(getProviderDefaultReasoningLevels(undefined)).toBeNull();
   });
 
-  it('returns null for unknown models not in the registry', () => {
-    // 既非 claude-role-* 形式、也不在 registry 中 → 无法判定 role。
-    expect(resolveClaudeRoleForModel('claude-opus-4-8')).toBeNull();
+  it('returns null (unknown) when neither registry item nor provider defaults exist', () => {
+    expect(resolveReasoningLevels('claude', 'whatever')).toBeNull();
+    expect(getProviderDefaultReasoningLevels('claude')).toBeNull();
   });
 
-  it('strips the [1m] suffix before resolving', () => {
-    // A3:registry 设了内置 opus,strip [1m] 后按 registry.role 解析。
-    __setModelRegistryForTests({
+  it('parses root providerDefaults and filters invalid level values', () => {
+    const parsed = parseModelRegistryPayload({
       items: [
-        { id: 'claude-role-opus', provider: 'claude', role: 'opus', label: 'Opus', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true },
+        { identifier: 'reg-mimo', id: 'mimo', provider: 'claude', label: 'Mimo' },
       ],
+      providerDefaults: {
+        codex: ['low', 'medium', 'xhigh', 'turbo'],
+        grok: [],
+      },
     });
-    expect(resolveClaudeRoleForModel('claude-role-opus[1m]')).toBe('opus');
 
-    __setModelRegistryForTests({
-      items: [
-        {
-          id: 'mimo-v2.5',
-          provider: 'claude',
-          role: 'fable',
-          label: 'MiMo v2.5',
-          contextWindow: 1_000_000,
-          supports1MContext: false,
-          readOnly: false,
-          enabled: true,
-        },
-      ],
-    });
-    expect(resolveClaudeRoleForModel('mimo-v2.5[1m]')).toBe('fable');
+    expect(parsed?.providerDefaults).toEqual({ codex: ['low', 'medium', 'xhigh'] });
   });
 
-  it('returns null for empty input', () => {
-    expect(resolveClaudeRoleForModel('')).toBeNull();
-    expect(resolveClaudeRoleForModel(undefined)).toBeNull();
-    expect(resolveClaudeRoleForModel(null)).toBeNull();
+  it('omits providerDefaults when the root field is absent or empty', () => {
+    const parsed = parseModelRegistryPayload({
+      items: [
+        { identifier: 'reg-mimo', id: 'mimo', provider: 'claude', label: 'Mimo' },
+      ],
+    });
+    expect(parsed?.providerDefaults).toBeUndefined();
+
+    const empty = parseModelRegistryPayload({
+      items: [
+        { identifier: 'reg-mimo', id: 'mimo', provider: 'claude', label: 'Mimo' },
+      ],
+      providerDefaults: { grok: [] },
+    });
+    expect(empty?.providerDefaults).toBeUndefined();
   });
 });
 
