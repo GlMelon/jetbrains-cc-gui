@@ -41,3 +41,9 @@ test('buildOmpArgs normalizes case/whitespace of the effort level', () => {
   const args = buildOmpArgs({ message: 'hi', reasoningEffort: '  MAX ' });
   assert.equal(thinkingLevelOf(args), 'max');
 });
+
+test('buildOmpArgs maps protocol none to wire off for --thinking', () => {
+  // Protocol vocabulary says "none"; the omp CLI --thinking vocabulary says "off".
+  assert.equal(thinkingLevelOf(buildOmpArgs({ message: 'hi', reasoningEffort: 'none' })), 'off');
+  assert.equal(thinkingLevelOf(buildOmpArgs({ message: 'hi', reasoningEffort: ' NONE ' })), 'off');
+});

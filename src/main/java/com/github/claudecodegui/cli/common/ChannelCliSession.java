@@ -6,6 +6,8 @@ import com.github.claudecodegui.cli.CliSendRequest;
 import com.github.claudecodegui.cli.CliSession;
 import com.github.claudecodegui.cli.CliSessionCallback;
 import com.github.claudecodegui.cli.CliSessionExecutor;
+import com.github.claudecodegui.reasoning.ReasoningCapabilities;
+import com.github.claudecodegui.reasoning.ReasoningEffortResolver;
 import com.github.claudecodegui.session.AssistantResponsePhase;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
@@ -20,6 +22,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -291,8 +294,9 @@ public class ChannelCliSession implements CliSession {
         if (request.permissionMode() != null) {
             json.addProperty("permissionMode", request.permissionMode());
         }
-        if (request.reasoningEffort() != null) {
-            json.addProperty("reasoningEffort", request.reasoningEffort());
+        String effort = clampReasoningEffort(providerType, request.reasoningEffort(), model);
+        if (effort != null) {
+            json.addProperty("reasoningEffort", effort);
         }
         // 思考开关转发源头(与 pi 直连「开关 OFF 省略 --thinking」同语义);dsh 无对应概念,忽略无害
         if (request.thinkingOutputEnabled() != null) {
@@ -312,6 +316,21 @@ public class ChannelCliSession implements CliSession {
         }
         // dshPreset 由上游 SessionState 注入 request.env() 或单独透传;此处不直接处理(provider 特化)
         return gson.toJson(json).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * 发送前把 reasoningEffort 钳制到 (provider, model) 支持集(能力表 SSOT 在 Java 侧,
+     * Node 侧只做 wire 映射如 none→off,总则三/四):
+     * omp(pi 词表)按表钳制;dsh/minimax 未注册能力(返回 null)→ 原样透传不拦
+     * (dsh selectModel 透传已由测试锁定;官方调研 2026-09-07「不动」决策)。
+     * 钳制后 null(空/非法)→ 字段省略。
+     */
+    static String clampReasoningEffort(ProviderType providerType, String reasoningEffort, String model) {
+        if (reasoningEffort == null) {
+            return null;
+        }
+        List<String> levels = ReasoningCapabilities.levelsFor(providerType.value(), model);
+        return levels == null ? reasoningEffort : ReasoningEffortResolver.clamp(reasoningEffort, levels);
     }
 
     private static String stdinEnvKey(ProviderType providerType) {

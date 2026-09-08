@@ -70,6 +70,9 @@ function resolveModelFlag(model) {
 function resolveThinkingFlag(reasoningEffort) {
   if (reasoningEffort == null) return null;
   const normalized = String(reasoningEffort).trim().toLowerCase();
+  // Protocol "none" maps to the omp CLI wire value "off" (the --thinking
+  // vocabulary has no "none"); capability clamping happens Java-side.
+  if (normalized === 'none') return 'off';
   return THINKING_LEVELS.has(normalized) ? normalized : null;
 }
 
