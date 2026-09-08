@@ -10,10 +10,13 @@ import java.util.Optional;
  * 构建时经 {@code generate-protocol-types.mjs} 自动生成(产物
  * {@code webview/src/generated/protocol.ts})。
  *
- * <p>值域 5 档(low/medium/high/xhigh/max)= Claude API 全集。实际展示为按 role/provider 的
- * <b>子集过滤</b>(Codex 4 档无 max;Claude HAIKU 3 档无 xhigh/max;Sonnet 无 xhigh;
- * Opus/Fable 全集),过滤逻辑属展示层,见前端 {@code ReasoningSelect} + {@code ClaudeRole#reasoningLevels()}。
- * 本枚举只承载全集值域与类型 SSOT,与 {@code PermissionMode} 的展示/校验解耦模式一致。
+ * <p>值域 7 档(none/minimal/low/medium/high/xhigh/max)= 各 provider CLI 词表并集
+ * (Claude 5 档 low…max;Codex 增 minimal;Grok/Pi/OMP 增 none)。<b>声明顺序 = 强度升序,
+ * ordinal 即强度序</b>({@code ReasoningEffortResolver#clamp} 的降级比较依赖此约定)。
+ * 实际展示为按 provider/model 的<b>子集过滤</b>:Claude 走 {@code ClaudeRole#reasoningLevels()}
+ * 的 role 派生;其余 provider 由 {@code ReasoningCapabilities#levelsFor} 按 (provider, model)
+ * 派生并经 {@code ModelRegistryService} 下发。本枚举只承载全集值域与类型 SSOT,与
+ * {@code PermissionMode} 的展示/校验解耦模式一致。
  *
  * <p>默认值 {@code high} 由 {@link com.github.claudecodegui.common.CommonConstants#DEFAULT_REASONING_EFFORT}
  * 承载(C3 已将散落的 "medium" 兜底收敛至此),与本枚举 {@link #HIGH} 语义一致——后续可进一步
@@ -23,6 +26,8 @@ import java.util.Optional;
  */
 public enum ReasoningEffort implements ProtocolValue {
 
+    NONE("none"),
+    MINIMAL("minimal"),
     LOW("low"),
     MEDIUM("medium"),
     HIGH("high"),
