@@ -7,6 +7,8 @@ import com.github.claudecodegui.cli.common.CliConstants;
 import com.github.claudecodegui.cli.common.CliErrorFormatter;
 import com.github.claudecodegui.cli.common.CliStreamParser;
 import com.github.claudecodegui.mcp.McpGatewayService;
+import com.github.claudecodegui.reasoning.ReasoningCapabilities;
+import com.github.claudecodegui.reasoning.ReasoningEffortResolver;
 import com.github.claudecodegui.service.lifecycle.LifecycleObservabilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
@@ -116,13 +118,15 @@ public class GrokRunOnceCliSession extends AbstractRunOnceCliSession {
         cmd.add(CliConstants.GROK_ARG_PROMPT);
         cmd.add(safePromptArg(buildPromptText(request)));
 
-        String modelFlag = resolveModelFlag(request.actualModel() != null && !request.actualModel().isBlank()
-                ? request.actualModel() : request.model());
+        String rawModel = request.actualModel() != null && !request.actualModel().isBlank()
+                ? request.actualModel() : request.model();
+        String modelFlag = resolveModelFlag(rawModel);
         if (modelFlag != null) {
             cmd.add(CliConstants.GROK_ARG_MODEL);
             cmd.add(modelFlag);
         }
-        String effort = normalizeEffort(request.reasoningEffort());
+        // 能力表 clamp 后透传(原始 model 查表,非 remap 后的 profile;profile 背后模型未知,查表反而失真)
+        String effort = normalizeEffort(request.reasoningEffort(), rawModel);
         if (effort != null) {
             cmd.add(CliConstants.GROK_ARG_REASONING_EFFORT);
             cmd.add(effort);
@@ -259,20 +263,14 @@ public class GrokRunOnceCliSession extends AbstractRunOnceCliSession {
     }
 
     /**
-     * reasoningEffort → {@code --reasoning-effort}(对齐 opencode {@code mapReasoningVariant}
-     * 的就近降级语义):low/medium/high 原样,xhigh/max → high(grok CLI 上限档),
-     * null/空/未知 → null(flag 整个省略)。
+     * reasoningEffort → {@code --reasoning-effort}(能力表 clamp 后透传,官方调研 2026-09-07):
+     * 支持集由 {@link ReasoningCapabilities} 按 (grok, model) 派生——4.6+ 支持 xhigh(原
+     * xhigh/max→high 本地钳制注释已过时,移除),3-mini 仅 low/high,4.3 含 none,其余默认
+     * [low,medium,high]。null/空/未知 → null(flag 整个省略)。
      */
-    static String normalizeEffort(String effort) {
-        if (effort == null) {
-            return null;
-        }
-        String trimmed = effort.trim().toLowerCase(Locale.ROOT);
-        return switch (trimmed) {
-            case "low", "medium", "high" -> trimmed;
-            case "xhigh", "max" -> "high";
-            default -> null;
-        };
+    static String normalizeEffort(String effort, String model) {
+        return ReasoningEffortResolver.clamp(effort,
+                ReasoningCapabilities.levelsFor(ProviderType.GROK.value(), model));
     }
 
     private static boolean isUuid(String value) {
