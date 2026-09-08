@@ -149,22 +149,6 @@ final class TabMenuIcons {
         };
     }
 
-    static Icon openedTabs() {
-        return new SvgIcon(16, 16, BLUE) {
-            @Override
-            protected void draw(Graphics2D g) {
-                // List bullets
-                g.draw(new Line2D.Double(2.5, 4, 3.5, 4));
-                g.draw(new Line2D.Double(2.5, 8, 3.5, 8));
-                g.draw(new Line2D.Double(2.5, 12, 3.5, 12));
-                // List lines
-                g.draw(new Line2D.Double(6, 4, 13.5, 4));
-                g.draw(new Line2D.Double(6, 8, 13.5, 8));
-                g.draw(new Line2D.Double(6, 12, 13.5, 12));
-            }
-        };
-    }
-
     static Icon createFromTemplate() {
         return new SvgIcon(16, 16, AMBER) {
             @Override

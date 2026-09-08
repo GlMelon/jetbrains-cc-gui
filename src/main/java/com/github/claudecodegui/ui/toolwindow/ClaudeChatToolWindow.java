@@ -288,25 +288,13 @@ public class ClaudeChatToolWindow implements ToolWindowFactory, DumbAware {
             });
         }
 
-        // Title actions: "show opened tabs" is always present; DevTools is appended in dev mode.
-        java.util.List<com.intellij.openapi.actionSystem.AnAction> titleActions = new java.util.ArrayList<>();
-        com.intellij.openapi.actionSystem.AnAction showOpenedTabsAction =
-                com.intellij.openapi.actionSystem.ActionManager.getInstance()
-                        .getAction("ClaudeCodeGUI.ShowOpenedTabsAction");
-        if (showOpenedTabsAction != null) {
-            showOpenedTabsAction.getTemplatePresentation().setIcon(TabMenuIcons.openedTabs());
-            titleActions.add(showOpenedTabsAction);
-        }
         if (PlatformUtils.isPluginDevMode()) {
             com.intellij.openapi.actionSystem.AnAction devToolsAction =
                     com.intellij.openapi.actionSystem.ActionManager.getInstance()
                             .getAction("ClaudeCodeGUI.OpenDevToolsAction");
             if (devToolsAction != null) {
-                titleActions.add(devToolsAction);
+                toolWindow.setTitleActions(java.util.List.of(devToolsAction));
             }
-        }
-        if (!titleActions.isEmpty()) {
-            toolWindow.setTitleActions(titleActions);
         }
 
         com.intellij.openapi.actionSystem.AnAction renameTabAction =
