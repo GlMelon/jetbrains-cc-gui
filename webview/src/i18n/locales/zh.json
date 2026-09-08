@@ -2678,6 +2678,14 @@
   },
   "reasoning": {
     "title": "选择思考深度",
+    "none": {
+      "label": "关闭",
+      "description": "不启用思考"
+    },
+    "minimal": {
+      "label": "极简",
+      "description": "极轻量推理，适合简单任务"
+    },
     "low": {
       "label": "low",
       "description": "快速响应，基础推理"

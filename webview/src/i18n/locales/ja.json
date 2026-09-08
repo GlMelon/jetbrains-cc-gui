@@ -2029,6 +2029,14 @@
   },
   "reasoning": {
     "title": "思考深度を選択",
+    "none": {
+      "label": "オフ",
+      "description": "思考を無効にする"
+    },
+    "minimal": {
+      "label": "最小",
+      "description": "簡単なタスク向けのごく軽い推論"
+    },
     "low": {
       "label": "低",
       "description": "基本的な推論による迅速な応答"

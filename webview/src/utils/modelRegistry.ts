@@ -17,12 +17,21 @@ export interface ModelRegistryItem extends Omit<ModelRegistryPayloadWire, 'ident
   identifier?: string;
   provider: ProviderType;
   role?: 'sonnet' | 'opus' | 'fable' | 'haiku';
-  /** A2:后端权威下发的支持 reasoning 级别(派生自 role;仅 claude + role 已知时下发)。 */
+  /**
+   * 后端权威下发的支持 reasoning 级别(有序;按 provider + 模型前缀规则派生)。
+   * 所有有 reasoning 能力的 provider 的条目都带此字段;字段缺失 = 后端判定该模型
+   * 无 reasoning 能力(dsh/minimax 的条目不下发)。
+   */
   supportedReasoningLevels?: readonly ReasoningEffort[];
 }
 
 export interface ModelRegistryPayload {
   items: ModelRegistryItem[];
+  /**
+   * root 级 provider 默认 reasoning 档位(后端下发,含 codex/grok/kimi/pi/omp/opencode
+   * 六家;不含 claude/dsh/minimax)。模型条目未命中 registry 时的回退档位来源。
+   */
+  providerDefaults?: Record<string, readonly ReasoningEffort[]>;
 }
 
 const modelRegistryListeners = new Set<() => void>();
@@ -129,22 +138,66 @@ export function normalizeProvider(raw: string | null | undefined): ProviderType 
 
 
 /**
- * A2:读取模型后端权威下发的支持 reasoning 级别(派生自 role,仅 claude + role 已知时下发)。
+ * 读取模型条目后端权威下发的支持 reasoning 级别。
  *
- * ReasoningSelect 据此渲染可选项,不再在前端按 role 硬编码级别规则。
- * 返回 null 表示不在 registry 中 / registry 未加载 / 该模型无 reasoning 能力(Codex 等)。
+ * 返回 null 表示条目不在 registry 中 / registry 未加载 / 条目未下发该字段(无 reasoning
+ * 能力)。需要区分「条目在但无字段(已知无能力)」与「条目不在(未知)」的调用方,
+ * 请用 {@link resolveReasoningLevels}。
+ *
+ * @param provider 传入时按 provider 过滤条目;省略时不限 provider 按 id 命中。
  */
 export function getModelSupportedReasoningLevels(
   modelId: string | undefined | null,
+  provider?: string,
 ): readonly ReasoningEffort[] | null {
-  const stripped = strip1MContextSuffix(modelId);
-  if (!stripped) {
+  const item = findEnabledRegistryItem(modelId, provider);
+  return item?.supportedReasoningLevels ?? null;
+}
+
+/**
+ * 读取 root 级 providerDefaults 中某 provider 的默认 reasoning 档位。
+ * 返回 null 表示该 provider 无默认档位下发(provider 无 reasoning 能力 / registry 未加载)。
+ */
+export function getProviderDefaultReasoningLevels(
+  provider: string | undefined | null,
+): readonly ReasoningEffort[] | null {
+  if (!provider) {
     return null;
   }
-  const item = currentRegistry.items.find(
-    (model) => model.provider === 'claude' && model.enabled !== false && model.id === stripped,
+  return currentRegistry.providerDefaults?.[provider] ?? null;
+}
+
+/**
+ * 解析当前选中模型的 reasoning 档位(后端权威,三态):
+ * 1. registry 条目命中 → 条目的 supportedReasoningLevels;条目在但字段未下发 =
+ *    后端判定该模型无 reasoning 能力,返回空数组(已知无档位);
+ * 2. 条目未命中 → providerDefaults[provider](provider 级默认档位);
+ * 3. 均无 → null(档位未知:registry 未加载 / 模型与 provider 均无下发)。
+ *    未知不等于无权——调用方不得据此钳制或改写持久化值。
+ */
+export function resolveReasoningLevels(
+  provider: string | undefined,
+  modelId: string | undefined | null,
+): readonly ReasoningEffort[] | null {
+  const item = findEnabledRegistryItem(modelId, provider);
+  if (item) {
+    return item.supportedReasoningLevels ?? [];
+  }
+  return getProviderDefaultReasoningLevels(provider);
+}
+
+function findEnabledRegistryItem(
+  modelId: string | undefined | null,
+  provider?: string,
+): ModelRegistryItem | undefined {
+  const stripped = strip1MContextSuffix(modelId);
+  if (!stripped) {
+    return undefined;
+  }
+  return currentRegistry.items.find(
+    (model) => model.enabled !== false && model.id === stripped
+      && (!provider || model.provider === provider),
   );
-  return item?.supportedReasoningLevels ?? null;
 }
 
 export function __setModelRegistryForTests(registry: ModelRegistryPayload): void {
@@ -273,10 +326,39 @@ export function parseModelRegistryPayload(raw: unknown): ModelRegistryPayload | 
         readOnly: obj.readOnly === true,
       });
     }
-    return items.length > 0 ? { items } : null;
+    const providerDefaults = parseProviderDefaults(
+      (parsed as { providerDefaults?: unknown }).providerDefaults,
+    );
+    if (items.length === 0) {
+      return null;
+    }
+    return providerDefaults ? { items, providerDefaults } : { items };
   } catch {
     return null;
   }
+}
+
+/**
+ * 解析 root 级 providerDefaults 对象({ "<provider>": ["low",...] }),过滤非法档位值。
+ * 空值 / 非对象 / 全部条目非法时返回 undefined(payload 据此省略该字段)。
+ */
+function parseProviderDefaults(
+  value: unknown,
+): Record<string, readonly ReasoningEffort[]> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  const result: Record<string, readonly ReasoningEffort[]> = {};
+  for (const [provider, levels] of Object.entries(value as Record<string, unknown>)) {
+    if (!provider) {
+      continue;
+    }
+    const parsed = parseReasoningLevels(levels);
+    if (parsed) {
+      result[provider] = parsed;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function parseClaudeRole(value: unknown): ModelRegistryItem['role'] | undefined {

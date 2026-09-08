@@ -2636,6 +2636,14 @@
   },
   "reasoning": {
     "title": "Select reasoning depth",
+    "none": {
+      "label": "Off",
+      "description": "Disable thinking"
+    },
+    "minimal": {
+      "label": "Minimal",
+      "description": "Very light reasoning for simple tasks"
+    },
     "low": {
       "label": "Low",
       "description": "Quick responses with basic reasoning"

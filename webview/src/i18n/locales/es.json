@@ -2024,6 +2024,14 @@
   },
   "reasoning": {
     "title": "Seleccionar profundidad de razonamiento",
+    "none": {
+      "label": "Desactivado",
+      "description": "Desactivar el razonamiento"
+    },
+    "minimal": {
+      "label": "Mínimo",
+      "description": "Razonamiento muy ligero para tareas simples"
+    },
     "low": {
       "label": "Bajo",
       "description": "Respuestas rápidas con razonamiento básico"

@@ -2024,6 +2024,14 @@
   },
   "reasoning": {
     "title": "Sélectionner la profondeur de raisonnement",
+    "none": {
+      "label": "Désactivé",
+      "description": "Désactiver la réflexion"
+    },
+    "minimal": {
+      "label": "Minimale",
+      "description": "Raisonnement très léger pour tâches simples"
+    },
     "low": {
       "label": "Faible",
       "description": "Réponses rapides avec raisonnement de base"

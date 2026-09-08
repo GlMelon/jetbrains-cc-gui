@@ -5,8 +5,11 @@ import { useReasoningEffortGuard } from '../reasoningUtils';
 import { useDropdownPosition } from '../../../hooks/useDropdownPosition';
 import { CheckIcon, ReasoningGaugeIcon } from '../../Icons';
 
-/** ReasoningEffort → 油表档位(0-4),与 REASONING_LEVELS 顺序一致(low/medium/high/xhigh/max) */
+/** ReasoningEffort → 油表档位(0-4);none/minimal 低于 low,归入最低刻度 0
+ * (展示项仍由 REASONING_LEVELS 决定,此处仅保类型完备) */
 const REASONING_GAUGE_LEVEL: Record<ReasoningEffort, 0 | 1 | 2 | 3 | 4> = {
+  none: 0,
+  minimal: 0,
   low: 0,
   medium: 1,
   high: 2,
@@ -44,16 +47,14 @@ interface ReasoningSelectProps {
  * ReasoningSelect - Reasoning Effort Selector
  * Controls the depth of reasoning for AI models.
  *
- * 档位全集为 5 档(low/medium/high/xhigh/max),对齐 Claude Code CLI;各 provider 实际展示档位:
- * - Claude:可选级别来自后端权威下发的 supportedReasoningLevels(派生自 ClaudeRole.reasoningLevels)
- *   —— sonnet/opus/fable=5 档、haiku=3 档(low/medium/high)。
- * - Codex:展示 4 档(low/medium/high/xhigh,排除 max),值透传 OpenAI reasoning.effort;
- *   模型不支持的高档由 CLI/模型层 clamp/降级(插件不建 per-model 映射表)。
- * - OpenCode 及其余非 claude provider:同 Codex 展示 4 档(排除 max),值透传 CLI 消费
- *   (OpenCode CLI 映射 --variant);grok 仅 3 档(low/medium/high)。
- * - 未配置 role 的自定义 Claude 模型:不下发 supportedReasoningLevels → 隐藏。
- *
- * registry 未加载时返回 null,组件隐藏(loading 态,registry 下发后回填)。
+ * 档位全集 7 档(none/minimal/low/medium/high/xhigh/max,见 REASONING_LEVELS / 协议
+ * SSOT REASONING_EFFORT);各 provider/模型实际展示档位完全由后端 registry 权威下发
+ * (总则一,前端无 per-provider 硬编码):
+ * - 模型条目命中 registry → 条目的 supportedReasoningLevels(后端按 provider+模型前缀派生);
+ * - 条目未命中 → root 级 providerDefaults[provider](codex/grok/kimi/pi/omp/opencode);
+ * - 两者均无 → 档位未知:展示全集,guard 不改写持久化值(未知不等于无权);
+ * - 条目在但未下发 supportedReasoningLevels(dsh/minimax、无 role 的自定义 claude 模型)
+ *   → 已知无 reasoning 能力,选择器隐藏。
  */
 export const ReasoningSelect = ({
   value,

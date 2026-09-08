@@ -415,19 +415,18 @@ export function getUserDshPresetOptions(): { id: string; label: string }[] {
 }
 
 /**
- * Reasoning effort(adaptive thinking)的支持情况按模型的 role 判断,不再使用
- * model-id 白名单:sonnet/opus/fable 支持全集 5 档(含 xhigh/max),haiku 仅
- * low/medium/high(3 档)。判断逻辑见 ReasoningSelect +
- * utils/modelRegistry.getModelSupportedReasoningLevels(读 registry 的 role 字段,
- * 内置 role 与自定义模型统一处理)。Codex/OpenCode 不按 role 过滤,展示全集 5 档。
+ * Reasoning effort 档位由后端 registry 权威下发:模型条目的 supportedReasoningLevels
+ * 优先,未命中条目时回退 root 级 providerDefaults[provider];两者均无知档位未知
+ * (展示全集、不改写持久化值)。前端不做任何 per-provider 硬编码过滤(总则一)。
+ * 判断逻辑见 reasoningUtils + utils/modelRegistry.resolveReasoningLevels。
  */
 
 /**
  * Reasoning Effort (thinking depth).
  *
  * 类型 SSOT(C2):由后端 {@code protocol.ReasoningEffort} 枚举经构建时生成器产出,此处 re-export。
- * 全集 5 档(= Claude Code CLI 全集);实际展示为按 role 子集过滤(Claude HAIKU 仅 3 档
- * low/medium/high),Codex/OpenCode 展示全集,见 {@link REASONING_LEVELS} + {@code ReasoningSelect}。
+ * 全集 7 档(none/minimal/low/medium/high/xhigh/max);实际展示为后端下发档位的子集过滤,
+ * 见 {@link REASONING_LEVELS} + {@code ReasoningSelect}。
  */
 export type { ReasoningEffort };
 
@@ -445,6 +444,18 @@ export interface ReasoningInfo {
  * Available reasoning levels
  */
 export const REASONING_LEVELS: ReasoningInfo[] = [
+  {
+    id: 'none',
+    label: 'Off',
+    icon: 'codicon-circle-slash',
+    description: 'Disable thinking',
+  },
+  {
+    id: 'minimal',
+    label: 'Minimal',
+    icon: 'codicon-circle-outline',
+    description: 'Very light reasoning for simple tasks',
+  },
   {
     id: 'low',
     label: 'Low',

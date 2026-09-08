@@ -2144,6 +2144,14 @@
   },
   "reasoning": {
     "title": "Selecionar profundidade de raciocínio",
+    "none": {
+      "label": "Desligado",
+      "description": "Desativar raciocínio"
+    },
+    "minimal": {
+      "label": "Mínimo",
+      "description": "Raciocínio muito leve para tarefas simples"
+    },
     "low": {
       "label": "Baixo",
       "description": "Respostas rápidas com raciocínio básico"

@@ -1989,6 +1989,14 @@
   },
   "reasoning": {
     "title": "選擇思考深度",
+    "none": {
+      "label": "關閉",
+      "description": "不啟用思考"
+    },
+    "minimal": {
+      "label": "極簡",
+      "description": "極輕量推理，適合簡單任務"
+    },
     "low": {
       "label": "較少",
       "description": "快速響應，基礎推理"

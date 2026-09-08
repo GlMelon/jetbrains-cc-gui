@@ -13,16 +13,17 @@ vi.mock('react-i18next', () => ({
 describe('ReasoningSelect', () => {
   // A2:可选级别来自后端权威下发的 supportedReasoningLevels(派生自 ClaudeRole.reasoningLevels)。
   // 测试需预设 registry 含 supportedReasoningLevels,模拟后端 serialize 下发。
+  function registryBaseItems() {
+    return [
+      { id: 'claude-role-sonnet', provider: 'claude' as const, role: 'sonnet' as const, label: 'Sonnet', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { id: 'claude-role-opus', provider: 'claude' as const, role: 'opus' as const, label: 'Opus', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { id: 'claude-role-fable', provider: 'claude' as const, role: 'fable' as const, label: 'Fable', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high', 'xhigh', 'max'] },
+      { id: 'claude-role-haiku', provider: 'claude' as const, role: 'haiku' as const, label: 'Haiku', contextWindow: 200_000, supports1MContext: false, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high'] },
+    ];
+  }
   beforeEach(() => {
     resetModelRegistryForTests();
-    __setModelRegistryForTests({
-      items: [
-        { id: 'claude-role-sonnet', provider: 'claude', role: 'sonnet', label: 'Sonnet', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high', 'xhigh', 'max'] },
-        { id: 'claude-role-opus', provider: 'claude', role: 'opus', label: 'Opus', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high', 'xhigh', 'max'] },
-        { id: 'claude-role-fable', provider: 'claude', role: 'fable', label: 'Fable', contextWindow: 1_000_000, supports1MContext: false, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high', 'xhigh', 'max'] },
-        { id: 'claude-role-haiku', provider: 'claude', role: 'haiku', label: 'Haiku', contextWindow: 200_000, supports1MContext: false, readOnly: false, enabled: true, supportedReasoningLevels: ['low', 'medium', 'high'] },
-      ],
-    });
+    __setModelRegistryForTests({ items: registryBaseItems() });
   });
 
   it('shows xhigh and max for Claude Opus role', () => {
@@ -93,8 +94,15 @@ describe('ReasoningSelect', () => {
     expect(onChange).toHaveBeenCalledWith('medium');
   });
 
-  // A2:未配置 role 的自定义 Claude 模型后端不下发 supportedReasoningLevels → 隐藏。
-  it('hides for Claude custom models without reasoning capability', () => {
+  // A2→7 档改造:自定义 Claude 模型在 registry 中但未配 role(后端不下发
+  // supportedReasoningLevels)→ 已知无 reasoning 能力,选择器隐藏。
+  it('hides for registry custom Claude models without a role', () => {
+    __setModelRegistryForTests({
+      items: [
+        { id: 'custom-no-role-model', provider: 'claude', label: 'Custom', contextWindow: 200_000, supports1MContext: false, readOnly: false, enabled: true },
+        ...registryBaseItems(),
+      ],
+    });
     render(
       <ReasoningSelect
         value="high"
@@ -105,6 +113,24 @@ describe('ReasoningSelect', () => {
     );
 
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  // 三态契约:模型不在 registry 且 provider 无默认档位 → 档位未知,未知不等于无权
+  // (registry 未加载 / 后端未收录),展示全集且 guard 不改写持久化值。
+  it('shows full levels for Claude models missing from the registry (unknown ≠ no right)', () => {
+    render(
+      <ReasoningSelect
+        value="high"
+        onChange={vi.fn()}
+        currentProvider="claude"
+        selectedModel="custom-no-role-model"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+
+    expect(screen.getByText('XHigh')).toBeTruthy();
+    expect(screen.getByText('Max')).toBeTruthy();
   });
 
   // 2026-09 思考强度回退回归:mount 时 registry 未下发(空),持久化恢复的 max 处于

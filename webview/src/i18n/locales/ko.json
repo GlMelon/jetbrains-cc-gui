@@ -2090,6 +2090,14 @@
   },
   "reasoning": {
     "title": "추론 깊이 선택",
+    "none": {
+      "label": "끄기",
+      "description": "사고 비활성화"
+    },
+    "minimal": {
+      "label": "최소",
+      "description": "간단한 작업을 위한 아주 가벼운 추론"
+    },
     "low": {
       "label": "낮음",
       "description": "기본 추론으로 빠른 응답"
