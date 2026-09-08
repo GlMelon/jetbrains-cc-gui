@@ -23,6 +23,12 @@ import java.util.Set;
  * </ul>
  *
  * <p>字段顺序与 serialize 产出顺序一致,便于生成可读的 TS 接口。
+ *
+ * <p><b>范围边界</b>:本枚举只声明 per-item 字段({@code items[]} 元素形状)。
+ * serialize 的 payload root 另有 {@code providerDefaults} 回退表(provider → 默认档位数组,
+ * 见 {@code ModelRegistryService.serialize}),属 root 级聚合数据而非 item 字段,
+ * 故有意不列入本白名单——列入会使生成的 {@code ModelRegistryPayloadWire} 把 root
+ * 字段误挂到每个 item 上,并打破「声明集 == item 产出集」守门。
  */
 public enum ModelRegistryPayloadField {
     ID("id", "string", false),

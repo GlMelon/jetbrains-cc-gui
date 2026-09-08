@@ -4,6 +4,8 @@ import com.github.claudecodegui.common.ClaudeRole;
 import com.github.claudecodegui.common.CommonConstants;
 import com.github.claudecodegui.config.ModelConfig;
 import com.github.claudecodegui.config.ModelRegistryConfig;
+import com.github.claudecodegui.reasoning.ReasoningCapabilities;
+import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
 import com.google.gson.JsonObject;
 import com.intellij.openapi.diagnostic.Logger;
@@ -23,6 +25,9 @@ import java.util.Map;
  */
 public final class ModelRegistryService {
     private static final Logger LOG = Logger.getInstance(ModelRegistryService.class);
+
+    /** payload root 级 wire key:provider 默认档位回退表(模型无 registry 条目时前端据此回退)。 */
+    private static final String PROVIDER_DEFAULTS_KEY = "providerDefaults";
 
     private final CodemossSettingsService settingsService;
 
@@ -79,8 +84,8 @@ public final class ModelRegistryService {
             obj.addProperty("description", model.description());
             obj.addProperty("contextWindow", model.contextWindow());
             obj.addProperty("supports1MContext", model.supports1MContext());
-            // supportedReasoningLevels 为派生字段:由 role 权威计算,不存入 ModelConfig
-            // (避免前后端双写;自定义 claude 模型的 role 由用户新增模型时选定)。
+            // supportedReasoningLevels 为派生字段:claude 由 role 权威计算,其余 provider 由
+            // ReasoningCapabilities 数据表派生,均不存入 ModelConfig(避免前后端双写)。
             List<String> reasoningLevels = reasoningLevelsFor(model);
             if (reasoningLevels != null) {
                 var levelsArr = new com.google.gson.JsonArray();
@@ -94,23 +99,33 @@ public final class ModelRegistryService {
             items.add(obj);
         }
         root.add("items", items);
+        // providerDefaults:root 级回退表(provider → 默认档位数组),供前端在模型无 registry
+        // 条目时按 provider 回退。来源为 ReasoningCapabilities provider 默认集;claude 不含
+        // (走 role 派生),dsh/minimax 不含(无 reasoning 能力)。
+        JsonObject providerDefaults = new JsonObject();
+        for (Map.Entry<String, List<String>> entry : ReasoningCapabilities.providerDefaults().entrySet()) {
+            var levelsArr = new com.google.gson.JsonArray();
+            for (String lvl : entry.getValue()) {
+                levelsArr.add(lvl);
+            }
+            providerDefaults.add(entry.getKey(), levelsArr);
+        }
+        root.add(PROVIDER_DEFAULTS_KEY, providerDefaults);
         return root;
     }
 
     /**
-     * 派生字段:由模型 role 权威计算支持的 reasoning effort 级别。
+     * 派生字段:该模型支持的 reasoning effort 级别。
      * <p>
-     * 仅 claude provider 且 role 已知时返回(自定义 claude 模型的 role 由用户新增时选定);
-     * 否则返回 {@code null}(serialize 时跳过该字段,前端不渲染)。
+     * claude 走 role 派生({@link ClaudeRole#reasoningLevels()};role 未知 → null);
+     * 其余有能力的 provider 走 {@link ReasoningCapabilities#levelsFor} 数据表
+     * (actualModel 非空优先,否则 id;模型未知 → provider 默认集)。
+     * 无能力 provider(dsh/minimax)未注册,返回 {@code null}(serialize 时跳过该字段,前端不渲染)。
      * <p>
-     * provider 能力经 {@link ModelCapabilityProvider} 注册表查表(总则五·开闭 / E5),
-     * 取代原手写 {@code "claude".equalsIgnoreCase} 判定。查表用 provider 小写精确匹配
-     * (不归一、不 fallback):非 claude 一律无此能力,与原语义等价。
+     * provider 能力经 {@link ModelCapabilityProvider} 注册表查表(总则五·开闭 / E5)。
+     * 查表用 provider 小写精确匹配(不归一、不 fallback)。
      */
     private static List<String> reasoningLevelsFor(ModelConfig model) {
-        if (model.role() == null || model.role().isBlank()) {
-            return null;
-        }
         ModelCapabilityProvider capability = model.provider() == null
                 ? null
                 : CAPABILITY_PROVIDERS.get(model.provider().toLowerCase(Locale.ROOT));
@@ -127,7 +142,31 @@ public final class ModelRegistryService {
         List<String> reasoningLevels(ModelConfig model);
     }
 
-    /** 能力注册表:provider(小写)→ 能力提供者。仅 claude 注册;未注册 provider 返回 null(无此能力)。 */
+    /**
+     * 数据表驱动的能力提供者:delegates 到 {@link ReasoningCapabilities#levelsFor},
+     * modelId 取 actualModel(非空优先)否则 id。
+     */
+    private static ModelCapabilityProvider tableDriven(ProviderType type) {
+        return new ModelCapabilityProvider() {
+            @Override
+            public String provider() {
+                return type.value();
+            }
+
+            @Override
+            public List<String> reasoningLevels(ModelConfig model) {
+                String modelId = model.actualModel() != null && !model.actualModel().isBlank()
+                        ? model.actualModel()
+                        : model.id();
+                return ReasoningCapabilities.levelsFor(type.value(), modelId);
+            }
+        };
+    }
+
+    /**
+     * 能力注册表:provider(小写)→ 能力提供者。claude 走 role 派生;codex/grok/kimi/pi/omp/opencode
+     * 走 {@link ReasoningCapabilities} 数据表;dsh/minimax 不注册(无 reasoning 能力,返回 null)。
+     */
     private static final Map<String, ModelCapabilityProvider> CAPABILITY_PROVIDERS = Map.of(
             CommonConstants.PROVIDER_CLAUDE, new ModelCapabilityProvider() {
                 @Override
@@ -140,7 +179,13 @@ public final class ModelRegistryService {
                     ClaudeRole role = ClaudeRole.fromShortName(model.role());
                     return role == null ? null : role.reasoningLevels();
                 }
-            }
+            },
+            ProviderType.CODEX.value(), tableDriven(ProviderType.CODEX),
+            ProviderType.GROK.value(), tableDriven(ProviderType.GROK),
+            ProviderType.KIMI.value(), tableDriven(ProviderType.KIMI),
+            ProviderType.PI.value(), tableDriven(ProviderType.PI),
+            ProviderType.OMP.value(), tableDriven(ProviderType.OMP),
+            ProviderType.OPENCODE.value(), tableDriven(ProviderType.OPENCODE)
     );
 
     /** Parse the {@code {items:[...]}} payload back into a {@link ModelRegistryConfig}. */
