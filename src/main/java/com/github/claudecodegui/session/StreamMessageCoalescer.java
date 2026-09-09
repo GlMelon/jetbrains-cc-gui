@@ -232,11 +232,13 @@ public class StreamMessageCoalescer implements Disposable {
     /**
      * Enqueue a message update for coalesced delivery.
      *
-     * <p>Delta-capable providers (claude/codex/grok) keep text flowing through
-     * the lightweight delta channel; snapshots remain for structure and final
-     * reconciliation. When the structural signature is unchanged and a delta
-     * channel is available, the snapshot push is skipped entirely — no JSON
-     * serialization, no JCEF IPC, no React re-render of the full list.</p>
+     * <p>Every CLI provider streams text through the lightweight delta channel
+     * ({@code onContentDelta}); snapshots remain for structure and final
+     * reconciliation. While streaming, a snapshot whose structural signature is
+     * unchanged is skipped entirely — no JSON serialization, no JCEF IPC, no
+     * React re-render of the full list. The stream-end {@link #flush} always
+     * delivers the authoritative snapshot, so a skipped push never loses
+     * data.</p>
      */
     public void enqueue(List<ClaudeSession.Message> messages) {
         if (messages == null || disposed || callbackTarget.isDisposed()) {
@@ -249,7 +251,6 @@ public class StreamMessageCoalescer implements Disposable {
         // the WeakHashMap cache and does JSON traversal. A stale read only
         // schedules (or skips) one push that the stream-end flush reconciles.
         String structuralSignature = getStructuralSignature(snapshot);
-        boolean deltaChannelAvailable = hasDeltaChannel();
         boolean shouldSchedule;
         boolean active;
         synchronized (lock) {
@@ -261,11 +262,7 @@ public class StreamMessageCoalescer implements Disposable {
                     !Objects.equals(latestStructuralSignature, structuralSignature);
             latestStructuralSignature = structuralSignature;
             active = streamActive;
-            // During active streaming with a delta channel, skip the snapshot
-            // push unless the structure changed. Text deltas are carried by
-            // onContentDelta; the snapshot would only re-serialize the same
-            // structure. When not streaming or no delta channel, always push.
-            shouldSchedule = !active || !deltaChannelAvailable || structuralChanged;
+            shouldSchedule = shouldScheduleSnapshotPush(streamActive, structuralChanged);
         }
         if (active) {
             startHeartbeat();
@@ -372,21 +369,19 @@ public class StreamMessageCoalescer implements Disposable {
     }
 
     /**
-     * Whether the current provider streams text via a delta channel
-     * (onContentDelta/onThinkingDelta). When true, full-snapshot pushes can be
-     * skipped while only text is changing — deltas carry the text and the
-     * snapshot would only re-serialize the same structure.
+     * Snapshot push decision for {@link #enqueue}: while streaming, push only
+     * when the structure changed — every CLI provider carries text via the
+     * delta channel ({@code onContentDelta}), so a text-only change would
+     * re-serialize a structure the deltas already delivered. When not
+     * streaming, always push.
+     *
+     * <p>Contract for future providers: assistant text must stream as
+     * {@code MSG_CONTENT_DELTA} events (all current CLI parsers emit them via
+     * {@code CliSectionEmitter.contentDelta}). A provider that only delivered
+     * text inside snapshots would stay invisible mid-turn under this rule.</p>
      */
-    private boolean hasDeltaChannel() {
-        if (!streamActive) {
-            return false;
-        }
-        HandlerContext context = callbackTarget.getHandlerContext();
-        if (context == null) {
-            return false;
-        }
-        String provider = context.getCurrentProvider();
-        return "claude".equals(provider) || "codex".equals(provider) || "grok".equals(provider);
+    static boolean shouldScheduleSnapshotPush(boolean streamActive, boolean structuralChanged) {
+        return !streamActive || structuralChanged;
     }
 
     // ===== Structural signature (skip snapshot pushes when only text changed) =====

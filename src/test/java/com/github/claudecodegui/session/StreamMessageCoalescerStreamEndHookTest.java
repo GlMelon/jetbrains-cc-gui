@@ -4,6 +4,10 @@ import com.github.claudecodegui.handler.core.HandlerContext;
 import com.intellij.ui.jcef.JBCefBrowser;
 import org.junit.Test;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -161,5 +165,41 @@ public class StreamMessageCoalescerStreamEndHookTest {
             messages.add(new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "message-" + i));
         }
         return messages;
+    }
+
+    @Test
+    public void textOnlyChangesSkipSnapshotPushWhileStreaming() {
+        // Every provider streams text via the delta channel (onContentDelta);
+        // a text-only change must not re-serialize the full snapshot mid-stream.
+        assertFalse(StreamMessageCoalescer.shouldScheduleSnapshotPush(true, false));
+    }
+
+    @Test
+    public void structuralChangesStillPushSnapshotWhileStreaming() {
+        assertTrue(StreamMessageCoalescer.shouldScheduleSnapshotPush(true, true));
+    }
+
+    @Test
+    public void idleStreamsAlwaysPushSnapshot() {
+        assertTrue(StreamMessageCoalescer.shouldScheduleSnapshotPush(false, false));
+        assertTrue(StreamMessageCoalescer.shouldScheduleSnapshotPush(false, true));
+    }
+
+    @Test
+    public void snapshotSkipDecisionIsProviderAgnostic() throws IOException {
+        // Platform-coupled push path (Alarm/JCEF) — guarded via source check, per AGENTS.md §6.
+        // The snapshot-skip decision must not branch on provider identity: all CLI
+        // providers emit MSG_CONTENT_DELTA, so the delta channel is a property of
+        // the unified pipeline, not of a provider whitelist.
+        String source = readSource("src/main/java/com/github/claudecodegui/session/StreamMessageCoalescer.java");
+        assertFalse(source.contains("hasDeltaChannel"));
+        assertFalse(source.contains("\"claude\".equals"));
+        assertFalse(source.contains("\"codex\".equals"));
+        assertFalse(source.contains("\"grok\".equals"));
+        assertTrue(source.contains("shouldScheduleSnapshotPush(streamActive, structuralChanged)"));
+    }
+
+    private String readSource(String path) throws IOException {
+        return Files.readString(Path.of(path), StandardCharsets.UTF_8);
     }
 }
