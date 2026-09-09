@@ -28,7 +28,7 @@ public final class CodexCliCommandUtils {
 
     private CodexCliCommandUtils() {}
 
-    static PermissionSelection selectPermission(String permissionMode, String configuredSandbox) {
+    public static PermissionSelection selectPermission(String permissionMode, String configuredSandbox) {
         String sandbox = normalizeSandbox(configuredSandbox);
         return switch (permissionMode == null ? "" : permissionMode) {
             // Native auto review owns its guarded contract: workspace-write +
@@ -110,7 +110,7 @@ public final class CodexCliCommandUtils {
         return key + "=\"" + value + "\"";
     }
 
-    static Map<String, String> sanitizeEnv(Map<String, String> env) {
+    public static Map<String, String> sanitizeEnv(Map<String, String> env) {
         Map<String, String> result = new LinkedHashMap<>();
         if (env == null) {
             return result;
@@ -128,5 +128,5 @@ public final class CodexCliCommandUtils {
         return result;
     }
 
-    record PermissionSelection(String approval, String sandbox, String approvalsReviewer) {}
+    public record PermissionSelection(String approval, String sandbox, String approvalsReviewer) {}
 }

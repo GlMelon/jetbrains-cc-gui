@@ -172,6 +172,59 @@ public final class CliConstants {
     public static final String CODEX_STATUS_FAILED = "failed";
     public static final String CODEX_STATUS_ERROR = "error";
 
+    // ── Codex app-server 通道（stdio JSON-RPC,契约经 codex-cli 0.153.4 generate-json-schema 校验） ──
+    // `codex exec --json` 无 text delta（agent_message 仅在 item.completed 整段到达）,
+    // app-server 是官方唯一带 token 级增量(item/agentMessage/delta、item/reasoning/*Delta)的编程接口。
+
+    /** 子命令:codex app-server(stdio NDJSON JSON-RPC 2.0,jsonrpc 头线上省略)。 */
+    public static final String CODEX_ARG_APP_SERVER = "app-server";
+    /** 控制面请求(initialize / thread start·resume / turn start·interrupt)超时。 */
+    public static final long CODEX_APPSERVER_CONTROL_TIMEOUT_MS = 15_000L;
+    /** initialize 就绪等待上限(spawn 后等 initialize 响应,进程速死立即失败)。 */
+    public static final long CODEX_APPSERVER_READY_TIMEOUT_MS = 15_000L;
+
+    // client → server 请求方法
+    public static final String CODEX_APPSERVER_METHOD_INITIALIZE = "initialize";
+    public static final String CODEX_APPSERVER_METHOD_INITIALIZED = "initialized";
+    public static final String CODEX_APPSERVER_METHOD_THREAD_START = "thread/start";
+    public static final String CODEX_APPSERVER_METHOD_THREAD_RESUME = "thread/resume";
+    public static final String CODEX_APPSERVER_METHOD_TURN_START = "turn/start";
+    public static final String CODEX_APPSERVER_METHOD_TURN_INTERRUPT = "turn/interrupt";
+
+    // server → client 通知方法
+    public static final String CODEX_APPSERVER_NOTIFY_THREAD_STARTED = "thread/started";
+    public static final String CODEX_APPSERVER_NOTIFY_TURN_STARTED = "turn/started";
+    public static final String CODEX_APPSERVER_NOTIFY_TURN_COMPLETED = "turn/completed";
+    public static final String CODEX_APPSERVER_NOTIFY_ITEM_STARTED = "item/started";
+    public static final String CODEX_APPSERVER_NOTIFY_ITEM_COMPLETED = "item/completed";
+    public static final String CODEX_APPSERVER_NOTIFY_AGENT_MESSAGE_DELTA = "item/agentMessage/delta";
+    public static final String CODEX_APPSERVER_NOTIFY_REASONING_SUMMARY_DELTA = "item/reasoning/summaryTextDelta";
+    public static final String CODEX_APPSERVER_NOTIFY_REASONING_TEXT_DELTA = "item/reasoning/textDelta";
+    public static final String CODEX_APPSERVER_NOTIFY_TOKEN_USAGE = "thread/tokenUsage/updated";
+
+    // server → client 审批请求方法(须应答 {id, result:{decision:...}},否则 turn 挂起)
+    public static final String CODEX_APPSERVER_REQUEST_COMMAND_APPROVAL = "item/commandExecution/requestApproval";
+    public static final String CODEX_APPSERVER_REQUEST_FILE_CHANGE_APPROVAL = "item/fileChange/requestApproval";
+
+    // 审批决策值(commandExecution / fileChange 共用枚举)
+    public static final String CODEX_APPSERVER_DECISION_ACCEPT = "accept";
+    public static final String CODEX_APPSERVER_DECISION_ACCEPT_FOR_SESSION = "acceptForSession";
+    public static final String CODEX_APPSERVER_DECISION_DECLINE = "decline";
+
+    // app-server item.type 值(camelCase,区别于 exec --json 的 snake_case CODEX_ITEM_*)
+    public static final String CODEX_APPSERVER_ITEM_REASONING = "reasoning";
+    public static final String CODEX_APPSERVER_ITEM_AGENT_MESSAGE = "agentMessage";
+    public static final String CODEX_APPSERVER_ITEM_COMMAND_EXECUTION = "commandExecution";
+    public static final String CODEX_APPSERVER_ITEM_MCP_TOOL_CALL = "mcpToolCall";
+    public static final String CODEX_APPSERVER_ITEM_FILE_CHANGE = "fileChange";
+    public static final String CODEX_APPSERVER_ITEM_WEB_SEARCH = "webSearch";
+
+    // turn.status 值(turn/completed 携带)
+    public static final String CODEX_APPSERVER_TURN_STATUS_COMPLETED = "completed";
+    public static final String CODEX_APPSERVER_TURN_STATUS_INTERRUPTED = "interrupted";
+    public static final String CODEX_APPSERVER_TURN_STATUS_FAILED = "failed";
+
+
     // ── Codex 历史回放消息 type 值（HistoryMessageInjector 解析） ──────────────
 
     public static final String CODEX_MSG_SESSION_META = "session_meta";

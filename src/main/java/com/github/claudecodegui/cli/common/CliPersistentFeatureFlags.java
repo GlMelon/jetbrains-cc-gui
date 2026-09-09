@@ -23,6 +23,8 @@ public final class CliPersistentFeatureFlags {
     public static final String FEATURE_CLAUDE_ENABLED_KEY = "cliPersistent.claude.enabled";
     /** -D opencode serve 通道子开关(默认 true):关停后 opencode 回 one-shot 纯路径。 */
     public static final String FEATURE_OPENCODE_SERVE_ENABLED_KEY = "cliPersistent.opencode.serve.enabled";
+    /** -D codex app-server 通道子开关(默认 true):关停后 codex 回 one-shot 纯路径(exec --json)。 */
+    public static final String FEATURE_CODEX_APPSERVER_ENABLED_KEY = "cliPersistent.codex.appserver.enabled";
 
     /**
      * 测试专用覆盖钩子。非 null 时绕过 {@link CodemossSettingsService} 读取(单测环境无
@@ -64,5 +66,12 @@ public final class CliPersistentFeatureFlags {
         return isSystemEnabled()
                 && isUserEnabled()
                 && Boolean.parseBoolean(System.getProperty(FEATURE_OPENCODE_SERVE_ENABLED_KEY, "true"));
+    }
+
+    /** codex app-server 托管流式通道是否启用(总开关 AND user 开关 AND app-server 子开关)。 */
+    public static boolean isCodexAppServerEnabled() {
+        return isSystemEnabled()
+                && isUserEnabled()
+                && Boolean.parseBoolean(System.getProperty(FEATURE_CODEX_APPSERVER_ENABLED_KEY, "true"));
     }
 }
