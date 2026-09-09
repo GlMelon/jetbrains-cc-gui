@@ -293,6 +293,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
   messageIndex,
   messageType,
   isStreaming,
+  typewriterEnabled = true,
   isThinkingExpanded,
   isThinking,
   isLastMessage,
@@ -306,6 +307,8 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
   messageIndex: number;
   messageType: string;
   isStreaming: boolean;
+  /** 「流式输出」开关:仅门控正文块打字机(思考块流式独立,不受此开关约束)。 */
+  typewriterEnabled?: boolean;
   isThinkingExpanded: boolean;
   isThinking: boolean;
   isLastMessage: boolean;
@@ -321,6 +324,7 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
       <MarkdownBlock
         content={block.text ?? ''}
         isStreaming={isStreaming}
+        typewriterEnabled={typewriterEnabled}
       />
     );
   }

@@ -14,6 +14,9 @@ import { useEffect, useRef } from 'react';
  *    `<span class="md-char">`,把 DOM span 总数封顶,防超长回复撑爆 DOM。
  * 4. 流式结束(isStreaming=false)且全部吐完 → 停止 rAF,不再空转。
  * 5. 消息切换(content 前缀与已显示部分不一致)→ 清空容器、计数归零。
+ * 6. enabled=false(「流式输出」开关关闭,后端 TurnPushGate 把 delta 缓冲到轮/段边界
+ *    一次性下发)→ 不做逐字节奏:content 每次到达即整段同步显示(纯文本 + <br>),
+ *    关闭态到达到的文本不能被重新"演"成流式。
  *
  * 注意:流式期间为纯文本逐字(换行→<br>),不渲染 markdown 加粗/链接/代码高亮;
  * 流式结束后由 MarkdownBlock 切换到完整 markdown 管线,格式在那一刻补齐(效果图同款取舍)。
@@ -28,6 +31,7 @@ export function useTypewriterStream(
   containerRef: React.RefObject<HTMLDivElement | null>,
   content: string,
   isStreaming: boolean,
+  enabled = true,
 ): void {
   const shownLenRef = useRef(0);
   const lastTickRef = useRef(0);
@@ -56,7 +60,32 @@ export function useTypewriterStream(
     prevFullRef.current = content;
   }, [content, containerRef]);
 
+  // 关闭打字机(流式输出开关 off):content 到达即整段显示,不走 rAF 逐字节奏。
+  // 仍由 streamContainer 纯文本管线承载(换行→<br>),流结束后 MarkdownBlock 照常切换完整 markdown。
+  // 中途开关切换同样安全:shownLen 同步为全量,重开后 rAF 从零 backlog 续跑,不重复不丢字。
   useEffect(() => {
+    if (enabled) {
+      return;
+    }
+    const el = containerRef.current;
+    if (!el) {
+      return;
+    }
+    renderPlainContent(el, content);
+    shownLenRef.current = content.length;
+    lastTickRef.current = 0;
+    prevFullRef.current = content;
+  }, [enabled, content, containerRef]);
+
+  useEffect(() => {
+    if (!enabled) {
+      // 关闭态:取消可能残留的旧循环,不启动 rAF。
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
+    }
     const tick = (now: number) => {
       const container = containerRef.current;
       const full = contentRef.current;
@@ -106,7 +135,26 @@ export function useTypewriterStream(
         rafRef.current = null;
       }
     };
-  }, [containerRef]);
+  }, [containerRef, enabled]);
+}
+
+/**
+ * 关闭打字机时的整段渲染:纯文本节点 + 换行 <br>,不套 md-char span
+ * (整段到达没有逐字弹入语义,也避免 mass CSS pop 与 span 堆积)。
+ */
+function renderPlainContent(container: HTMLElement, full: string): void {
+  container.textContent = '';
+  const frag = document.createDocumentFragment();
+  const lines = full.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (i > 0) {
+      frag.appendChild(document.createElement('br'));
+    }
+    if (lines[i]) {
+      frag.appendChild(document.createTextNode(lines[i]));
+    }
+  }
+  container.appendChild(frag);
 }
 
 /**

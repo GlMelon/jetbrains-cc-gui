@@ -300,6 +300,7 @@ export const MessageItem = memo(function MessageItem({
   toolResultSignature: _toolResultSignature,
   currentProvider,
   detailedOutputEnabled = false,
+  typewriterEnabled = true,
   avatarConfig,
   loadingStartTime,
   withinResponseGroup = false,
@@ -329,6 +330,8 @@ export const MessageItem = memo(function MessageItem({
   /** Current active provider id. */
   currentProvider?: string;
   detailedOutputEnabled?: boolean;
+  /** 「流式输出」开关(经 MessageList 透传):关闭时正文块整段显示,不做逐字打字机。 */
+  typewriterEnabled?: boolean;
   avatarConfig?: AvatarConfig | null;
   /** Timestamp when the current assistant generation/loading cycle started. */
   loadingStartTime?: number | null;
@@ -708,6 +711,7 @@ export const MessageItem = memo(function MessageItem({
               messageIndex={messageIndex}
               messageType={message.type}
               isStreaming={isMessageStreaming}
+              typewriterEnabled={typewriterEnabled}
               isThinkingExpanded={false}
               isThinking={isThinking}
               isLastMessage={isLast}
@@ -737,6 +741,7 @@ export const MessageItem = memo(function MessageItem({
           messageIndex={messageIndex}
           messageType={message.type}
           isStreaming={isMessageStreaming}
+          typewriterEnabled={typewriterEnabled}
           isThinkingExpanded={isThinkingExpanded(blockIndex)}
           isThinking={isThinking}
           isLastMessage={isLast}

@@ -225,6 +225,12 @@ marked.setOptions({
 interface MarkdownBlockProps {
   content?: string;
   isStreaming?: boolean;
+  /**
+   * 流式态是否启用逐字打字机。来源「流式输出」开关(后端 SETTING_STREAMING_ENABLED
+   * 下发,ChatScreen 起注入):关闭时后端把 delta 缓冲到轮/段边界一次性下发,
+   * 前端必须整段即时显示而非逐字动画。仅门控正文块,思考块不受影响。
+   */
+  typewriterEnabled?: boolean;
 }
 
 /**
@@ -405,7 +411,7 @@ const copyIconSvg = `
     </svg>
   `;
 
-const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps) => {
+const MarkdownBlock = ({ content = '', isStreaming = false, typewriterEnabled = true }: MarkdownBlockProps) => {
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [linkifyCapabilities, setLinkifyCapabilities] = useState<LinkifyCapabilities>(() =>
     getLinkifyCapabilities(),
@@ -424,8 +430,9 @@ const MarkdownBlock = ({ content = '', isStreaming = false }: MarkdownBlockProps
 
   const fileLinkTooltip = useMarkdownFileLinkTooltip();
 
-  // 流式逐字打字机:把 content 按自适应节奏逐字追加到 streamContainerRef
-  useTypewriterStream(streamContainerRef, content, isStreaming);
+  // 流式逐字打字机:把 content 按自适应节奏逐字追加到 streamContainerRef;
+  // 流式输出开关关闭(typewriterEnabled=false)时改为整段即时显示。
+  useTypewriterStream(streamContainerRef, content, isStreaming, typewriterEnabled);
 
   useEffect(() => {
     return subscribeLinkifyCapabilities(setLinkifyCapabilities);

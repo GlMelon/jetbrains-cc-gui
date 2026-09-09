@@ -319,6 +319,7 @@ export const ChatScreen = ({
                   currentSessionId={currentSessionId}
                   isUserAtBottomRef={isUserAtBottomRef}
                   detailedOutputEnabled={detailedOutputEnabled}
+                  typewriterEnabled={streamingEnabledSetting}
                   avatarConfig={avatarConfig}
                 />
               </ToolResultRawContext.Provider>

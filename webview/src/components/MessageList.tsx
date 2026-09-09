@@ -248,6 +248,8 @@ interface MessageListProps {
   /** Shared scroll-follow state used to suppress duplicate live announcements. */
   isUserAtBottomRef?: React.RefObject<boolean>;
   detailedOutputEnabled?: boolean;
+  /** 「流式输出」开关(ChatScreen 从 streamingEnabledSetting 注入):关闭时正文整段显示。 */
+  typewriterEnabled?: boolean;
   avatarConfig?: AvatarConfig | null;
 }
 
@@ -275,6 +277,7 @@ export const MessageList = memo(
       currentSessionId,
       isUserAtBottomRef,
       detailedOutputEnabled = false,
+      typewriterEnabled = true,
       avatarConfig,
     },
     ref,
@@ -753,6 +756,7 @@ export const MessageList = memo(
                               toolResultSignature={toolResultSignature}
                               currentProvider={currentProvider}
                               detailedOutputEnabled={detailedOutputEnabled}
+                              typewriterEnabled={typewriterEnabled}
                               avatarConfig={avatarConfig}
                               loadingStartTime={loadingStartTime}
                               withinResponseGroup={true}
@@ -822,6 +826,7 @@ export const MessageList = memo(
               toolResultSignature={toolResultSignature}
               currentProvider={currentProvider}
               detailedOutputEnabled={detailedOutputEnabled}
+              typewriterEnabled={typewriterEnabled}
               avatarConfig={avatarConfig}
               loadingStartTime={loadingStartTime}
             />
@@ -846,6 +851,7 @@ export const MessageList = memo(
             extractMarkdownContent={extractMarkdownContent}
             currentProvider={currentProvider}
             detailedOutputEnabled={detailedOutputEnabled}
+            typewriterEnabled={typewriterEnabled}
             avatarConfig={avatarConfig}
             loadingStartTime={loadingStartTime}
           />
