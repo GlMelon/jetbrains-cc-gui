@@ -206,11 +206,14 @@
     border-top: 1px solid var(--border-secondary);
     display: flex;
     justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
 .footer-actions {
     display: flex;
+    /* 窄弹窗(字号缩放/面板变窄)下按「整颗按钮」换行,而不是挤压按钮宽度 */
+    flex-wrap: wrap;
     gap: 8px;
 }
 
@@ -225,6 +228,8 @@
     cursor: pointer;
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     border: 1px solid transparent;
+    /* 按钮文案永不折行:宽度不足时由 .footer-actions 的 flex-wrap 整颗换行 */
+    white-space: nowrap;
 
     &.btn-secondary {
         background: var(--bg-hover);

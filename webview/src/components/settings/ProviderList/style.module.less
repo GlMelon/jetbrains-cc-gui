@@ -377,10 +377,13 @@
 
 .dialogActions {
   display: flex;
+  /* 窄弹窗下按钮整颗换行,而不是挤压按钮宽度 */
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .btnCancel {
+  white-space: nowrap;
   padding: 6px 16px;
   border: 1px solid var(--border-primary);
   background: transparent;
@@ -394,6 +397,7 @@
 }
 
 .btnConfirm {
+  white-space: nowrap;
   padding: 6px 16px;
   border: none;
   background: var(--button-primary-background, #0078d4);
@@ -478,6 +482,7 @@
 }
 
 .btnWarning {
+  white-space: nowrap;
   padding: 6px 16px;
   border: none;
   background: var(--warning-color, #ff9800);
@@ -491,6 +496,7 @@
 }
 
 .btnDanger {
+  white-space: nowrap;
   padding: 6px 16px;
   border: none;
   background: #c2410c;

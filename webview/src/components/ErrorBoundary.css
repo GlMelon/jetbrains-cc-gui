@@ -96,6 +96,7 @@
 }
 
 .error-boundary-button {
+  white-space: nowrap;
   padding: var(--spacing-sm) var(--spacing-xl);
   background-color: var(--bg-tertiary);
   color: var(--text-secondary);

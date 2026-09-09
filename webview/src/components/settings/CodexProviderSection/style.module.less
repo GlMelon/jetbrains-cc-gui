@@ -274,6 +274,8 @@
 .warningActions {
   display: flex;
   justify-content: flex-end;
+  /* 窄面板下按钮整颗换行,而不是挤压按钮宽度 */
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -281,6 +283,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
   padding: 6px 12px;
   border-radius: 6px;
   background: var(--button-primary-background, #0078d4);
@@ -298,6 +301,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
   padding: 6px 12px;
   border-radius: 6px;
   border: 1px solid var(--border-primary);
@@ -312,6 +316,7 @@
 }
 
 .btnDanger {
+  white-space: nowrap;
   padding: 6px 16px;
   border: none;
   background: #c2410c;

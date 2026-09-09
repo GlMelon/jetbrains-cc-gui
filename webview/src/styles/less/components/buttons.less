@@ -1,5 +1,7 @@
 /* Buttons Styles */
+/* 按钮文案永不折行:容器宽度不足时由外层 flex-wrap 整颗换行 */
 .btn-primary {
+    white-space: nowrap;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -36,6 +38,7 @@
 }
 
 .btn-secondary {
+    white-space: nowrap;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -75,6 +78,7 @@
 }
 
 .btn-small {
+    white-space: nowrap;
     display: flex;
     align-items: center;
     gap: 6px;

@@ -241,6 +241,8 @@
     text-align: center;
     /* 不要撑满，自然宽度 */
     flex: 0 0 auto;
+    /* 按钮文案永不折行:宽度不足时由 .permission-dialog-v3-options 的 flex-wrap 整颗换行 */
+    white-space: nowrap;
 }
 
 .permission-dialog-v3-option:hover {
