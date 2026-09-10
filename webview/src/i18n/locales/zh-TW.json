@@ -953,6 +953,8 @@
       "rechecking": "偵測中…",
 
       "updating": "更新中…",
+      "uninstall": "解除安裝",
+      "uninstalling": "解除安裝中...",
       "hint": "以下 CLI 需在系統終端自行安裝並完成設定。外掛只負責偵測是否已安裝及版本號，不會替你自動安裝。請先在終端確認可正常使用，再回到此處使用。",
       "refresh": "Re-check",
       "retry": "Retry",

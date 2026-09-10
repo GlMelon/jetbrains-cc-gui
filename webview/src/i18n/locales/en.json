@@ -880,6 +880,8 @@
       "viewDocs": "View Documentation",
       "install": "Install",
       "installing": "Installing...",
+      "uninstall": "Uninstall",
+      "uninstalling": "Uninstalling...",
       "error": "Error detecting CLI status",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",

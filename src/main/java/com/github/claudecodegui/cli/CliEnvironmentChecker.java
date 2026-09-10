@@ -1,5 +1,8 @@
 package com.github.claudecodegui.cli;
 
+import com.github.claudecodegui.cli.common.ProviderCliResolver;
+import com.github.claudecodegui.provider.claude.ClaudeCliDetector;
+import com.github.claudecodegui.session.runtime.CodexCliResolver;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.PlatformUtils;
 import com.intellij.openapi.diagnostic.Logger;
@@ -96,6 +99,18 @@ public class CliEnvironmentChecker {
      * 版本号正则表达式
      */
     private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d+\\.\\d+\\.\\d+(?:-[a-zA-Z0-9.]+)?)");
+
+    /**
+     * npm 全局安装超时(秒)。claude-code 经 optionalDependencies 携带 ~200MB 平台原生二进制,
+     * 首次安装从镜像下载耗时远超 2 分钟;120s 会在下载中途截断安装(npm 下载缓存/临时文件
+     * 落在 %LOCALAPPDATA%,用户侧表现为"下载到了 C 盘但 CLI 不可用")。
+     */
+    private static final long INSTALL_TIMEOUT_SECONDS = 600;
+
+    /**
+     * npm 输出收集上限(字符):超限时丢弃头部保留尾部,失败时只透出末尾原因。
+     */
+    private static final int INSTALL_OUTPUT_LIMIT_CHARS = 8192;
 
     // ── 检测结果缓存 ──────────────────────────────────────────────
     // 全量检测 = 各 CLI × (可执行文件探测 + --version + npm view),秒级耗时;
@@ -453,6 +468,65 @@ public class CliEnvironmentChecker {
         }
         return null;
     }
+    /**
+     * npm 全局卸载超时(秒):只删文件不下载,120s 充裕(Windows 文件被占用时 npm 快速报错而非挂起)。
+     */
+    private static final long UNINSTALL_TIMEOUT_SECONDS = 120;
+
+    /**
+     * 后台线程持续读取进程合并输出(redirectErrorStream 后仅剩 stdout),防管道满阻塞。
+     * 超过 {@link #INSTALL_OUTPUT_LIMIT_CHARS} 时丢弃头部保留尾部(失败原因多在末尾)。
+     */
+    private static StringBuilder captureProcessOutput(Process process) {
+        StringBuilder output = new StringBuilder();
+        Thread drainer = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append('\n');
+                    if (output.length() > INSTALL_OUTPUT_LIMIT_CHARS) {
+                        output.delete(0, output.length() - INSTALL_OUTPUT_LIMIT_CHARS);
+                    }
+                }
+            } catch (Exception ignored) {
+                // Process may be terminating after timeout/cancel.
+            }
+        }, "cli-install-output-drain");
+        drainer.setDaemon(true);
+        drainer.start();
+        return output;
+    }
+
+    private static String tailOutput(StringBuilder output) {
+        String text = output.toString().trim();
+        if (text.isEmpty()) {
+            return "(无输出)";
+        }
+        return text.length() > 2000 ? "..." + text.substring(text.length() - 2000) : text;
+    }
+
+    /**
+     * 安装/更新成功后失效全部 provider 的 CLI 探测缓存(成功路径与版本串一并清空,
+     * 下轮 send 各自重新探测一次)。各清空入口均为幂等静态操作。
+     */
+    private static void invalidateResolverCaches() {
+        try {
+            ClaudeCliDetector.getInstance().clearCache();
+        } catch (Exception e) {
+            LOG.warn("[CliEnvironmentChecker] Failed to invalidate Claude detector cache: " + e.getMessage());
+        }
+        try {
+            CodexCliResolver.clearCache();
+        } catch (Exception e) {
+            LOG.warn("[CliEnvironmentChecker] Failed to invalidate Codex resolver cache: " + e.getMessage());
+        }
+        try {
+            ProviderCliResolver.clearAllCaches();
+        } catch (Exception e) {
+            LOG.warn("[CliEnvironmentChecker] Failed to invalidate provider resolver caches: " + e.getMessage());
+        }
+    }
 
     /**
      * 安装CLI工具
@@ -482,37 +556,43 @@ public class CliEnvironmentChecker {
 
         Process process = null;
         try {
+            // 安装位置完全交由 npm 决定(与用户在终端执行同一条命令:同一 npm.cmd +
+            // 同一用户级 ~/.npmrc,全局 prefix 天然一致),插件不传 --prefix 不改 npm config。
             String npm = PlatformUtils.isWindows() ? "npm.cmd" : "npm";
             ProcessBuilder pb = new ProcessBuilder(npm, "install", "-g", toolDef.npmPackage + "@latest");
             pb.redirectErrorStream(true);
             process = pb.start();
 
-            boolean finished = process.waitFor(120, TimeUnit.SECONDS);
+            // 全程 drain 合并流:npm 输出可撑满 OS 管道缓冲,写阻塞会让安装进程卡死
+            // 表现为必超时;同时收集尾部输出供失败时透出原因。
+            StringBuilder output = captureProcessOutput(process);
+
+            boolean finished = process.waitFor(INSTALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!finished) {
-                process.destroyForcibly();
+                // 杀整树:npm.cmd 在 Windows 是 cmd.exe 包装,destroyForcibly 只杀包装层,
+                // node.exe 安装子进程会残留继续写全局 prefix(taskkill /F /T 语义)。
+                PlatformUtils.terminateProcessAndWait(process, 10, TimeUnit.SECONDS);
                 CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
                     toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
                 );
-                errorStatus.setError("安装超时");
+                errorStatus.setError("安装超时(" + INSTALL_TIMEOUT_SECONDS + "秒),npm 输出:\n"
+                        + tailOutput(output));
                 return errorStatus;
             }
 
             int exitCode = process.exitValue();
             if (exitCode != 0) {
-                StringBuilder output = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        output.append(line).append("\n");
-                    }
-                }
                 CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
                     toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
                 );
-                errorStatus.setError("安装失败: " + output.toString().trim());
+                errorStatus.setError("安装失败: " + tailOutput(output));
                 return errorStatus;
             }
+
+            // 安装/更新成功后失效各 provider 的 CLI 探测缓存:ClaudeCliDetector 的失败
+            // 结果会被缓存,不清缓存则安装完成后使用侧仍报 "Claude CLI not found",
+            // 直到重启 IDE;其余 resolver 的版本缓存同步刷新避免更新后读到旧版本。
+            invalidateResolverCaches();
 
             // 安装成功，重新检测环境
             return checkCliEnvironment(toolDef);
@@ -526,7 +606,98 @@ public class CliEnvironmentChecker {
             return errorStatus;
         } finally {
             if (process != null && process.isAlive()) {
-                process.destroyForcibly();
+                PlatformUtils.terminateProcessAndWait(process, 5, TimeUnit.SECONDS);
+            }
+        }
+    }
+
+    /**
+     * 卸载CLI工具(npm uninstall -g)。
+     * 成功语义:npm exit 0 且重检 installed=false —— 此时"未找到CLI可执行文件"是预期
+     * 终态而非失败,error 置空让 handler 以 success 下发;若 npm 报成功但重检仍 installed
+     * (CLI 来自原生安装器/包管理器等非 npm 渠道),返回 error 提示手动卸载。
+     */
+    public CliEnvironmentStatus uninstallCliTool(String toolName) {
+        CliToolDefinition toolDef = null;
+        for (CliToolDefinition tool : CLI_TOOLS) {
+            if (tool.name.equals(toolName)) {
+                toolDef = tool;
+                break;
+            }
+        }
+
+        if (toolDef == null) {
+            CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(toolName, toolName, "", null);
+            errorStatus.setError("未知的CLI工具: " + toolName);
+            return errorStatus;
+        }
+
+        if (toolDef.npmPackage == null || toolDef.npmPackage.isBlank()) {
+            CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
+                    toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
+            );
+            errorStatus.setError(toolDef.displayName + " 不支持通过npm卸载");
+            return errorStatus;
+        }
+
+        Process process = null;
+        try {
+            // 卸载与安装同源:同一 npm.cmd + 同一用户级 ~/.npmrc,npm 自行定位全局 prefix。
+            String npm = PlatformUtils.isWindows() ? "npm.cmd" : "npm";
+            ProcessBuilder pb = new ProcessBuilder(npm, "uninstall", "-g", toolDef.npmPackage);
+            pb.redirectErrorStream(true);
+            process = pb.start();
+
+            // 全程 drain 合并输出(同 installCliTool:防管道满阻塞 + 收集失败原因)。
+            StringBuilder output = captureProcessOutput(process);
+
+            boolean finished = process.waitFor(UNINSTALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!finished) {
+                PlatformUtils.terminateProcessAndWait(process, 10, TimeUnit.SECONDS);
+                CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
+                        toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
+                );
+                errorStatus.setError("卸载超时(" + UNINSTALL_TIMEOUT_SECONDS + "秒),npm 输出:\n"
+                        + tailOutput(output));
+                return errorStatus;
+            }
+
+            int exitCode = process.exitValue();
+            if (exitCode != 0) {
+                CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
+                        toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
+                );
+                errorStatus.setError("卸载失败: " + tailOutput(output));
+                return errorStatus;
+            }
+
+            // 卸载成功,重检确认 CLI 已移除
+            CliEnvironmentStatus status = checkCliEnvironment(toolDef);
+            if (status.isInstalled()) {
+                status.setError("卸载后仍检测到 " + toolDef.displayName
+                        + "(可能为非 npm 安装,如原生安装器/包管理器),请手动卸载");
+                return status;
+            }
+            // installed=false 是卸载的预期终态:清掉 checkCliEnvironment 写入的
+            // "未找到CLI可执行文件",避免 handler 误判为失败而不下发状态刷新。
+            status.setError(null);
+
+            // 卸载成功后失效各 provider 的 CLI 探测缓存:成功缓存指向已删除的路径,
+            // 不清缓存则下轮 send 会 spawn 一个不存在的可执行文件。
+            invalidateResolverCaches();
+
+            return status;
+
+        } catch (Exception e) {
+            LOG.error("[CliEnvironmentChecker] Failed to uninstall " + toolName, e);
+            CliEnvironmentStatus errorStatus = new CliEnvironmentStatus(
+                    toolDef.name, toolDef.displayName, toolDef.description, toolDef.npmPackage
+            );
+            errorStatus.setError("卸载过程中出错: " + e.getMessage());
+            return errorStatus;
+        } finally {
+            if (process != null && process.isAlive()) {
+                PlatformUtils.terminateProcessAndWait(process, 5, TimeUnit.SECONDS);
             }
         }
     }

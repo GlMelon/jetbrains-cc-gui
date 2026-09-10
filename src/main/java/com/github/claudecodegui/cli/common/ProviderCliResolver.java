@@ -87,6 +87,16 @@ public final class ProviderCliResolver {
         }
     }
 
+    /**
+     * 清空全部 provider 的解析缓存(成功路径 + 版本串),强制各自下次 findExecutable 重新探测。
+     * 供 CLI 安装/更新成功后失效旧缓存调用(CliEnvironmentChecker.invalidateResolverCaches);
+     * 本 resolver 无负缓存(失败不缓存),清空主要为刷新更新后的版本串与路径。
+     */
+    public static void clearAllCaches() {
+        CACHED_EXECUTABLES.clear();
+        CACHED_VERSIONS.clear();
+    }
+
     /** 返回该 provider 缓存的 CLI 版本字符串,或 null(未检测 / 检测失败)。 */
     public static String getCachedVersion(ProviderType type) {
         return CACHED_VERSIONS.get(type);

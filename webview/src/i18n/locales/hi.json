@@ -981,6 +981,8 @@
       "viewDocs": "दस्तावेज़ देखें",
       "install": "इंस्टॉल करें",
       "installing": "इंस्टॉल हो रहा है...",
+      "uninstall": "अनइंस्टॉल करें",
+      "uninstalling": "अनइंस्टॉल हो रहा है...",
       "error": "CLI स्थिति का पता लगाने में त्रुटि",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",

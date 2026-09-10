@@ -1077,6 +1077,8 @@
       "viewDocs": "문서 보기",
       "install": "설치",
       "installing": "설치 중...",
+      "uninstall": "제거",
+      "uninstalling": "제거 중...",
       "error": "CLI 상태 감지 오류",
       "hint": "These CLIs must be installed and configured in your system terminal. The plugin only detects installation status and version — it will never install them for you. Confirm each CLI works in the terminal before coming back here to use it.",
       "refresh": "Re-check",

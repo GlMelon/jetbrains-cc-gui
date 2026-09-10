@@ -60,12 +60,22 @@ public final class CodexCliResolver {
         }
     }
 
-    /** 测试钩子:清空缓存,强制下次 findExecutable 重新检测。 */
-    static void __clearCacheForTests() {
+    /**
+     * 清空解析缓存(成功路径 + 版本串),强制下次 findExecutable 重新探测。
+     * 供 CLI 安装/更新成功后失效旧缓存调用(CliEnvironmentChecker.invalidateResolverCaches)。
+     */
+    public static void clearCache() {
         synchronized (CACHE_LOCK) {
             cachedExecutable = null;
             cachedVersion = null;
         }
+    }
+
+    /**
+     * 测试钩子:清空缓存,强制下次 findExecutable 重新检测。
+     */
+    static void __clearCacheForTests() {
+        clearCache();
     }
 
     /**

@@ -2,6 +2,7 @@ package com.github.claudecodegui.provider.claude;
 
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.cli.common.UserPathResolver;
 import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.settings.CodemossSettingsService;
@@ -42,7 +43,17 @@ public class ClaudeCliDetector {
 
     private volatile String cachedCliPath;
     private volatile String cachedCliVersion;
-    private volatile boolean detectionAttempted;
+
+    /**
+     * 负结果缓存时间戳(0 = 未探测过)。失败探测含多轮子进程 verify,未安装时每级都要
+     * 起进程等待超时,缓存可避免每轮 send 重复全套探测;但**永久**负缓存会在用户安装
+     * Claude CLI 后仍报 "Claude CLI not found" 直到重启 IDE(插件内一键安装由
+     * CliEnvironmentChecker.invalidateResolverCaches 主动清缓存覆盖,终端手动安装
+     * 由 TTL 过期自愈覆盖)。对称 CodexCliResolver/ProviderCliResolver 的
+     * "never cache a failed probe" 语义,外加时限保护。
+     */
+    private static final long NEGATIVE_CACHE_TTL_MS = 60_000L;
+    private volatile long detectionAttemptedAtMillis;
 
     /**
      * Public no-arg constructor: required for platform {@code applicationService} registration.
@@ -87,21 +98,23 @@ public class ClaudeCliDetector {
     }
 
     public String findCliExecutable() {
-        if (cachedCliPath != null) {
-            return cachedCliPath;
+        String cached = cachedCliPath;
+        if (cached != null) {
+            return cached;
         }
-        if (detectionAttempted) {
+        if (isNegativeCacheFresh()) {
             return null;
         }
         synchronized (this) {
-            if (cachedCliPath != null) {
-                return cachedCliPath;
+            cached = cachedCliPath;
+            if (cached != null) {
+                return cached;
             }
-            if (detectionAttempted) {
+            if (isNegativeCacheFresh()) {
                 return null;
             }
             String path = detectCliPath();
-            detectionAttempted = true;
+            detectionAttemptedAtMillis = System.currentTimeMillis();
             if (path != null) {
                 cachedCliPath = path;
                 LOG.info("[ClaudeCliDetector] Detected Claude CLI: " + path);
@@ -110,6 +123,12 @@ public class ClaudeCliDetector {
             }
             return path;
         }
+    }
+
+    private boolean isNegativeCacheFresh() {
+        long attemptedAt = detectionAttemptedAtMillis;
+        return attemptedAt > 0
+                && System.currentTimeMillis() - attemptedAt < NEGATIVE_CACHE_TTL_MS;
     }
 
     private String detectCliPath() {
@@ -175,6 +194,15 @@ public class ClaudeCliDetector {
             ProcessBuilder pb = PlatformUtils.isWindows()
                     ? new ProcessBuilder("where", "claude")
                     : new ProcessBuilder("which", "claude");
+            // Windows 下注入用户真实 PATH(IDE PATH + npm/scoop/volta 等 shim 目录):
+            // `where` 子进程默认继承 IDE 进程 PATH,经 npm 全局/包管理器安装的 claude
+            // 不在其中时会漏检(对称 ProviderCliResolver.searchInPath 的解析方式)。
+            if (PlatformUtils.isWindows()) {
+                String userPath = UserPathResolver.resolveUserPath();
+                if (userPath != null && !userPath.isBlank()) {
+                    pb.environment().put("Path", userPath);
+                }
+            }
             process = pb.start();
             processManager = NodeService.getInstance().getProcessManager();
             processToken = processManager.registerAuxiliaryProcess(process);
@@ -252,6 +280,20 @@ public class ClaudeCliDetector {
                 pathsToCheck.add(appData + "\\npm\\claude.cmd");
                 pathsToCheck.add(appData + "\\npm\\claude.exe");
             }
+            // %LOCALAPPDATA%\npm:部分 node 发行版/用户级安装的 npm 默认全局目录
+            // (对齐 CliEnvironmentChecker.getSearchDirectories 的 Windows 目录表)。
+            String localAppData = System.getenv("LOCALAPPDATA");
+            if (localAppData != null) {
+                pathsToCheck.add(localAppData + "\\npm\\claude.cmd");
+                pathsToCheck.add(localAppData + "\\npm\\claude.exe");
+            }
+            // npm 全局 prefix 反查(Windows 上全局 bin 即 prefix 根):覆盖用户 npmrc
+            // 自定义 prefix 等上述固定目录表之外的位置。
+            String npmGlobalPrefix = detectNpmGlobalPrefix();
+            if (npmGlobalPrefix != null) {
+                pathsToCheck.add(npmGlobalPrefix + "\\claude.cmd");
+                pathsToCheck.add(npmGlobalPrefix + "\\claude.exe");
+            }
         } else {
             pathsToCheck.add(userHome + "/.npm/bin/claude");
             String npmGlobalPrefix = detectNpmGlobalPrefix();
@@ -280,9 +322,9 @@ public class ClaudeCliDetector {
     }
 
     private String detectViaPathVariable(List<String> triedPaths) {
-        String pathEnv = PlatformUtils.isWindows()
-                ? PlatformUtils.getEnvIgnoreCase("PATH")
-                : System.getenv("PATH");
+        // 用 UserPathResolver 解析用户真实 PATH(Windows = IDE PATH + npm/scoop/volta 等
+        // shim 目录;Unix 直接透传),对称 ProviderCliResolver.searchInPath。
+        String pathEnv = UserPathResolver.resolveUserPath();
         if (pathEnv == null || pathEnv.isEmpty()) {
             return null;
         }
@@ -378,7 +420,7 @@ public class ClaudeCliDetector {
         synchronized (this) {
             if (path == null || path.isBlank()) {
                 this.cachedCliPath = null;
-                this.detectionAttempted = false;
+                this.detectionAttemptedAtMillis = 0L;
                 this.cachedCliVersion = null;
                 return;
             }
@@ -388,7 +430,7 @@ public class ClaudeCliDetector {
                 return;
             }
             this.cachedCliPath = trimmed;
-            this.detectionAttempted = true;
+            this.detectionAttemptedAtMillis = System.currentTimeMillis();
             this.cachedCliVersion = verifyCliPath(trimmed);
         }
     }
@@ -430,7 +472,7 @@ public class ClaudeCliDetector {
         synchronized (this) {
             this.cachedCliPath = null;
             this.cachedCliVersion = null;
-            this.detectionAttempted = false;
+            this.detectionAttemptedAtMillis = 0L;
         }
     }
 
@@ -450,7 +492,16 @@ public class ClaudeCliDetector {
         ProcessManager processManager = null;
         String processToken = null;
         try {
-            ProcessBuilder pb = new ProcessBuilder("npm", "prefix", "-g");
+            // Windows 下 ProcessBuilder 不按 PATHEXT 解析,npm 实际入口是 npm.cmd
+            // (裸 "npm" 会 IOException 被 catch 吞掉,Windows 分支永远拿不到 prefix)。
+            String npm = PlatformUtils.isWindows() ? "npm.cmd" : "npm";
+            ProcessBuilder pb = new ProcessBuilder(npm, "prefix", "-g");
+            if (PlatformUtils.isWindows()) {
+                String userPath = UserPathResolver.resolveUserPath();
+                if (userPath != null && !userPath.isBlank()) {
+                    pb.environment().put("Path", userPath);
+                }
+            }
             process = pb.start();
             processManager = NodeService.getInstance().getProcessManager();
             processToken = processManager.registerAuxiliaryProcess(process);

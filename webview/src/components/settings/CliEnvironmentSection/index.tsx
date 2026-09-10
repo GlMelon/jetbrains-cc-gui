@@ -1,13 +1,13 @@
-import { sendAction, subscribeEvent } from '../../../bridge/typed';
-import { UPSTREAM, DOWNSTREAM } from '../../../generated/protocol';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
-import { HoverLift } from '../../react-bits/HoverLift';
-import { SpinLoader } from '../../react-bits/SpinLoader';
-import { ProviderModelIcon } from '../../shared/ProviderModelIcon';
-import { RefreshIcon, AlertIcon, ExternalLinkIcon, DownloadIcon, EyeIcon, EyeOffIcon } from '../../Icons';
-import { useHiddenCliProviders } from '../../../hooks/useCliProviderVisibility';
-import { setCliProviderHidden } from '../../../utils/cliProviderVisibility';
+import {sendAction, subscribeEvent} from '../../../bridge/typed';
+import {DOWNSTREAM, UPSTREAM} from '../../../generated/protocol';
+import {useCallback, useEffect, useRef, useState} from 'react';
+import {useTranslation} from 'react-i18next';
+import {HoverLift} from '../../react-bits/HoverLift';
+import {SpinLoader} from '../../react-bits/SpinLoader';
+import {ProviderModelIcon} from '../../shared/ProviderModelIcon';
+import {AlertIcon, DownloadIcon, ExternalLinkIcon, EyeIcon, EyeOffIcon, RefreshIcon, TrashIcon} from '../../Icons';
+import {useHiddenCliProviders} from '../../../hooks/useCliProviderVisibility';
+import {setCliProviderHidden} from '../../../utils/cliProviderVisibility';
 import styles from './style.module.less';
 
 interface CliEnvironmentStatus {
@@ -110,6 +110,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
   const [checkingTools, setCheckingTools] = useState<Set<string>>(new Set());
   const [installingTools, setInstallingTools] = useState<Set<string>>(new Set());
   const [updatingTools, setUpdatingTools] = useState<Set<string>>(new Set());
+    const [uninstallingTools, setUninstallingTools] = useState<Set<string>>(new Set());
   const isActiveRef = useRef(isActive);
   // 切换菜单可见性(upstream de693952,本地落点从 CliSection 迁到本卡片)
   const hiddenProviders = useHiddenCliProviders();
@@ -152,6 +153,12 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
           next.delete(toolId);
           return next;
         });
+          // 卸载同样共用 CLI_INSTALL_RESULT 回执(后端 UninstallCliToolActionHandler)
+          setUninstallingTools((prev) => {
+              const next = new Set(prev);
+              next.delete(toolId);
+              return next;
+          });
         
         if (success && status) {
           setCliStatus((prev) => ({
@@ -214,6 +221,11 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
     sendAction(UPSTREAM.INSTALL_CLI_TOOL, { toolId });
   }, []);
 
+    const handleUninstall = useCallback((toolId: string) => {
+        setUninstallingTools((prev) => new Set(prev).add(toolId));
+        sendAction(UPSTREAM.UNINSTALL_CLI_TOOL, {toolId});
+    }, []);
+
   const handleOpenDoc = useCallback((url: string) => {
     window.open(url, '_blank');
   }, []);
@@ -223,6 +235,8 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
     const isToolChecking = isChecking || checkingTools.has(tool.id);
     const isToolInstalling = installingTools.has(tool.id);
     const isToolUpdating = updatingTools.has(tool.id);
+      const isToolUninstalling = uninstallingTools.has(tool.id);
+      const isToolBusy = isToolInstalling || isToolUpdating || isToolUninstalling;
     const showVersionLoading = isToolChecking && status?.installed;
     const switcherHidden = hiddenProviders.has(tool.id);
     const visibilityLabel = switcherHidden
@@ -333,7 +347,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
                 <button
                   className={`${styles.actionBtn} ${styles.primary}`}
                   onClick={() => handleInstall(tool.id)}
-                  disabled={isToolInstalling}
+                  disabled={isToolBusy}
                 >
                   {isToolInstalling ? (
                     <SpinLoader size={12} />
@@ -347,7 +361,7 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
                 <button
                   className={`${styles.actionBtn} ${styles.primary}`}
                   onClick={() => handleUpdate(tool.id)}
-                  disabled={isToolUpdating || isToolInstalling}
+                  disabled={isToolBusy}
                 >
                   {isToolUpdating ? (
                     <SpinLoader size={12} />
@@ -356,6 +370,20 @@ const CliEnvironmentSection = ({ isActive }: CliEnvironmentSectionProps) => {
                     ? t('settings.cli.updating')
                     : t('settings.cli.updateToVersion', { version: status.latestVersion })}
                 </button>
+              )}
+                {status?.installed && status?.npmPackage && (
+                    <button
+                        className={`${styles.actionBtn} ${styles.danger}`}
+                        onClick={() => handleUninstall(tool.id)}
+                        disabled={isToolBusy}
+                    >
+                        {isToolUninstalling ? (
+                            <SpinLoader size={12}/>
+                        ) : (
+                            <TrashIcon size={14}/>
+                        )}
+                        {isToolUninstalling ? t('settings.cli.uninstalling') : t('settings.cli.uninstall')}
+                    </button>
               )}
               <button
                 className={`${styles.actionBtn} ${styles.secondary}`}

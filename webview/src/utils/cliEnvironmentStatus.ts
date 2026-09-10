@@ -1,5 +1,5 @@
-import { sendAction, subscribeEvent } from '../bridge/typed';
-import { DOWNSTREAM, UPSTREAM } from '../generated/protocol';
+import {sendAction, subscribeEvent} from '../bridge/typed';
+import {DOWNSTREAM, UPSTREAM} from '../generated/protocol';
 
 /**
  * CLI 环境安装状态的前端共享快照(仿 modelRegistry 的 snapshot+subscribe 模式)。
@@ -73,8 +73,8 @@ function ensureSubscription(): void {
     // 解析失败(含后端 error 分支)→ 保持未就绪,判定全放行
     publish(statuses ? { ready: true, statuses } : { ready: false, statuses: {} });
   });
-  // 设置页「安装」成功事件:后端带回该工具最新 status,合并进全局快照,
-  // 供应商下拉等门控 UI 立即解除禁用(无需手动重新检测)。
+    // 设置页「安装/更新/卸载」成功事件:后端带回该工具最新 status,合并进全局快照,
+    // 供应商下拉等门控 UI 立即解除(或恢复)禁用(无需手动重新检测)。
   subscribeEvent(DOWNSTREAM.CLI_INSTALL_RESULT, (json) => {
     try {
       const result = typeof json === 'string' ? JSON.parse(json) : json;
