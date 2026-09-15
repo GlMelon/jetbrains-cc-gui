@@ -369,7 +369,7 @@ public class ClaudeChatWindow {
 
             @Override
             public void resetTabStatus() {
-                chatWindowDelegate.updateTabStatus(ChatWindowDelegate.TabAnswerStatus.IDLE);
+                chatWindowDelegate.resetTabStatus();
             }
         });
 

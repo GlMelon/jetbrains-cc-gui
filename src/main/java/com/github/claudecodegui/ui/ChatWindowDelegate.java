@@ -56,6 +56,7 @@ import com.github.claudecodegui.settings.CodemossSettingsService;
 import com.github.claudecodegui.settings.ModelRegistryService;
 import com.github.claudecodegui.settings.avatar.AvatarConfigService;
 import com.github.claudecodegui.util.JsUtils;
+import com.github.claudecodegui.util.LanguageConfigService;
 import com.github.claudecodegui.util.MessageJsonConverter;
 import com.github.claudecodegui.util.ThemeConfigService;
 import com.google.gson.JsonObject;
@@ -85,7 +86,9 @@ public class ChatWindowDelegate {
         IDLE("idle"),
         QUEUED("queued"),
         PROCESSING("processing"),
-        COMPLETED("completed");
+        COMPLETED("completed"),
+        /** 工具授权 / 计划审批 / 用户提问等确认对话框挂起中。 */
+        AWAITING_APPROVAL("awaiting_approval");
 
         private final String value;
 
@@ -113,6 +116,8 @@ public class ChatWindowDelegate {
                     return PROCESSING;
                 case "completed":
                     return COMPLETED;
+                case "awaiting_approval":
+                    return AWAITING_APPROVAL;
                 default:
                     return IDLE;
             }
@@ -158,6 +163,10 @@ public class ChatWindowDelegate {
     private HistoryRefreshService historyRefreshService;
     private TabAnswerStatus currentTabStatus = TabAnswerStatus.IDLE;
     private ProviderType currentTabProviderType = null;
+
+    /** 确认对话框(权限/计划/提问)并发挂起深度;>0 时标签处于「等待确认」。 */
+    private int awaitingApprovalDepth = 0;
+    private TabAnswerStatus statusBeforeAwaitingApproval = null;
 
     private volatile String pendingQuickFixPrompt = null;
     private volatile MessageCallback pendingQuickFixCallback = null;
@@ -265,12 +274,23 @@ nodeService.setSessionId(sessionId);
             session.setPermissionSessionId(sessionId);
         }
         permissionService.start();
-        permissionService.registerDialogShower(project, (toolName, inputs) ->
-            host.getPermissionHandler().showFrontendPermissionDialog(toolName, inputs));
-        permissionService.registerAskUserQuestionDialogShower(project, (requestId, questionsData) ->
-            host.getPermissionHandler().showAskUserQuestionDialog(requestId, questionsData));
-        permissionService.registerPlanApprovalDialogShower(project, (requestId, planData) ->
-            host.getPermissionHandler().showPlanApprovalDialog(requestId, planData));
+        // 三类确认对话框(工具授权 / 提问 / 计划审批)挂起期间置入「等待确认」标签状态,
+        // 用户决策后恢复;Claude(文件流)与 Codex/OpenCode(进程内)闸口都经 shower 路由,单点覆盖。
+        permissionService.registerDialogShower(project, (toolName, inputs) -> {
+            enterAwaitingApproval();
+            return host.getPermissionHandler().showFrontendPermissionDialog(toolName, inputs)
+                    .whenComplete((response, error) -> exitAwaitingApproval());
+        });
+        permissionService.registerAskUserQuestionDialogShower(project, (requestId, questionsData) -> {
+            enterAwaitingApproval();
+            return host.getPermissionHandler().showAskUserQuestionDialog(requestId, questionsData)
+                    .whenComplete((response, error) -> exitAwaitingApproval());
+        });
+        permissionService.registerPlanApprovalDialogShower(project, (requestId, planData) -> {
+            enterAwaitingApproval();
+            return host.getPermissionHandler().showPlanApprovalDialog(requestId, planData)
+                    .whenComplete((response, error) -> exitAwaitingApproval());
+        });
         LOG.info("Started permission service with frontend dialog, AskUserQuestion dialog, and PlanApproval dialog for project: " + project.getName());
         return sessionId;
     }
@@ -707,6 +727,45 @@ nodeService.setSessionId(sessionId);
         }
     }
 
+    /**
+     * 确认对话框挂起:置入「等待确认」标签状态。首次进入时记录当前状态,
+     * 供决策后恢复;并发对话框按深度嵌套计数。调用方为权限 watcher 线程,
+     * updateTabStatus 内部自会转 EDT。
+     */
+    public synchronized void enterAwaitingApproval() {
+        if (awaitingApprovalDepth++ == 0) {
+            statusBeforeAwaitingApproval = currentTabStatus;
+        }
+        updateTabStatus(TabAnswerStatus.AWAITING_APPROVAL);
+    }
+
+    /** 确认对话框收尾:深度归零且期间状态未被其他事件改写时,恢复进入前状态。 */
+    public synchronized void exitAwaitingApproval() {
+        if (awaitingApprovalDepth == 0) {
+            return;
+        }
+        if (--awaitingApprovalDepth > 0) {
+            return;
+        }
+        TabAnswerStatus restore = statusBeforeAwaitingApproval;
+        statusBeforeAwaitingApproval = null;
+        if (currentTabStatus != TabAnswerStatus.AWAITING_APPROVAL) {
+            return;
+        }
+        if (restore == null || restore == TabAnswerStatus.IDLE || restore == TabAnswerStatus.AWAITING_APPROVAL) {
+            // 弹窗只在回合进行中出现,决策后回合继续运行
+            restore = TabAnswerStatus.PROCESSING;
+        }
+        updateTabStatus(restore);
+    }
+
+    /** 新会话:清除等待深度并回到空闲。 */
+    public synchronized void resetTabStatus() {
+        awaitingApprovalDepth = 0;
+        statusBeforeAwaitingApproval = null;
+        updateTabStatus(TabAnswerStatus.IDLE);
+    }
+
     public void updateTabStatus(TabAnswerStatus status) {
         Content parentContent = host.getParentContent();
         String originalTabName = host.getOriginalTabName();
@@ -723,24 +782,30 @@ nodeService.setSessionId(sessionId);
 
         currentTabStatus = status;
         currentTabProviderType = providerType;
+        String language = resolvePluginLanguage();
 
         ApplicationManager.getApplication().invokeLater(() -> {
-            String tabName = TabStatusPresentation.stripStatusText(originalTabName);
+            String tabName = TabStatusPresentation.stripStatusText(originalTabName, language);
             String currentDisplayName = parentContent.getDisplayName();
             if (currentDisplayName != null && !currentDisplayName.startsWith(tabName)) {
                 tabName = currentDisplayName.endsWith("...")
                     ? currentDisplayName.substring(0, currentDisplayName.length() - 3)
                     : currentDisplayName;
-                tabName = TabStatusPresentation.stripStatusText(tabName);
+                tabName = TabStatusPresentation.stripStatusText(tabName, language);
                 host.setOriginalTabName(tabName);
                 LOG.debug("[TabStatus] Detected external rename, updated originalTabName to: " + tabName);
             }
 
-            String displayName = TabStatusPresentation.displayName(tabName, status);
-            parentContent.setIcon(TabStatusPresentation.createProviderIcon(providerType.value(), status));
+            String displayName = TabStatusPresentation.displayName(tabName, status, language);
+            parentContent.setIcon(TabStatusPresentation.createProviderIcon(providerType.value(), status, language));
             parentContent.setDisplayName(displayName);
             LOG.debug("[TabStatus] Set " + status.value() + " state for tab: " + displayName);
         });
+    }
+
+    /** 标签状态文案语言 = 插件语言偏好(用户手动语言 &gt; IDEA 语言),与 webview 保持一致。 */
+    private String resolvePluginLanguage() {
+        return LanguageConfigService.getCurrentLanguage(host.getSettingsService());
     }
 
     private ProviderType resolveCurrentProviderType() {

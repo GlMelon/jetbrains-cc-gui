@@ -577,6 +577,13 @@ tasks.named('processResources') {
     from(file("${webviewDir}/dist")) {
         into 'webview'
     }
+    // 后端侧用户可见文案(标签状态徽标等)与 webview 同源:语言包 JSON 以
+    // webview/src/i18n/locales 为 SSOT,构建期原样同步进插件资源 i18n/locales/,
+    // Java 侧经 WebviewLocaleBundle 读取,避免前后端各维护一份翻译。
+    from(file("${webviewDir}/src/i18n/locales")) {
+        include '*.json'
+        into 'i18n/locales'
+    }
 }
 
 // Use system zip command to package ai-bridge, preserving file permissions
