@@ -2258,5 +2258,11 @@
     "user": {
       "description": "DSH 홈에 설치된 사용자 정의 프리셋"
     }
+  },
+  "tabStatus": {
+    "queued": "대기 중",
+    "processing": "실행 중",
+    "completed": "완료",
+    "awaitingApproval": "확인 대기 중"
   }
 }

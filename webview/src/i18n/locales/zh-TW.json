@@ -2139,5 +2139,11 @@
     "user": {
       "description": "安裝在 DSH 主目錄中的自訂預設"
     }
+  },
+  "tabStatus": {
+    "queued": "排隊中",
+    "processing": "執行中",
+    "completed": "已完成",
+    "awaitingApproval": "等待確認"
   }
 }

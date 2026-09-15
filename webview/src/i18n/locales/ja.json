@@ -2173,5 +2173,11 @@
     "user": {
       "description": "DSH ホームにインストールされたカスタムプリセット"
     }
+  },
+  "tabStatus": {
+    "queued": "キュー待ち",
+    "processing": "実行中",
+    "completed": "完了",
+    "awaitingApproval": "確認待ち"
   }
 }

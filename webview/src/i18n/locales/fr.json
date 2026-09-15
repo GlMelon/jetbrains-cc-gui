@@ -2168,5 +2168,11 @@
     "user": {
       "description": "Préréglage personnalisé installé dans le répertoire DSH"
     }
+  },
+  "tabStatus": {
+    "queued": "En file",
+    "processing": "En cours",
+    "completed": "Terminé",
+    "awaitingApproval": "Confirmation en attente"
   }
 }

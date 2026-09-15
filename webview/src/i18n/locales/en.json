@@ -2830,5 +2830,11 @@
     "user": {
       "description": "Custom preset installed under the DSH home"
     }
+  },
+  "tabStatus": {
+    "queued": "Queued",
+    "processing": "Running",
+    "completed": "Completed",
+    "awaitingApproval": "Awaiting approval"
   }
 }

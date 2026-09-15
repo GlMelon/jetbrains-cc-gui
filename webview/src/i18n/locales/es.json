@@ -2168,5 +2168,11 @@
     "user": {
       "description": "Preset personalizado instalado en el directorio DSH"
     }
+  },
+  "tabStatus": {
+    "queued": "En cola",
+    "processing": "En ejecución",
+    "completed": "Completado",
+    "awaitingApproval": "Esperando confirmación"
   }
 }

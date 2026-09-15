@@ -2872,5 +2872,11 @@
     "user": {
       "description": "安装在 DSH 主目录中的自定义预设"
     }
+  },
+  "tabStatus": {
+    "queued": "排队中",
+    "processing": "运行中",
+    "completed": "已完成",
+    "awaitingApproval": "等待确认"
   }
 }

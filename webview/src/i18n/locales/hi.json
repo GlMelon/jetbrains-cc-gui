@@ -2167,5 +2167,11 @@
     "user": {
       "description": "DSH होम में इंस्टॉल किया गया कस्टम प्रीसेट"
     }
+  },
+  "tabStatus": {
+    "queued": "कतार में",
+    "processing": "चल रहा है",
+    "completed": "पूर्ण",
+    "awaitingApproval": "पुष्टि प्रतीक्षित"
   }
 }
