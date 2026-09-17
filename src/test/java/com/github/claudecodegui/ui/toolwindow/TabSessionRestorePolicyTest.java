@@ -51,4 +51,36 @@ public class TabSessionRestorePolicyTest {
         assertFalse(TabSessionRestorePolicy.shouldLoadDeferredHistory("session-123", "session-456"));
         assertFalse(TabSessionRestorePolicy.shouldLoadDeferredHistory(null, "session-123"));
     }
+
+    @Test
+    public void rejectsPersistedSessionFromAnotherProject() {
+        TabStateService.TabSessionState savedState = new TabStateService.TabSessionState();
+        savedState.sessionId = "session-123";
+        savedState.projectPath = "/workspace/old-project";
+
+        assertFalse(TabSessionRestorePolicy.matchesProjectIdentity(
+                savedState, "/workspace/new-project", "/workspace/new-project"));
+    }
+
+    @Test
+    public void acceptsPersistedSessionFromTheSameProject() {
+        TabStateService.TabSessionState savedState = new TabStateService.TabSessionState();
+        savedState.sessionId = "session-123";
+        savedState.projectPath = "/workspace/project";
+
+        assertTrue(TabSessionRestorePolicy.matchesProjectIdentity(
+                savedState, "/workspace/project", "/workspace/project"));
+    }
+
+    @Test
+    public void usesSavedCwdToGuardLegacyTabStateWithoutProjectPath() {
+        TabStateService.TabSessionState savedState = new TabStateService.TabSessionState();
+        savedState.sessionId = "session-123";
+        savedState.cwd = "/workspace/project";
+
+        assertTrue(TabSessionRestorePolicy.matchesProjectIdentity(
+                savedState, "/workspace/project", "/workspace/project"));
+        assertFalse(TabSessionRestorePolicy.matchesProjectIdentity(
+                savedState, "/workspace/other", "/workspace/other"));
+    }
 }

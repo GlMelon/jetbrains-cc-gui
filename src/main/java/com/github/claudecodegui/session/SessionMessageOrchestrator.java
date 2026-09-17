@@ -3,6 +3,7 @@ package com.github.claudecodegui.session;
 import com.github.claudecodegui.notifications.ClaudeNotifier;
 import com.github.claudecodegui.protocol.DownstreamEvent;
 import com.github.claudecodegui.provider.SessionHistoryLoadResult;
+import com.github.claudecodegui.provider.common.SessionHistoryNotFoundException;
 import com.github.claudecodegui.session.runtime.ProviderType;
 import com.github.claudecodegui.util.GsonHolder;
 import com.github.claudecodegui.util.TokenUsageUtils;
@@ -14,6 +15,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.util.concurrency.AppExecutorUtil;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -151,8 +153,8 @@ public class SessionMessageOrchestrator {
         callbackFacade.notifyStateChange(state.isBusy(), state.isLoading(), state.getError());
 
         return CompletableFuture.runAsync(() -> {
+            String currentSessionId = state.getSessionId();
             try {
-                String currentSessionId = state.getSessionId();
                 String currentCwd = state.getCwd();
                 String currentProvider = state.getProvider();
 
@@ -182,6 +184,15 @@ public class SessionMessageOrchestrator {
                             GsonHolder.GSON.toJson(historyResult.pageInfo())
                     );
                 }
+            } catch (SessionHistoryNotFoundException e) {
+                if (!Objects.equals(currentSessionId, state.getSessionId())) {
+                    return;
+                }
+                state.setSessionId(null);
+                state.clearMessages();
+                state.setError(null);
+                callbackFacade.notifyMessageUpdate(state.getMessages());
+                LOG.warn("Session history is unavailable; cleared stale session ID: " + e.getMessage());
             } catch (Exception e) {
                 state.setError(e.getMessage());
                 LOG.error("Error loading session: " + e.getMessage(), e);
