@@ -279,6 +279,7 @@ export const MessageList = memo(
       detailedOutputEnabled = false,
       typewriterEnabled = true,
       avatarConfig,
+
     },
     ref,
   ) {
@@ -348,6 +349,7 @@ export const MessageList = memo(
     const handleWaitingExitComplete = useCallback(() => {
       setWaitingVisible(false);
     }, []);
+
 
     const hasInlineAssistantActivity = useMemo(() => {
       const tail = messages[messages.length - 1];
