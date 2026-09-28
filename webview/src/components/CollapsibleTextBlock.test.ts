@@ -180,15 +180,14 @@ describe('convertAtFileRefsToLinks', () => {
     );
   });
 
-  it('handles adjacent @refs', () => {
+  it('handles adjacent @refs: the second @ glued to a word is an address, not a ref', () => {
     const result = convertAtFileRefsToLinks('@a.ts@b.ts');
-    // 第一个 @ 消耗 a.ts，第二个 @ 消耗 b.ts
+    // 第一个 @ 消耗 a.ts；第二个 @ 紧贴字母 s，按地址分隔符处理（与 git@host 语义一致）
     expect(result).toContain(
       '<a class="file-link" data-linkify="file" href="a.ts" title="a.ts">@a.ts</a>'
     );
-    expect(result).toContain(
-      '<a class="file-link" data-linkify="file" href="b.ts" title="b.ts">@b.ts</a>'
-    );
+    expect(result).toContain('@b.ts');
+    expect(result).not.toContain('href="b.ts"');
   });
 
   // ── 边界条件 ──────────────────────────────────────
@@ -211,5 +210,35 @@ describe('convertAtFileRefsToLinks', () => {
     const result = convertAtFileRefsToLinks('你好@');
     // 独立的 @ 不参与任何匹配
     expect(result).toBe('你好@');
+  });
+
+  it('does not convert SSH-style git addresses', () => {
+    const input =
+      '添加一个远程仓库： git@example.com:example-org/example-repo.git 然后push';
+    const result = convertAtFileRefsToLinks(input);
+    // 整个地址原样保留，不能塌缩成 @example-repo.git
+    expect(result).not.toContain('data-linkify');
+    expect(result).toBe(input);
+  });
+
+  it('does not convert email addresses', () => {
+    const result = convertAtFileRefsToLinks('联系 user@example.com 谢谢');
+    expect(result).not.toContain('data-linkify');
+    expect(result).toBe('联系 user@example.com 谢谢');
+  });
+
+  it('still converts a ref glued to a non-ASCII character', () => {
+    // 中文不构成地址前缀，@ 后仍是文件引用
+    const result = convertAtFileRefsToLinks('见@docs/app.ts');
+    expect(result).toContain(
+      '<a class="file-link" data-linkify="file" href="docs/app.ts" title="docs/app.ts">@app.ts</a>'
+    );
+  });
+
+  it('treats a second @ glued to a word as an address, not a new ref', () => {
+    // 第一个 @ 消耗 a.ts；第二个 @ 紧贴字母 s，视为地址分隔符
+    const result = convertAtFileRefsToLinks('see @a.ts vs git@b.ts');
+    expect(result).toContain('@b.ts');
+    expect(result).not.toContain('href="b.ts"');
   });
 });

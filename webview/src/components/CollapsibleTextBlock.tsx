@@ -122,6 +122,15 @@ export function convertAtFileRefsToLinks(text: string): string {
       continue;
     }
 
+    // An @ glued to a preceding word character is an address separator, not a
+    // file reference: `git@host:repo.git` and `user@example.com` must survive
+    // display untouched instead of collapsing to their last path segment.
+    if (i > 0 && /[A-Za-z0-9_]/.test(text[i - 1])) {
+      result += escapeHtml(text[i]);
+      i++;
+      continue;
+    }
+
     const extracted = extractAtFilePath(text, i + 1);
     if (!extracted) {
       result += escapeHtml(text[i]);
