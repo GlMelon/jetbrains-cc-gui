@@ -54,7 +54,10 @@ public class SessionIndexManager {
     // Restore paths trust index entries while the file mtime is unchanged, so those
     // nulls would never self-heal. Bumping once more forces a clean rebuild that
     // populates entrypoint for every session.
-    private static final int INDEX_VERSION = 7;
+    // v8 (2026-09): <recommended_plugins> injection no longer becomes the session
+    // title (sanitizer + isSystemMessage fix); bump so cached wrong titles rebuild
+    // from the JSONL files on the next scan (same pattern as the v6/v7 bumps).
+    private static final int INDEX_VERSION = 8;
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Path codemossCacheDir;

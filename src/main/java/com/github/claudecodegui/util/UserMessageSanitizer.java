@@ -13,6 +13,7 @@ public final class UserMessageSanitizer {
         "system-prompt",
         "INSTRUCTIONS",
         "environment_context",
+        "recommended_plugins",
         "skill"
     };
 
