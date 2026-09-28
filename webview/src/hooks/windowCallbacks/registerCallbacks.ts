@@ -266,9 +266,9 @@ if (existing && existing.success === result.success
       clearInterval(window.__stallWatchdogInterval);
       window.__stallWatchdogInterval = null;
     }
-    if (window.__streamingDeltaRenderingFrame != null) {
-      cancelAnimationFrame(window.__streamingDeltaRenderingFrame);
-      window.__streamingDeltaRenderingFrame = undefined;
+    if (window.__streamingDeltaRenderTimer != null) {
+      clearTimeout(window.__streamingDeltaRenderTimer);
+      window.__streamingDeltaRenderTimer = undefined;
     }
     window.__deniedToolIds?.clear();
     clearAllStreamScopeStates();

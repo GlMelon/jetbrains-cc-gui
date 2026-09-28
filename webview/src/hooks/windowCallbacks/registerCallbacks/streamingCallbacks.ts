@@ -331,8 +331,9 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     if (typeof window.__cancelPendingUpdateMessages === 'function') {
       window.__cancelPendingUpdateMessages();
     }
-    // Explicit null in case the rAF already executed (clearing pendingUpdateRaf)
-    // but __pendingUpdateJson was not yet cleared by the rAF callback.
+    // Explicit null in case the timer already executed (clearing
+    // __pendingUpdateTimer) but __pendingUpdateJson was not yet cleared by its
+    // callback.
     window.__pendingUpdateJson = null;
     // Clear the previous stream-ended marker when a new turn starts
     window.__lastStreamEndedTurnId = undefined;
@@ -340,7 +341,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     window.__activeStreamingResponseId = `response-${Date.now()}-${turnIdCounterRef.current + 1}`;
     // Clear idempotency guard for the new turn
     window.__streamEndProcessedTurnId = undefined;
-    window.__streamingDeltaRenderingFrame = undefined;
+    window.__streamingDeltaRenderTimer = undefined;
     // Record turn start time for duration calculation in onStreamEnd
     window.__turnStartedAt = Date.now();
     window.__streamingDeltaRenderDeferred = false;
@@ -370,7 +371,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     scopeState.backendRendering = false;
     scopeState.pendingUpdateJson = null;
     scopeState.pendingUpdateSequence = null;
-    scopeState.pendingUpdateRaf = null;
+    scopeState.pendingUpdateTimer = null;
     scopeState.lastActivityAt = Date.now();
     scopeState.minAcceptedSequence = 0;
     setMessages((prev) => {
@@ -508,29 +509,35 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     });
   });
 
-  // rAF-scheduled streaming update: frame-aligned, avoids setTimeout jank.
+  // Timer-scheduled streaming update: a 16ms tick gated by THROTTLE_INTERVAL
+  // throttling, mirroring the timer-based scheduling of the updateMessages
+  // batching path. setTimeout is used instead of requestAnimationFrame because
+  // rAF is paint-cycle gated: in a deprioritized JCEF paint state Chromium
+  // defers rAF callbacks indefinitely, so deltas would pile up unrendered
+  // until a structural snapshot forces a paint (same root cause the
+  // updateMessages batching fixed).
   // Factory that creates a throttled scheduler bound to a specific timeoutRef +
   // lastUpdateRef pair.  patchAssistantForStreaming reads streamingContentRef /
   // streamingThinkingRef from the hook closure, so the factory only needs to
   // know which ref pair to guard against double-scheduling.
-  const createStreamingRafScheduler = (
+  const createStreamingRenderScheduler = (
     timeoutRef: React.MutableRefObject<number | null>,
     lastUpdateRef: React.MutableRefObject<number>,
-    markDeltaFrame: boolean,
+    markDeltaTimer: boolean,
   ) => {
-    const scheduleRaf = (): void => {
+    const scheduleRender = (): void => {
       if (timeoutRef.current != null) return;
-      timeoutRef.current = requestAnimationFrame((frameTime) => {
+      const timerId = setTimeout(() => {
         timeoutRef.current = null;
         const now = Date.now();
         const elapsed = now - lastUpdateRef.current;
         if (elapsed < THROTTLE_INTERVAL) {
-          scheduleRaf(); // too soon — wait for next frame
+          scheduleRender(); // too soon — retry after another tick
           return;
         }
         lastUpdateRef.current = now;
-        if (markDeltaFrame) {
-          window.__streamingDeltaRenderingFrame = frameTime;
+        if (markDeltaTimer) {
+          window.__streamingDeltaRenderTimer = timerId;
         }
         startTransition(() => {
           setMessages((prev) => {
@@ -551,17 +558,18 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
             return newMessages;
           });
         });
-      });
+      }, 16) as unknown as number;
+      timeoutRef.current = timerId;
     };
-    return scheduleRaf;
+    return scheduleRender;
   };
 
-  const scheduleContentRaf = createStreamingRafScheduler(
+  const scheduleContentRender = createStreamingRenderScheduler(
     contentUpdateTimeoutRef,
     lastContentUpdateRef,
     true,
   );
-  const scheduleThinkingRaf = createStreamingRafScheduler(
+  const scheduleThinkingRender = createStreamingRenderScheduler(
     thinkingUpdateTimeoutRef,
     lastThinkingUpdateRef,
     false,
@@ -570,12 +578,12 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
   // Resume deferred delta rendering after a pending structural snapshot has
   // been applied. Deltas that arrived while the snapshot was pending are
   // already accumulated in streamingContentRef/streamingThinkingRef; this
-  // just re-schedules the rAF to flush them.
+  // just re-schedules the timer to flush them.
   window.__flushDeferredStreamingRenders = () => {
     if (!window.__streamingDeltaRenderDeferred || !isStreamingRef.current) return;
     window.__streamingDeltaRenderDeferred = false;
-    scheduleContentRaf();
-    scheduleThinkingRaf();
+    scheduleContentRender();
+    scheduleThinkingRender();
   };
 
   const getActiveScopeState = () => {
@@ -599,14 +607,14 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       scopeState.lastActivityAt = Date.now();
       markScopeActivity(getActiveStreamScopeKey());
     }
-    if (window.__pendingUpdateRaf != null || window.__pendingUpdateJson != null) {
+    if (window.__pendingUpdateTimer != null || window.__pendingUpdateJson != null) {
       // Let the pending structural snapshot establish the message identity first.
       // The snapshot merge already consumes this buffer, so a second React update
       // here would only race the authoritative structural update.
       window.__streamingDeltaRenderDeferred = true;
       return;
     }
-    scheduleContentRaf();
+    scheduleContentRender();
   });
 
   // [归一化] onThinkingDelta → stream.thinking_delta(passthrough 直通,最高频)
@@ -623,13 +631,13 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
       scopeState.lastActivityAt = Date.now();
       markScopeActivity(getActiveStreamScopeKey());
     }
-    if (window.__pendingUpdateRaf != null || window.__pendingUpdateJson != null) {
+    if (window.__pendingUpdateTimer != null || window.__pendingUpdateJson != null) {
       // Same deferral as content deltas: wait for the pending structural
       // snapshot to establish message identity before re-rendering.
       window.__streamingDeltaRenderDeferred = true;
       return;
     }
-    scheduleThinkingRaf();
+    scheduleThinkingRender();
   });
 
   // [归一化] onStreamEnd → stream.end(passthrough 直通)
@@ -779,11 +787,11 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
 
     // Clear pending rAF callbacks — their content is already in streamingContentRef
     if (contentUpdateTimeoutRef.current != null) {
-      cancelAnimationFrame(contentUpdateTimeoutRef.current);
+      clearTimeout(contentUpdateTimeoutRef.current);
       contentUpdateTimeoutRef.current = null;
     }
     if (thinkingUpdateTimeoutRef.current != null) {
-      cancelAnimationFrame(thinkingUpdateTimeoutRef.current);
+      clearTimeout(thinkingUpdateTimeoutRef.current);
       thinkingUpdateTimeoutRef.current = null;
     }
 
@@ -1044,7 +1052,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
 
     // Mark this turn as processed — idempotency guard for dual-path delivery
     window.__streamEndProcessedTurnId = endedStreamingTurnId;
-    window.__streamingDeltaRenderingFrame = undefined;
+    window.__streamingDeltaRenderTimer = undefined;
   });
 
   // Streaming heartbeat — lightweight signal from backend during tool execution
@@ -1110,11 +1118,11 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
 
     // Reset throttle timeouts to ensure clean state for new deltas
     if (contentUpdateTimeoutRef.current != null) {
-      cancelAnimationFrame(contentUpdateTimeoutRef.current);
+      clearTimeout(contentUpdateTimeoutRef.current);
       contentUpdateTimeoutRef.current = null;
     }
     if (thinkingUpdateTimeoutRef.current != null) {
-      cancelAnimationFrame(thinkingUpdateTimeoutRef.current);
+      clearTimeout(thinkingUpdateTimeoutRef.current);
       thinkingUpdateTimeoutRef.current = null;
     }
     // Reset last update timestamps to prevent throttle delays
@@ -1144,7 +1152,7 @@ export function registerStreamingCallbacks(options: UseWindowCallbacksOptions): 
     scopeState.backendRendering = false;
     scopeState.pendingUpdateJson = null;
     scopeState.pendingUpdateSequence = null;
-    scopeState.pendingUpdateRaf = null;
+    scopeState.pendingUpdateTimer = null;
     scopeState.lastActivityAt = Date.now();
     scopeState.minAcceptedSequence = 0;
 

@@ -62,17 +62,17 @@ describe('streamScopeState', () => {
     expect(getActiveStreamScopeKey()).toBe(scopeB);
   });
 
-  it('cancels pending rAF only for the target scope', () => {
-    const cancelAnimationFrameSpy = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+  it('cancels pending timer only for the target scope', () => {
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout').mockImplementation(() => undefined);
     const scopeA = getStreamScopeKey('claude', 'session-a', 1);
     const scopeB = getStreamScopeKey('claude', 'session-b', 1);
-    getOrCreateStreamScopeState(scopeA).pendingUpdateRaf = 101;
-    getOrCreateStreamScopeState(scopeB).pendingUpdateRaf = 202;
+    getOrCreateStreamScopeState(scopeA).pendingUpdateTimer = 101;
+    getOrCreateStreamScopeState(scopeB).pendingUpdateTimer = 202;
 
     cancelScopedPendingUpdate(scopeA);
 
-    expect(cancelAnimationFrameSpy).toHaveBeenCalledWith(101);
-    expect(getStreamScopeState(scopeA)?.pendingUpdateRaf).toBeNull();
-    expect(getStreamScopeState(scopeB)?.pendingUpdateRaf).toBe(202);
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(101);
+    expect(getStreamScopeState(scopeA)?.pendingUpdateTimer).toBeNull();
+    expect(getStreamScopeState(scopeB)?.pendingUpdateTimer).toBe(202);
   });
 });

@@ -6,7 +6,7 @@ type StreamScopeState = {
   backendRendering: boolean;
   pendingUpdateJson: string | null;
   pendingUpdateSequence: number | null;
-  pendingUpdateRaf: number | null;
+  pendingUpdateTimer: number | null;
   lastActivityAt: number;
   minAcceptedSequence: number;
 };
@@ -81,7 +81,7 @@ export const getOrCreateStreamScopeState = (scopeKey: string): StreamScopeState 
     backendRendering: false,
     pendingUpdateJson: null,
     pendingUpdateSequence: null,
-    pendingUpdateRaf: null,
+    pendingUpdateTimer: null,
     lastActivityAt: 0,
     minAcceptedSequence: 0,
   };
@@ -99,9 +99,9 @@ export const getStreamScopeState = (scopeKey: string | null | undefined): Stream
 
 export const cancelScopedPendingUpdate = (scopeKey: string | null | undefined): void => {
   const state = getStreamScopeState(scopeKey);
-  if (state?.pendingUpdateRaf != null) {
-    cancelAnimationFrame(state.pendingUpdateRaf);
-    state.pendingUpdateRaf = null;
+  if (state?.pendingUpdateTimer != null) {
+    clearTimeout(state.pendingUpdateTimer);
+    state.pendingUpdateTimer = null;
   }
 };
 
@@ -111,8 +111,8 @@ export const clearStreamScopeState = (scopeKey: string | null | undefined): void
     return;
   }
   const state = streamScopeStates.get(normalizedScopeKey);
-  if (state?.pendingUpdateRaf != null) {
-    cancelAnimationFrame(state.pendingUpdateRaf);
+  if (state?.pendingUpdateTimer != null) {
+    clearTimeout(state.pendingUpdateTimer);
   }
   streamScopeStates.delete(normalizedScopeKey);
   if (getActiveStreamScopeKey() === normalizedScopeKey) {
@@ -123,9 +123,9 @@ export const clearStreamScopeState = (scopeKey: string | null | undefined): void
 /** Clear every stream scope and cancel all queued animation frames. */
 export const clearAllStreamScopeStates = (): void => {
   for (const state of streamScopeStates.values()) {
-    if (state.pendingUpdateRaf != null) {
-      cancelAnimationFrame(state.pendingUpdateRaf);
-      state.pendingUpdateRaf = null;
+    if (state.pendingUpdateTimer != null) {
+      clearTimeout(state.pendingUpdateTimer);
+      state.pendingUpdateTimer = null;
     }
   }
   streamScopeStates.clear();

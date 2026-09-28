@@ -11,13 +11,6 @@ describe('streamingCallbacks block reset', () => {
     vi.useFakeTimers();
     window.__sessionTransitioning = false;
     window.__activeStreamScopeKey = null;
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
-      const id = window.setTimeout(() => cb(performance.now()), 0);
-      return id as unknown as number;
-    });
-    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id: number) => {
-      clearTimeout(id);
-    });
   });
 
   it('starts a new assistant card after block reset instead of appending to the previous card', () => {

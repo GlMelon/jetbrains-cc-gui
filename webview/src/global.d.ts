@@ -954,13 +954,14 @@ interface Window {
 
   /**
    * Pending timer handle and JSON for deferred updateMessages processing during
-   * streaming (historical "rAF" naming). Stored on window so re-registration of
-   * message callbacks cancels stale timers.
+   * streaming. Stored on window so re-registration of message callbacks cancels
+   * stale timers.
    */
-  __pendingUpdateRaf?: number | null;
+  __pendingUpdateTimer?: number | null;
   __pendingUpdateJson?: string | null;
   __pendingUpdateSequence?: number | null;
-  __streamingDeltaRenderingFrame?: number;
+  /** Timer handle of the latest deferred streaming delta render, cancellable on teardown. */
+  __streamingDeltaRenderTimer?: number;
   /** Deltas arrived while a structural snapshot was pending; rendering resumes after it applies. */
   __streamingDeltaRenderDeferred?: boolean;
   /** Re-schedule deferred delta rendering once the pending snapshot has been applied. */

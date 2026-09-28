@@ -271,17 +271,17 @@ describe('onContentDelta defers rendering while a structural snapshot is pending
       clearInterval(window.__stallWatchdogInterval);
       window.__stallWatchdogInterval = null;
     }
-    window.__pendingUpdateRaf = null;
+    window.__pendingUpdateTimer = null;
     window.__pendingUpdateJson = null;
     window.__streamingDeltaRenderDeferred = false;
   });
 
-  it('accumulates the delta but defers the rAF until the snapshot applies', () => {
-    // Stub rAF: return a handle without firing so no React update runs and the
+  it('accumulates the delta but defers the render timer until the snapshot applies', () => {
+    // Stub setTimeout: return a handle without firing so no React update runs and the
     // throttler's re-schedule loop stays inert in the test environment.
-    const rafStub = (_cb: FrameRequestCallback): number => 1;
-    const originalRaf = window.requestAnimationFrame;
-    window.requestAnimationFrame = rafStub as typeof requestAnimationFrame;
+    const setTimeoutStub = (_cb: () => void, _ms?: number): number => 1;
+    const originalSetTimeout = window.setTimeout;
+    window.setTimeout = setTimeoutStub as typeof window.setTimeout;
 
     try {
       const { refs } = createHarness([{ type: 'user', content: 'q1' }], 0);
@@ -303,7 +303,7 @@ describe('onContentDelta defers rendering while a structural snapshot is pending
 
       expect(window.__streamingDeltaRenderDeferred).toBe(false);
     } finally {
-      window.requestAnimationFrame = originalRaf;
+      window.setTimeout = originalSetTimeout;
     }
   });
 

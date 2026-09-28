@@ -115,18 +115,13 @@ describe('useWindowCallbacks integration', () => {
     delete (window as unknown as Record<string, unknown>).__pendingPermissionDialogTimeout;
   });
 
-  /** Stub timer/rAF globals to execute synchronously for streaming tests. */
+  /** Stub timer globals to execute synchronously for streaming tests. */
   const stubSynchronousTimers = () => {
     vi.stubGlobal('setTimeout', (callback: () => void) => {
       callback();
       return 1 as unknown as ReturnType<typeof setTimeout>;
     });
     vi.stubGlobal('clearTimeout', vi.fn());
-    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-      callback(0);
-      return 1;
-    });
-    vi.stubGlobal('cancelAnimationFrame', vi.fn());
   };
 
   afterEach(() => {
@@ -694,7 +689,7 @@ describe('useWindowCallbacks integration', () => {
     expect(streamingMessageIndexRef.current).toBe(-1);
   });
 
-  it('clearMessages cancels pending scoped updateMessages rAF', () => {
+  it('clearMessages cancels pending scoped updateMessages timer', () => {
       const clearTimeoutMock = vi.fn();
       vi.stubGlobal('setTimeout', vi.fn(() => 42));
       vi.stubGlobal('clearTimeout', clearTimeoutMock);
@@ -714,14 +709,14 @@ describe('useWindowCallbacks integration', () => {
       );
     });
 
-    expect(window.__pendingUpdateRaf).toBe(42);
+    expect(window.__pendingUpdateTimer).toBe(42);
 
     act(() => {
       window.clearMessages?.();
     });
 
       expect(clearTimeoutMock).toHaveBeenCalledWith(42);
-    expect(window.__pendingUpdateRaf).toBeNull();
+    expect(window.__pendingUpdateTimer).toBeNull();
   });
 
   // ===== clearMessages forces a webview repaint to clear JCEF ghosting =====
@@ -1508,12 +1503,6 @@ describe('useWindowCallbacks integration', () => {
     });
 
     it('onBlockReset is ignored when stream is not active', () => {
-      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-        callback(0);
-        return 1;
-      });
-      vi.stubGlobal('cancelAnimationFrame', vi.fn());
-
       const opts = createOptions();
       renderHook(() => useWindowCallbacks(opts));
 

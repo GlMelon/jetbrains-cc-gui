@@ -21,7 +21,7 @@ interface UseStreamingMessagesReturn {
   useBackendStreamingRenderRef: React.MutableRefObject<boolean>;
   streamingMessageIndexRef: React.MutableRefObject<number>;
 
-  // Throttle control refs (stores rAF IDs)
+  // Throttle control refs (stores timer IDs)
   contentUpdateTimeoutRef: React.MutableRefObject<number | null>;
   thinkingUpdateTimeoutRef: React.MutableRefObject<number | null>;
   lastContentUpdateRef: React.MutableRefObject<number>;
@@ -372,11 +372,11 @@ export function useStreamingMessages(): UseStreamingMessagesReturn {
     streamingTurnIdRef.current = -1;
 
     if (contentUpdateTimeoutRef.current != null) {
-      cancelAnimationFrame(contentUpdateTimeoutRef.current);
+      clearTimeout(contentUpdateTimeoutRef.current);
       contentUpdateTimeoutRef.current = null;
     }
     if (thinkingUpdateTimeoutRef.current != null) {
-      cancelAnimationFrame(thinkingUpdateTimeoutRef.current);
+      clearTimeout(thinkingUpdateTimeoutRef.current);
       thinkingUpdateTimeoutRef.current = null;
     }
   };

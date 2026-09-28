@@ -67,11 +67,11 @@ export const buildResetTransientUiState = (opts: {
     // Clear stream-end idempotency guard to avoid stale state across sessions.
     window.__streamEndProcessedTurnId = undefined;
     if (opts.contentUpdateTimeoutRef.current != null) {
-      cancelAnimationFrame(opts.contentUpdateTimeoutRef.current);
+      clearTimeout(opts.contentUpdateTimeoutRef.current);
       opts.contentUpdateTimeoutRef.current = null;
     }
     if (opts.thinkingUpdateTimeoutRef.current != null) {
-      cancelAnimationFrame(opts.thinkingUpdateTimeoutRef.current);
+      clearTimeout(opts.thinkingUpdateTimeoutRef.current);
       opts.thinkingUpdateTimeoutRef.current = null;
     }
     // Clear JCEF native-rendering ghosting left by the outgoing session's overlays
