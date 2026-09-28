@@ -121,6 +121,12 @@
     opacity: 0;
     visibility: hidden;
 
+    /* Assistant copy button floats above the bubble instead of covering the
+       first line of text (the user-message button lives in the header row). */
+    .message.assistant > & {
+        top: -14px;
+    }
+
     &:hover {
         background: var(--bg-hover);
         color: var(--text-primary);
