@@ -5,6 +5,7 @@ import { useDialogCountdownTimeout } from '../hooks/useDialogCountdownTimeout';
 import { DEFAULT_PERMISSION_DIALOG_TIMEOUT_SECONDS } from '../utils/permissionDialogTimeout';
 import { isEditableEventTarget } from '../utils/isEditableEventTarget';
 import './AskUserQuestionDialog.css';
+import MarkdownBlock from './MarkdownBlock';
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon, CircleFilledIcon, CircleIcon, AlertIcon } from './Icons';
 import { ClickSpark, FadeContent, GradientText, ProgressRing } from './react-bits';
 
@@ -24,6 +25,13 @@ interface Question {
   header: string;
   options: QuestionOption[];
   multiSelect: boolean;
+  /**
+   * Supporting detail rendered with the question but kept out of the option
+   * labels — DSH carries the plan under review here, so dropping it left the
+   * user approving a plan they could not read.
+   */
+  detail?: string;
+  intent?: QuestionIntent;
 }
 
 
@@ -31,7 +39,14 @@ export interface AskUserQuestionRequest {
   requestId: string;
   toolName: string;
   questions: Question[];
-  provider?: 'claude' | 'codex';
+  provider?: 'claude' | 'codex' | 'dsh';
+}
+
+/** Presentation intent a capable UI may recognise (DSH `plan-review` today). */
+export interface QuestionIntent {
+  kind: string;
+  /** Option label that approves, for `plan-review`. */
+  approve?: string;
 }
 
 interface AskUserQuestionDialogProps {
@@ -42,11 +57,24 @@ interface AskUserQuestionDialogProps {
   timeoutSeconds?: number;
 }
 
+/** Carry a caller-declared presentation intent through to the dialog. */
+function normalizeIntent(raw: any): QuestionIntent | undefined {
+  if (!raw || typeof raw !== 'object' || typeof raw.kind !== 'string' || !raw.kind) {
+    return undefined;
+  }
+  return {
+    kind: raw.kind,
+    ...(typeof raw.approve === 'string' && raw.approve ? { approve: raw.approve } : {}),
+  };
+}
+
 function normalizeQuestion(raw: any): Question | null {
   if (!raw || typeof raw !== 'object') return null;
   const questionText = typeof raw.question === 'string' ? raw.question : (typeof raw.text === 'string' ? raw.text : '');
   const header = typeof raw.header === 'string' ? raw.header : '';
   const multiSelect = typeof raw.multiSelect === 'boolean' ? raw.multiSelect : false;
+  const detail = typeof raw.detail === 'string' ? raw.detail : '';
+  const intent = normalizeIntent(raw.intent);
   const rawOptions = Array.isArray(raw.options) ? raw.options : (Array.isArray(raw.choices) ? raw.choices : []);
   const options: QuestionOption[] = rawOptions.flatMap((opt: any): QuestionOption[] => {
     if (typeof opt === 'string') return [{ label: opt, description: '' }];
@@ -57,7 +85,16 @@ function normalizeQuestion(raw: any): Question | null {
     return [{ label, description }];
   });
   if (!questionText) return null;
-  return { question: questionText, header, options, multiSelect };
+  // `detail` (DSH's plan under review) and `intent` are part of the question,
+  // not decoration: dropping them made a plan-review unanswerable in cc-gui.
+  return {
+    question: questionText,
+    header,
+    options,
+    multiSelect,
+    ...(detail ? { detail } : {}),
+    ...(intent ? { intent } : {}),
+  };
 }
 
 const AskUserQuestionDialog = ({
@@ -92,9 +129,12 @@ const AskUserQuestionDialog = ({
       return question === null ? [] : [question];
     });
   const isCodexRequest = request?.provider === 'codex' || request?.toolName === 'request_user_input';
-  const dialogTitle = isCodexRequest
-    ? t('askUserQuestion.codexTitle', 'Codex 有一些问题想问你')
-    : t('askUserQuestion.title', 'Claude 有一些问题想问你');
+  const isDshRequest = request?.provider === 'dsh';
+  const dialogTitle = isDshRequest
+    ? t('askUserQuestion.dshTitle', 'DeepSeek Harness 有一些问题想问你')
+    : isCodexRequest
+      ? t('askUserQuestion.codexTitle', 'Codex 有一些问题想问你')
+      : t('askUserQuestion.title', 'Claude 有一些问题想问你');
 
   const ringProgress = timeoutSeconds > 0 ? Math.max(0, remainingSeconds / timeoutSeconds) : 0;
   const ringColor = isTimeWarning
@@ -144,6 +184,19 @@ const AskUserQuestionDialog = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, request, handleCancel]);
+
+  // A question without options answers through the always-visible custom
+  // input alone — focus it on arrival so free-text questions are usable
+  // without discovering the (hidden) "Other" row first.
+  const normalizedRef = useRef(normalizedQuestions);
+  normalizedRef.current = normalizedQuestions;
+  useEffect(() => {
+    const questions = normalizedRef.current;
+    const question = questions[Math.max(0, Math.min(currentQuestionIndex, questions.length - 1))];
+    if (isOpen && question && question.options.length === 0) {
+      customInputRef.current?.focus();
+    }
+  }, [isOpen, request?.requestId, currentQuestionIndex]);
 
   if (!isOpen || !request) {
     return null;
@@ -224,6 +277,13 @@ const AskUserQuestionDialog = ({
       return newAnswers;
     });
 
+    // Picking a predefined option on a single-select question clears the box:
+    // that question can only carry one value, and leftover text would be
+    // ghost content that looks present but is not submitted.
+    if (!currentQuestion.multiSelect && label !== OTHER_OPTION_MARKER) {
+      setCustomInputs((prev) => ({ ...prev, [currentQuestion.question]: '' }));
+    }
+
     // Auto-focus the input field when "Other" option is selected
     if (label === OTHER_OPTION_MARKER) {
       setTimeout(() => {
@@ -239,6 +299,35 @@ const AskUserQuestionDialog = ({
       ...prev,
       [currentQuestion.question]: sanitizedValue,
     }));
+
+    // Typing selects the "Other" marker automatically (syncOtherSelection):
+    // on a single-select question it replaces the picked option, the only
+    // value that question can carry; on multi-select it joins the set.
+    // Emptying the box releases the marker again in both modes — an "Other"
+    // answer without text answers nothing, and a checked row over an empty
+    // box would block Submit.
+    setAnswers((prev) => {
+      const currentSet = new Set(prev[currentQuestion.question] || []);
+      const markerSelected = currentSet.has(OTHER_OPTION_MARKER);
+      if (sanitizedValue.trim() && !markerSelected) {
+        if (currentQuestion.multiSelect) {
+          currentSet.add(OTHER_OPTION_MARKER);
+        } else {
+          currentSet.clear();
+          currentSet.add(OTHER_OPTION_MARKER);
+        }
+        return { ...prev, [currentQuestion.question]: currentSet };
+      }
+      if (!sanitizedValue.trim() && markerSelected) {
+        if (currentQuestion.multiSelect) {
+          currentSet.delete(OTHER_OPTION_MARKER);
+        } else {
+          currentSet.clear();
+        }
+        return { ...prev, [currentQuestion.question]: currentSet };
+      }
+      return prev;
+    });
   };
 
   const handleNext = () => {
@@ -261,14 +350,21 @@ const AskUserQuestionDialog = ({
     const formattedAnswers: Record<string, string | string[]> = {};
     normalizedQuestions.forEach((q) => {
       const selectedSet = answers[q.question] || new Set<string>();
-      const customText = customInputs[q.question] || '';
+      const customText = (customInputs[q.question] || '').trim();
 
       // Filter out the "Other" marker, get actually selected options
       const selectedLabels = Array.from(selectedSet).filter(label => label !== OTHER_OPTION_MARKER);
 
-      // If "Other" is selected and has custom input, add the custom input to answers
-      if (selectedSet.has(OTHER_OPTION_MARKER) && customText.trim()) {
-        selectedLabels.push(customText.trim());
+      // The typed answer always travels with the submission:
+      // - single-select: the custom answer wins over a picked label (the
+      //   precedence the DSH encoding expects, where `custom` overrides),
+      // - multi-select: labels plus the note.
+      if (customText && !q.multiSelect) {
+        formattedAnswers[q.question] = customText;
+        return;
+      }
+      if (customText) {
+        selectedLabels.push(customText);
       }
 
       if (selectedLabels.length > 0) {
@@ -281,9 +377,9 @@ const AskUserQuestionDialog = ({
 
   // Check if we can proceed:
   // 1. A regular option (not "Other") is selected
-  // 2. Or "Other" is selected with valid custom input
+  // 2. Or the always-visible custom input carries a typed answer on its own
   const hasRegularSelection = Array.from(currentAnswerSet).some(label => label !== OTHER_OPTION_MARKER);
-  const hasValidCustomInput = isOtherSelected && currentCustomInput.trim().length > 0;
+  const hasValidCustomInput = currentCustomInput.trim().length > 0;
   const canProceed = hasRegularSelection || hasValidCustomInput;
 
   return (
@@ -366,6 +462,18 @@ const AskUserQuestionDialog = ({
               </div>
               <p className="question-text">{currentQuestion.question}</p>
 
+              {/* Supporting detail (DSH plan-review) rendered above the options */}
+              {currentQuestion.detail && (
+                <div className="question-detail">
+                  {currentQuestion.intent?.kind === 'plan-review' && (
+                    <div className="question-detail-label">
+                      {t('askUserQuestion.planDetail', '计划内容')}
+                    </div>
+                  )}
+                  <MarkdownBlock content={currentQuestion.detail} />
+                </div>
+              )}
+
               {/* Options list */}
               <div className="question-options">
                 {currentQuestion.options.map((option: QuestionOption) => {
@@ -391,39 +499,42 @@ const AskUserQuestionDialog = ({
                   );
                 })}
 
-                {/* "Other" option - allows custom user input */}
-                <button
-                  className={`question-option other-option ${isOtherSelected ? 'selected' : ''}`}
-                  onClick={() => handleOptionToggle(OTHER_OPTION_MARKER)}
-                >
-                  <div className="option-checkbox">
-                    {currentQuestion.multiSelect ? (
-                      isOtherSelected ? <CheckIcon size={16} /> : null
-                    ) : (
-                      isOtherSelected ? <CircleFilledIcon size={16} /> : <CircleIcon size={16} />
-                    )}
-                  </div>
-                  <div className="option-content">
-                    <div className="option-label">{t('askUserQuestion.otherOption', '其他')}</div>
-                    <div className="option-description">{t('askUserQuestion.otherOptionDesc', '输入自定义答案')}</div>
-                  </div>
-                </button>
+                {/* "Other" option — only meaningful when predefined options exist;
+                    a question without options answers through the input below. */}
+                {currentQuestion.options.length > 0 && (
+                  <button
+                    className={`question-option other-option ${isOtherSelected ? 'selected' : ''}`}
+                    onClick={() => handleOptionToggle(OTHER_OPTION_MARKER)}
+                  >
+                    <div className="option-checkbox">
+                      {currentQuestion.multiSelect ? (
+                        isOtherSelected ? <CheckIcon size={16} /> : null
+                      ) : (
+                        isOtherSelected ? <CircleFilledIcon size={16} /> : <CircleIcon size={16} />
+                      )}
+                    </div>
+                    <div className="option-content">
+                      <div className="option-label">{t('askUserQuestion.otherOption', '其他')}</div>
+                      <div className="option-description">{t('askUserQuestion.otherOptionDesc', '输入自定义答案')}</div>
+                    </div>
+                  </button>
+                )}
               </div>
 
-              {/* Custom input field - only shown when "Other" is selected */}
-              {isOtherSelected && (
-                <div className="custom-input-container">
-                  <textarea
-                    ref={customInputRef}
-                    className="custom-input"
-                    value={currentCustomInput}
-                    onChange={(e) => handleCustomInputChange(e.target.value)}
-                    placeholder={t('askUserQuestion.customInputPlaceholder', '请输入您的答案...')}
-                    rows={3}
-                    maxLength={MAX_CUSTOM_INPUT_LENGTH}
-                  />
-                </div>
-              )}
+              {/* Custom input field — always available, so an option plus a
+                  note, or a free-text answer on its own, can be submitted */}
+              <div className="custom-input-container">
+                <textarea
+                  ref={customInputRef}
+                  className="custom-input"
+                  value={currentCustomInput}
+                  onChange={(e) => handleCustomInputChange(e.target.value)}
+                  placeholder={t('askUserQuestion.customInputPlaceholder', '请输入您的答案...')}
+                  aria-label={t('askUserQuestion.customInputPlaceholder', '请输入您的答案...')}
+                  rows={3}
+                  maxLength={MAX_CUSTOM_INPUT_LENGTH}
+                />
+              </div>
 
               {/* Hint text */}
               {currentQuestion.multiSelect && (
