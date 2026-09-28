@@ -324,10 +324,14 @@ export const getToolLineInfo = (
 ): { start?: number; end?: number } => {
   const offset = parseNumber(input.offset);
   const limit = parseNumber(input.limit);
+  // Read-tool offset is a 1-based starting line number (defaults to 1), so the
+  // range covers lines [offset, offset + limit - 1]. Clamp 0 to 1 — the schema
+  // still allows 0 and the tool treats it the same as 1.
   if (offset !== undefined && limit !== undefined) {
+    const startLine = Math.max(offset, 1);
     return {
-      start: offset + 1,
-      end: offset + limit,
+      start: startLine,
+      end: startLine + limit - 1,
     };
   }
 
