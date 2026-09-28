@@ -49,7 +49,7 @@ test('bridgeDshApproval answers allowed-once when the dialog approves', async ()
         .replace('.json', '');
       writeFileSync(
         join(dir, `response-jest-session-${requestId}.json`),
-        JSON.stringify({ allow: true, requestId }),
+        JSON.stringify({ allow: true, requestId, requestToken: request.requestToken }),
       );
     }, 50);
 
@@ -96,7 +96,7 @@ test('bridgeDshApproval answers rejected when the dialog denies', async () => {
         .replace('.json', '');
       writeFileSync(
         join(dir, `response-jest-session-${requestId}.json`),
-        JSON.stringify({ allow: false, requestId }),
+        JSON.stringify({ allow: false, requestId, requestToken: request.requestToken }),
       );
     }, 50);
 
