@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 
 interface CompletionOpenLike {
@@ -60,7 +60,10 @@ export function useNativeEventCapture({
     handleSubmit,
     handleEnhancePrompt,
   });
-  useEffect(() => {
+  // useLayoutEffect (not useEffect): a keydown dispatched between a render and
+  // the passive effect flush must not observe a stale submit handler from the
+  // previous commit.
+  useLayoutEffect(() => {
     latestRef.current = {
       editableRef,
       isComposingRef,
