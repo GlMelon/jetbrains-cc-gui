@@ -564,6 +564,7 @@ const App = () => {
     queue: messageQueue,
     enqueue: enqueueMessage,
     dequeue: dequeueMessage,
+    reorder: reorderMessage,
   } = useMessageQueue({ isLoading: loading, onExecute: executeMessage });
 
   // handleSubmit with queue support (local slash commands bypass the loading queue)
@@ -797,6 +798,7 @@ const App = () => {
                 avatarConfig={avatarConfig}
                 messageQueue={messageQueue}
                 onRemoveFromQueue={dequeueMessage}
+                onReorderQueue={reorderMessage}
               />
             </ModelProviderProvider>
           </AnimatedView>

@@ -93,6 +93,7 @@ subagentHistoryCtxValue: Record<string, SubagentHistoryResponse>;
   // Message queue
   messageQueue: MessageQueueValue;
   onRemoveFromQueue: (id: string) => void;
+  onReorderQueue?: (orderedIds: string[]) => void;
 }
 
 /**
@@ -142,6 +143,7 @@ export const ChatScreen = ({
   avatarConfig,
   messageQueue,
   onRemoveFromQueue,
+  onReorderQueue,
 }: ChatScreenProps) => {
   const { t } = useTranslation();
 
@@ -418,6 +420,7 @@ export const ChatScreen = ({
           addToast={addToast}
           messageQueue={messageQueue}
           onRemoveFromQueue={onRemoveFromQueue}
+          onReorderQueue={onReorderQueue}
           autoOpenFileEnabled={autoOpenFileEnabled}
           onAutoOpenFileEnabledChange={handleAutoOpenFileEnabledChange}
           dshPreset={dshPreset}

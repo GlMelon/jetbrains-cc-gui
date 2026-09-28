@@ -8,6 +8,28 @@ export interface QueuedMessage {
   queuedAt: number;
 }
 
+export interface UseMessageQueueOptions {
+  /** Whether AI is currently processing */
+  isLoading: boolean;
+  /** Callback to execute a message */
+  onExecute: (content: string, attachments?: Attachment[]) => void;
+}
+
+export interface UseMessageQueueReturn {
+  /** Current queue */
+  queue: QueuedMessage[];
+  /** Add message to queue */
+  enqueue: (content: string, attachments?: Attachment[]) => void;
+  /** Remove message from queue by id */
+  dequeue: (id: string) => void;
+  /** Clear entire queue */
+  clearQueue: () => void;
+  /** Reorder queue by an ordered list of ids (index 0 executes first) */
+  reorder: (orderedIds: string[]) => void;
+  /** Whether queue has items */
+  hasQueuedMessages: boolean;
+}
+
 /**
  * Hook for managing message queue
  * Automatically executes next message when loading completes
@@ -15,7 +37,7 @@ export interface QueuedMessage {
 export function useMessageQueue({
   isLoading,
   onExecute,
-}: { isLoading: boolean; onExecute: (content: string, attachments?: Attachment[]) => void }): { queue: QueuedMessage[]; enqueue: (content: string, attachments?: Attachment[]) => void; dequeue: (id: string) => void; clearQueue: () => void; hasQueuedMessages: boolean; } {
+}: UseMessageQueueOptions): UseMessageQueueReturn {
   const [queue, setQueue] = useState<QueuedMessage[]>([]);
   const prevLoadingRef = useRef(isLoading);
   const isExecutingFromQueueRef = useRef(false);
@@ -44,6 +66,29 @@ export function useMessageQueue({
   // Clear entire queue
   const clearQueue = useCallback(() => {
     setQueue([]);
+  }, []);
+
+  /**
+   * Reorder the queue by the given id sequence (orderedIds[0] executes next).
+   * - Ids not present in the current queue are ignored.
+   * - Items missing from orderedIds (e.g. enqueued mid-drag) are appended in
+   *   their original order so no message is ever dropped.
+   */
+  const reorder = useCallback((orderedIds: string[]) => {
+    setQueue(prev => {
+      const byId = new Map(prev.map(item => [item.id, item]));
+      const seen = new Set<string>();
+      const ordered: QueuedMessage[] = [];
+      for (const id of orderedIds) {
+        const item = byId.get(id);
+        if (item && !seen.has(id)) {
+          ordered.push(item);
+          seen.add(id);
+        }
+      }
+      const remaining = prev.filter(item => !seen.has(item.id));
+      return [...ordered, ...remaining];
+    });
   }, []);
 
   // Auto-execute next message when loading completes
@@ -78,6 +123,7 @@ export function useMessageQueue({
     enqueue,
     dequeue,
     clearQueue,
+    reorder,
     hasQueuedMessages: queue.length > 0,
   };
 }

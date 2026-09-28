@@ -32,6 +32,7 @@ export { useChatInputCompletionsCoordinator } from './useChatInputCompletionsCoo
 export { useChatInputSelectionController } from './useChatInputSelectionController.js';
 export { useResetAttachmentsOnSessionChange } from './useResetAttachmentsOnSessionChange.js';
 export { useSpaceKeyListener } from './useSpaceKeyListener.js';
+export { useDragAutoScroll } from './useDragAutoScroll.js';
 export { useResizableChatInputBox, computeResize } from './useResizableChatInputBox.js';
 export { useCompositionSafeTagRendering } from './useCompositionSafeTagRendering.js';
 export { useInlineHistoryCompletion } from './useInlineHistoryCompletion.js';

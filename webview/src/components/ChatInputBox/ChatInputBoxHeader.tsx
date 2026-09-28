@@ -25,6 +25,7 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
   onToggleStatusPanel,
   messageQueue,
   onRemoveFromQueue,
+  onReorderQueue,
   autoOpenFileEnabled,
   onRequestEnableFileContext,
   selectedModel,
@@ -49,6 +50,7 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
   onToggleStatusPanel?: () => void;
   messageQueue?: QueuedMessage[];
   onRemoveFromQueue?: (id: string) => void;
+  onReorderQueue?: (orderedIds: string[]) => void;
   autoOpenFileEnabled?: boolean;
   onRequestEnableFileContext?: () => void;
   selectedModel?: string;
@@ -60,6 +62,7 @@ export const ChatInputBoxHeader = memo(function ChatInputBoxHeader({
         <MessageQueue
           queue={messageQueue}
           onRemove={onRemoveFromQueue ?? (() => {})}
+          onReorder={onReorderQueue}
         />
       )}
 

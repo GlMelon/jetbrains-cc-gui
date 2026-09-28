@@ -111,6 +111,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
       addToast,
       messageQueue,
       onRemoveFromQueue,
+      onReorderQueue,
       autoOpenFileEnabled,
       onAutoOpenFileEnabledChange,
     }: ChatInputBoxProps,
@@ -626,6 +627,7 @@ export const ChatInputBox = memo(forwardRef<ChatInputBoxHandle, ChatInputBoxProp
           onToggleStatusPanel={onToggleStatusPanel}
           messageQueue={messageQueue}
           onRemoveFromQueue={onRemoveFromQueue}
+          onReorderQueue={onReorderQueue}
           autoOpenFileEnabled={autoOpenFileEnabled}
           onRequestEnableFileContext={handleRequestEnableFileContext}
           selectedModel={selectedModel}
