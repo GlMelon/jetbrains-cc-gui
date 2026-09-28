@@ -19,6 +19,10 @@ type LoadingState = 'idle' | 'loading' | 'success' | 'failed';
 let cachedCommands: CommandItem[] = [];
 let loadingState: LoadingState = 'idle';
 let callbackRegistered = false;
+let loadTimeoutScheduled = false;
+
+/** Give up on the backend pushing the $ payload after this long. */
+const DOLLAR_COMMANDS_LOAD_TIMEOUT_MS = 30_000;
 
 // ============================================================================
 // Core Functions
@@ -31,6 +35,7 @@ export function resetDollarCommandsState() {
   cachedCommands = [];
   loadingState = 'idle';
   callbackRegistered = false;
+  loadTimeoutScheduled = false;
   debugLog('[DollarCommand] State reset');
 }
 
@@ -84,6 +89,19 @@ export function setupDollarCommandsCallback() {
   subscribeEvent(DOWNSTREAM.SLASH_DOLLAR_COMMANDS, (json) => handler(json as string));
   callbackRegistered = true;
   debugLog('[DollarCommand] Callback registered');
+
+  // One-shot load timeout: when the backend never pushes the payload, later
+  // queries must fail fast instead of reporting "loading" forever. A late
+  // payload still recovers through the registered handler above.
+  if (!loadTimeoutScheduled) {
+    loadTimeoutScheduled = true;
+    window.setTimeout(() => {
+      if (loadingState === 'loading') {
+        loadingState = 'failed';
+        debugWarn('[DollarCommand] Loading timeout');
+      }
+    }, DOLLAR_COMMANDS_LOAD_TIMEOUT_MS);
+  }
 
   // Process pending data if backend sent before callback was registered
   if (window.__pendingDollarCommands) {
