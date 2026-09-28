@@ -342,6 +342,14 @@ const App = () => {
     }
   }, [currentView]);
 
+  // Ref indirection for the message-queue clear callback: useSessionManagement
+  // and useWindowCallbacks consume it before useMessageQueue (below) creates
+  // the actual clearQueue function, so they resolve through this ref at call time.
+  const clearQueuedMessagesRef = useRef<(() => void) | null>(null);
+  const passClearQueuedMessages = useCallback(() => {
+    clearQueuedMessagesRef.current?.();
+  }, []);
+
   // ── Session management ──
   const {
     showNewSessionConfirm,
@@ -386,6 +394,7 @@ const App = () => {
     clearToasts,
     addToast,
     t,
+    clearQueuedMessages: passClearQueuedMessages,
   });
 
   useHistoryLoader({ currentView, currentProvider });
@@ -404,6 +413,7 @@ const App = () => {
     t,
     addToast,
     clearToasts,
+    clearQueuedMessages: passClearQueuedMessages,
     setMessages,
     setStatus,
     setLoading,
@@ -564,8 +574,10 @@ const App = () => {
     queue: messageQueue,
     enqueue: enqueueMessage,
     dequeue: dequeueMessage,
+    clearQueue: clearQueuedMessages,
     reorder: reorderMessage,
   } = useMessageQueue({ isLoading: loading, onExecute: executeMessage });
+  clearQueuedMessagesRef.current = clearQueuedMessages;
 
   // handleSubmit with queue support (local slash commands bypass the loading queue)
   const handleSubmit = useCallback(

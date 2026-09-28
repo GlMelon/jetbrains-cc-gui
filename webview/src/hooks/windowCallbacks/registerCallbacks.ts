@@ -123,6 +123,7 @@ export function registerWindowCallbacks(
     setSubagentHistories: options.setSubagentHistories,
     setTaskEvents: options.setTaskEvents,
     clearPendingSubagentHistoryChunks,
+    clearQueuedMessages: options.clearQueuedMessages,
   });
 
   // Expose as single entry point for session transition cleanup.

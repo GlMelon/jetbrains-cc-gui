@@ -38,6 +38,14 @@ export const buildResetTransientUiState = (opts: {
   setTaskEvents?: React.Dispatch<React.SetStateAction<import('../../types').TaskEventMap>>;
   clearPendingSubagentHistoryChunks?: () => void;
 
+  /**
+   * Discards messages still waiting in the send queue. Every session-reset
+   * path funnels through this reset (beginSessionTransition AND the
+   * Java-driven clearMessages callback), so queueing the cleanup here keeps
+   * queued messages from firing into a freshly cleared/replaced session.
+   */
+  clearQueuedMessages?: () => void;
+
   // Turn tracking ref (for streaming assistant isolation)
   streamingTurnIdRef: MutableRefObject<number>;
 }) => {
@@ -48,6 +56,10 @@ export const buildResetTransientUiState = (opts: {
     opts.setLoadingStartTime(null);
     opts.setIsThinking(false);
     opts.setStreamingActive(false);
+    // Dropping the queue alongside loading keeps the queue-auto-execute effect
+    // (idle && non-empty) from dispatching stale entries into the reset session.
+    // A plain interrupt does NOT go through this reset, so its queue survives.
+    opts.clearQueuedMessages?.();
     opts.isStreamingRef.current = false;
     opts.useBackendStreamingRenderRef.current = false;
     opts.streamingMessageIndexRef.current = -1;

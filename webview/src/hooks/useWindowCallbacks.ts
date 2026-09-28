@@ -120,6 +120,15 @@ export interface UseWindowCallbacksOptions {
   applyHistoryTitleLocal: (sessionId: string, newTitle: string) => void;
   handleHistoryArchiveResult: (payload: HistoryArchiveResultPayloadWire) => void;
 
+  /**
+   * Discards messages waiting in the send queue; wired into
+   * resetTransientUiState so every session-reset path (beginSessionTransition
+   * and the Java-driven clearMessages callback) drops them. Resolved through a
+   * ref by the caller because registration happens once on mount, before the
+   * message queue hook has been created.
+   */
+  clearQueuedMessages?: () => void;
+
   // AI title generation: update the displayed session title when backend generates one
   setCustomSessionTitle: React.Dispatch<React.SetStateAction<string | null>>;
 }

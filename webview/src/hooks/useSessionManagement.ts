@@ -33,6 +33,12 @@ interface UseSessionManagementOptions {
   clearToasts: () => void;
   addToast: (message: string, type?: ToastType) => void;
   t: TFunction;
+  /**
+   * Discards messages still waiting in the send queue. Queued messages belong
+   * to the session they were typed in, so they must not leak into the next
+   * session when the user switches away.
+   */
+  clearQueuedMessages?: () => void;
 }
 
 interface UseSessionManagementReturn {
@@ -89,6 +95,7 @@ export function useSessionManagement({
   clearToasts,
   addToast,
   t,
+  clearQueuedMessages,
 }: UseSessionManagementOptions): UseSessionManagementReturn {
   const [showNewSessionConfirm, setShowNewSessionConfirm] = useState(false);
   const [showInterruptConfirm, setShowInterruptConfirm] = useState(false);
@@ -130,6 +137,14 @@ export function useSessionManagement({
       setLoadingState(false);
       setIsThinking(false);
       setStreamingActive(false);
+      // Queued messages were typed against the outgoing session — dropping them
+      // here keeps them from firing into the freshly opened one. The reset via
+      // window.__resetTransientUiState above already clears the queue too (it
+      // also covers the Java-driven clearMessages path); this explicit call only
+      // guards the fallback branch where that global isn't registered yet.
+      // A plain interrupt (no transition) intentionally keeps the queue so the
+      // pending messages still get sent once the turn ends.
+      clearQueuedMessages?.();
     }
     setMessages([]);
     setCurrentSessionId(nextSessionId);
