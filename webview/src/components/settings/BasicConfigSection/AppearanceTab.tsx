@@ -15,6 +15,7 @@ import {
 } from '../../Icons';
 import { useState, useRef, useEffect } from 'react';
 import styles from './style.module.less';
+import ListboxSelect from '../shared/ListboxSelect';
 import { useTranslation } from 'react-i18next';
 import type { DiffThemeMode } from '../../../utils/diffTheme';
 import type { Theme } from '../../../utils/appearanceColors';
@@ -511,8 +512,12 @@ const AppearanceTab = ({
 
   const languageOptions = LANGUAGE_OPTIONS;
 
-  const handleLanguageChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const language = event.target.value;
+  const fontSizeLevelOptions = [1, 2, 3, 4, 5, 6].map((level) => ({
+    value: String(level),
+    label: t(`settings.basic.fontSize.level${level}`),
+  }));
+
+  const handleLanguageChange = (language: string) => {
     // Optimistic UI update. Java owns the persisted config and pushes the
     // authoritative state back via applyIdeaLanguageConfig, which is the
     // single writer for localStorage language keys.
@@ -527,8 +532,7 @@ const AppearanceTab = ({
     sendAction(UPSTREAM.SET_USER_LANGUAGE, JSON.stringify({ language }));
   };
 
-  const handleUiFontSelectionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const nextSelection = event.target.value;
+  const handleUiFontSelectionChange = (nextSelection: string) => {
     setSelectedUiFontOption(nextSelection);
 
     if (nextSelection === 'customFile') {
@@ -1020,17 +1024,15 @@ const AppearanceTab = ({
           <GlobeIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.language.label')}</span>
         </div>
-        <select
-          className={styles.languageSelect}
+        <ListboxSelect
           value={languageSelection}
+          options={languageOptions.map((option) => ({
+            value: option.value,
+            label: t(option.label),
+          }))}
           onChange={handleLanguageChange}
-        >
-          {languageOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {t(option.label)}
-            </option>
-          ))}
-        </select>
+          ariaLabel={t('settings.basic.language.label')}
+        />
       </div>
 
       {/* Font size selector */}
@@ -1039,18 +1041,12 @@ const AppearanceTab = ({
           <TypeIcon size={16} />
           <span className={styles.fieldLabel}>{t('settings.basic.fontSize.label')}</span>
         </div>
-        <select
-          className={styles.fontSizeSelect}
-          value={fontSizeLevel}
-          onChange={(e) => onFontSizeLevelChange(Number(e.target.value))}
-        >
-          <option value={1}>{t('settings.basic.fontSize.level1')}</option>
-          <option value={2}>{t('settings.basic.fontSize.level2')}</option>
-          <option value={3}>{t('settings.basic.fontSize.level3')}</option>
-          <option value={4}>{t('settings.basic.fontSize.level4')}</option>
-          <option value={5}>{t('settings.basic.fontSize.level5')}</option>
-          <option value={6}>{t('settings.basic.fontSize.level6')}</option>
-        </select>
+        <ListboxSelect
+          value={String(fontSizeLevel)}
+          options={fontSizeLevelOptions}
+          onChange={(value) => onFontSizeLevelChange(Number(value))}
+          ariaLabel={t('settings.basic.fontSize.label')}
+        />
       </div>
 
       {/* UI font selector */}
@@ -1061,22 +1057,24 @@ const AppearanceTab = ({
             {t('settings.basic.editorFont.label')}
           </label>
         </div>
-        <select
+        <ListboxSelect
           id={UI_FONT_SELECT_ID}
-          aria-label={t('settings.basic.editorFont.label')}
-          className={styles.languageSelect}
           value={selectedUiFontOption}
+          options={[
+            {
+              value: 'followEditor',
+              label: t('settings.basic.editorFont.followOption', { font: uiFontConfig?.fontFamily || '-' }),
+            },
+            {
+              value: 'customFile',
+              label: customFontFileName
+                ? `${t('settings.basic.editorFont.customOption')} / ${customFontFileName}`
+                : t('settings.basic.editorFont.customOption'),
+            },
+          ]}
           onChange={handleUiFontSelectionChange}
-        >
-          <option value="followEditor">
-            {t('settings.basic.editorFont.followOption', { font: uiFontConfig?.fontFamily || '-' })}
-          </option>
-          <option value="customFile">
-            {customFontFileName
-              ? `${t('settings.basic.editorFont.customOption')} / ${customFontFileName}`
-              : t('settings.basic.editorFont.customOption')}
-          </option>
-        </select>
+          ariaLabel={t('settings.basic.editorFont.label')}
+        />
 
         {isCustomUiFontSelected && (
           <div className={styles.nodePathSection} style={NODE_PATH_SECTION_STYLE}>
@@ -1130,13 +1128,24 @@ const AppearanceTab = ({
             {t('settings.basic.codeFont.label')}
           </label>
         </div>
-        <select
+        <ListboxSelect
           id={CODE_FONT_SELECT_ID}
-          aria-label={t('settings.basic.codeFont.label')}
-          className={styles.languageSelect}
           value={selectedCodeFontOption}
-          onChange={(event) => {
-            const nextSelection = event.target.value;
+          options={[
+            {
+              value: 'followEditor',
+              label: t('settings.basic.codeFont.followOption', {
+                font: editorFontConfig?.fontFamily || '-',
+              }),
+            },
+            {
+              value: 'customFile',
+              label: customCodeFontFileName
+                ? `${t('settings.basic.codeFont.customOption')} / ${customCodeFontFileName}`
+                : t('settings.basic.codeFont.customOption'),
+            },
+          ]}
+          onChange={(nextSelection) => {
             setSelectedCodeFontOption(nextSelection);
 
             if (nextSelection === 'customFile' && hasSavedCustomCodeFont) {
@@ -1148,18 +1157,8 @@ const AppearanceTab = ({
               onCodeFontSelectionChange(nextSelection);
             }
           }}
-        >
-          <option value="followEditor">
-            {t('settings.basic.codeFont.followOption', {
-              font: editorFontConfig?.fontFamily || '-',
-            })}
-          </option>
-          <option value="customFile">
-            {customCodeFontFileName
-              ? `${t('settings.basic.codeFont.customOption')} / ${customCodeFontFileName}`
-              : t('settings.basic.codeFont.customOption')}
-          </option>
-        </select>
+          ariaLabel={t('settings.basic.codeFont.label')}
+        />
 
         {isCustomCodeFontSelected && (
           <div className={styles.nodePathSection} style={NODE_PATH_SECTION_STYLE}>
@@ -1212,17 +1211,15 @@ const AppearanceTab = ({
           <span className={styles.fieldLabel}>{t('settings.basic.diffTheme.label')}</span>
         </div>
 
-        <select
-          className={styles.languageSelect}
+        <ListboxSelect
           value={diffTheme}
-          onChange={(e) => onDiffThemeChange(e.target.value as DiffThemeMode)}
-        >
-          {diffThemeOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label} — {option.desc}
-            </option>
-          ))}
-        </select>
+          options={diffThemeOptions.map((option) => ({
+            value: option.value,
+            label: `${option.label} — ${option.desc}`,
+          }))}
+          onChange={(value) => onDiffThemeChange(value as DiffThemeMode)}
+          ariaLabel={t('settings.basic.diffTheme.label')}
+        />
       </div>
 
       {/* Chat background color */}
