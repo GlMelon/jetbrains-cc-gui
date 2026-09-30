@@ -42,6 +42,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Claude CLI 会话：每个 Tab 独立实例，使用 one-shot 模式（每轮消息启动独立进程）。
@@ -685,12 +686,14 @@ public class ClaudeCliSession implements CliSession {
                             .getName());
             AtomicBoolean interruptHandled = new AtomicBoolean(false);
             Process runningProcess = process;
+            AtomicLong lastOutputNanos = new AtomicLong(System.nanoTime());
             CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(
                     runningProcess,
                     () -> readOutput(runningProcess, callback, diagnostic, sendStartNanos,
-                            completedWithStructuredError, interruptHandled)
+                            completedWithStructuredError, interruptHandled, lastOutputNanos)
             );
-            CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
+            CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.awaitIdleAware(
+                    process, outputDrain, lastOutputNanos, CliConstants.CLI_IDLE_TIMEOUT_MS);
             recordLifecycle(LifecycleEventType.STDOUT_EOF, process, request, processGeneration,
                     "claude CLI stdout drained");
             int exitCode = outcome.exitCode();
@@ -897,7 +900,8 @@ public class ClaudeCliSession implements CliSession {
     }
 
     private void readOutput(Process process, CliSessionCallback callback, StringBuilder diagnostic, long sendStartNanos,
-                             AtomicBoolean completedWithStructuredError, AtomicBoolean interruptHandled) throws Exception {
+                             AtomicBoolean completedWithStructuredError, AtomicBoolean interruptHandled,
+                             AtomicLong lastOutputNanos) throws Exception {
         ClaudeCliStreamParser parser = new ClaudeCliStreamParser(gson);
         parser.resetState();
         StringBuilder assistantContent = new StringBuilder();
@@ -934,6 +938,7 @@ public class ClaudeCliSession implements CliSession {
                      new CliOutputLimits.BoundedLineReader(process.getInputStream())) {
             String line;
             while ((line = reader.readLine()) != null) {
+                lastOutputNanos.set(System.nanoTime());
                 if (reader.lastLineTruncated()) {
                     LOG.warn("[ClaudeCliSession][" + tabId + "] stdout line exceeded "
                             + CliOutputLimits.MAX_LINE_BYTES + " bytes; terminating process");

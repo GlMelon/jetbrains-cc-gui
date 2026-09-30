@@ -37,6 +37,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 一次性 CLI 会话模板基类(grok/kimi/pi/opencode 共用)。
@@ -343,6 +344,8 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
             if (userInterrupted.get()) {
                 currentHandle.interrupt();
             }
+            // 空闲时钟起点 = spawn 时刻;drain 循环每次读到输出即刷新(对齐上游 32a2ad50 语义)。
+            AtomicLong lastOutputNanos = new AtomicLong(System.nanoTime());
             CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(process, () -> {
                 try (InputStream rawIn = process.getInputStream()) {
                     CliOutputLimits.LineBuffer lineBuf = new CliOutputLimits.LineBuffer();
@@ -353,6 +356,9 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                     AtomicBoolean firstProtocolEventLogged = new AtomicBoolean(false);
                     AtomicBoolean firstContentEventLogged = new AtomicBoolean(false);
                     while ((n = rawIn.read(readBuf)) != -1) {
+                        if (n > 0) {
+                            lastOutputNanos.set(System.nanoTime());
+                        }
                         for (int i = 0; i < n; i++) {
                             byte b = readBuf[i];
                             if (b == '\n') {
@@ -387,7 +393,8 @@ public abstract class AbstractRunOnceCliSession implements CliSession {
                         "one-shot stdout EOF");
             });
 
-            CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
+            CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.awaitIdleAware(
+                    process, outputDrain, lastOutputNanos, CliConstants.CLI_IDLE_TIMEOUT_MS);
             int exitCode = outcome.exitCode();
             recordLifecycle(LifecycleEventType.EXIT, process, request, processGeneration,
                     "one-shot CLI exited: " + exitCode);

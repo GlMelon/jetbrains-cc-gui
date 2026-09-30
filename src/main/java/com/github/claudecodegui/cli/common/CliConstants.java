@@ -20,6 +20,12 @@ public final class CliConstants {
     public static final long PROCESS_WAIT_TIMEOUT_MS = 30_000L;
     /** 单轮 CLI 请求绝对超时。 */
     public static final long CLI_REQUEST_TIMEOUT_MS = 15 * 60 * 1000L;
+    /**
+     * one-shot CLI 空闲超时:连续无任何 stdout 输出超过该时长才判卡死并终止进程
+     * (有活动输出则永不超时;对齐上游 32a2ad50——取消总时长上限,只保留无输出挂死判定,
+     * 长重构/全量测试套件不再被中途腰斩)。
+     */
+    public static final long CLI_IDLE_TIMEOUT_MS = 10 * 60 * 1000L;
     /** 进程退出后等待 stdout drain 完成的最大时长。 */
     public static final long OUTPUT_DRAIN_TIMEOUT_MS = 5_000L;
 

@@ -321,6 +321,7 @@ public class CodexCliSession implements CliSession {
                 // 逐行读取原始字节，先尝试 UTF-8 解码，失败则回退到 Windows 中文编码。
                 // 这解决了 Node.js (UTF-8) 和 cmd.exe (GBK) 混合输出的编码问题。
                 Process runningProcess = process;
+                AtomicLong lastOutputNanos = new AtomicLong(System.nanoTime());
                 CompletableFuture<Void> outputDrain = CliProcessLifecycle.drainAsync(runningProcess, () -> {
                     try (InputStream rawIn = runningProcess.getInputStream()) {
                         CliOutputLimits.LineBuffer lineBuf = new CliOutputLimits.LineBuffer();
@@ -328,6 +329,9 @@ public class CodexCliSession implements CliSession {
                         int n;
                         boolean firstOutputLogged = false;
                         while ((n = rawIn.read(readBuf)) != -1) {
+                            if (n > 0) {
+                                lastOutputNanos.set(System.nanoTime());
+                            }
                             for (int i = 0; i < n; i++) {
                                 byte b = readBuf[i];
                                 if (b == '\n') {
@@ -355,7 +359,8 @@ public class CodexCliSession implements CliSession {
                     }
                 });
 
-                CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.await(process, outputDrain);
+                CliProcessLifecycle.Outcome outcome = CliProcessLifecycle.awaitIdleAware(
+                        process, outputDrain, lastOutputNanos, CliConstants.CLI_IDLE_TIMEOUT_MS);
                 recordLifecycle(LifecycleEventType.STDOUT_EOF, process, request, processGeneration,
                         "codex CLI stdout drained");
 

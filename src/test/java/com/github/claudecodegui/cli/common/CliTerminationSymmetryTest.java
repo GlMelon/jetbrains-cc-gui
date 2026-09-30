@@ -92,17 +92,24 @@ public class CliTerminationSymmetryTest {
 
     @Test
     public void eofAndNonZeroExitPathsAlwaysFinishCallbacks() throws IOException {
+        // one-shot 路径:空闲感知等待(对齐上游 32a2ad50,绝对超时退役;契约详见
+        // CliIdleTimeoutSymmetryTest)。ChannelCliSession 走持久连接,保留绝对超时。
         for (String sourcePath : List.of(
                 "claude/ClaudeCliSession.java",
                 "codex/CodexCliSession.java",
-                "common/AbstractRunOnceCliSession.java",
-                "common/ChannelCliSession.java")) {
+                "common/AbstractRunOnceCliSession.java")) {
             String source = readCliSource(sourcePath);
             assertContains(sourcePath, source,
-                    "CliProcessLifecycle.await(process, outputDrain)",
+                    "CliProcessLifecycle.awaitIdleAware(",
                     "callback.onError(err)",
                     "callback.onComplete(false");
         }
+
+        String channel = readCliSource("common/ChannelCliSession.java");
+        assertContains("common/ChannelCliSession.java", channel,
+                "CliProcessLifecycle.await(process, outputDrain)",
+                "callback.onError(err)",
+                "callback.onComplete(false");
 
         assertContains("Kimi ACP stdout", readCliSource("kimi/acp/KimiAcpConnection.java"),
                 "while ((line = reader.readLine()) != null)", "rejectAllPending(\"stdout closed\")");
