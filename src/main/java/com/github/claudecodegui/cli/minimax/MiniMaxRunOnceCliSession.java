@@ -69,10 +69,14 @@ public class MiniMaxRunOnceCliSession extends AbstractRunOnceCliSession {
         return CliToolId.MINIMAX.getAltBinaryName();
     }
 
-    /** exec.result 结果行后 mcode 仍空转——命中即由基类确定性终止进程树。 */
+    /**
+     * 结果行后 mcode 仍空转——命中即由基类确定性终止进程树。
+     * 0.2.x 顶层 exec.result;0.4.x exec.completed 内嵌 exec.result,两标记均判(对称上游 shouldTerminate)。
+     */
     @Override
     protected boolean isCompletionMarkerLine(String line) {
-        return line != null && line.contains(CliConstants.MINIMAX_COMPLETION_MARKER);
+        return line != null && (line.contains(CliConstants.MINIMAX_COMPLETION_MARKER)
+                || line.contains(CliConstants.MINIMAX_EXEC_COMPLETED_MARKER));
     }
 
     /** NDJSON 行分流(对称 Pi/OpenCode):JSON 行交解析器,噪声进 diagnostic。 */

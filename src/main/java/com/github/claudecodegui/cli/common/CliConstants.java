@@ -473,6 +473,8 @@ public final class CliConstants {
     public static final String MINIMAX_ARG_CWD = "--cwd";
     /** mcode stream-json 的完成标记行子串(结果行后 CLI 仍空转,据此确定性终止)。 */
     public static final String MINIMAX_COMPLETION_MARKER = "\"type\":\"exec.result\"";
+    /** mcode >= 0.4.x 的终态信封行(内嵌 exec.result),与 MINIMAX_COMPLETION_MARKER 等价终止。 */
+    public static final String MINIMAX_EXEC_COMPLETED_MARKER = "\"type\":\"exec.completed\"";
 
     // ── Sandbox 模式值 ─────────────────────────────────────────────────────────
 
