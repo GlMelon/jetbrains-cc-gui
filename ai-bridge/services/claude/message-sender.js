@@ -32,7 +32,6 @@ import { buildIDEContextPrompt } from '../system-prompts.js';
 import { buildQuickFixPrompt } from '../quickfix-prompts.js';
 import { extractResultError } from './message-utils.js';
 import { createPreToolUseHook } from './permission-mode.js';
-import { loadMcpServersConfigAsRecord } from './mcp-status/config-loader.js';
 import { getClaudeCliPathOverride } from '../../utils/claude-cli-path.js';
 import { killChildTree } from '../../utils/kill-tree.js';
 
@@ -119,6 +118,14 @@ export function buildCliArgs({ message, sessionId, model, reasoningEffort, permi
   if (maxTurns && maxTurns > 0) {
     args.push('--max-turns', String(maxTurns));
   }
+
+  // One-shot text tasks (commit message generation etc.) never run tools, and
+  // booting the user's configured MCP servers happens before the model can
+  // stream anything (~12s on a typical config vs ~0.5s suppressed, mirrored
+  // from the upstream strictMcpConfig commit fix). With no --mcp-config
+  // passed, this loads zero MCP servers. Interactive sessions do NOT go
+  // through this file (Java ClaudeCliSession owns them and wires the gateway).
+  args.push('--strict-mcp-config');
 
   return args;
 }
@@ -216,7 +223,6 @@ function getRetryDelayMs(attempt) {
  * @param {string} [params.reasoningEffort] 'low' | 'medium' | 'high'
  * @param {boolean} [params.streaming]   Enable streaming deltas
  * @param {boolean} [params.disableThinking] Disable extended thinking (MAX_THINKING_TOKENS=0)
- * @param {any} [params.mcpServers]      MCP servers config
  * @param {string} [params.systemPromptAppend] Extra system prompt
  * @returns {Promise<void>}
  */
@@ -229,7 +235,6 @@ async function spawnCliAndStream({
   reasoningEffort = '',
   streaming = false,
   disableThinking = false,
-  mcpServers = null,
   systemPromptAppend = '',
 }) {
   let streamStarted = false;
@@ -517,12 +522,6 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
       systemPromptAppend = buildIDEContextPrompt(openedFiles, agentPrompt ?? undefined) || '';
     }
 
-    // Load MCP servers config
-    let mcpServers = null;
-    try {
-      mcpServers = await loadMcpServersConfigAsRecord(workingDirectory);
-    } catch (_) { /* ignore */ }
-
     await spawnCliAndStream({
       message,
       sessionId: resumeSessionId || '',
@@ -532,7 +531,6 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
       reasoningEffort: normalizedReasoningEffort || '',
       streaming: streamingEnabled,
       disableThinking,
-      mcpServers,
       systemPromptAppend,
     });
   } catch (error) {
@@ -593,7 +591,6 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
       model: resolvedModel || model || '',
       reasoningEffort: normalizedReasoningEffort || '',
       streaming: settings?.streamingEnabled ?? false,
-      mcpServers: null,
       systemPromptAppend: '',
     });
   } catch (error) {

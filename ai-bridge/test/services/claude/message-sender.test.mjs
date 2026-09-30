@@ -44,3 +44,12 @@ test('buildCliArgs omits --effort when reasoningEffort is empty', () => {
   assert.equal(buildCliArgs({ message: 'hi' }).includes('--effort'), false);
   assert.equal(buildCliArgs({ message: 'hi', reasoningEffort: '' }).includes('--effort'), false);
 });
+
+test('buildCliArgs always emits --strict-mcp-config (MCP bootstrap suppression)', () => {
+  // One-shot text tasks (commit message generation etc.) never run tools, and
+  // booting user MCP servers delayed the first token ~12s vs ~0.5s suppressed.
+  // With no --mcp-config passed, strict mode loads zero MCP servers.
+  const args = buildCliArgs({ message: 'hi' });
+  assert.equal(args.includes('--strict-mcp-config'), true);
+  assert.equal(args.includes('--mcp-config'), false);
+});
