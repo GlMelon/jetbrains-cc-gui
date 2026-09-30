@@ -999,6 +999,31 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Failed to copy",
       "tools": {
+        "reportFindings": {
+        "title": "Hallazgos de la revisión",
+        "findingsCount_one": "{{count}} hallazgo",
+        "findingsCount_other": "{{count}} hallazgos",
+        "confirmedCount_one": "{{count}} confirmado",
+        "confirmedCount_other": "{{count}} confirmados",
+        "plausibleCount_one": "{{count}} por revisar",
+        "plausibleCount_other": "{{count}} por revisar",
+        "confirmed": "Confirmado",
+        "plausible": "Por revisar",
+        "fixed": "Corregido",
+        "skipped": "Omitido",
+        "noChangeNeeded": "Sin cambios necesarios",
+        "empty": "Sin hallazgos",
+        "summaryLabel": "Resumen de la revisión",
+        "summary": "Resumen",
+        "failureScenario": "Escenario de fallo",
+        "reviewLevel": "Nivel de revisión: {{level}}",
+        "openFile": "Abrir {{filePath}}",
+        "expandFinding": "Expandir hallazgo",
+        "collapseFinding": "Contraer hallazgo",
+        "expandReport": "Expandir informe de hallazgos",
+        "collapseReport": "Contraer informe de hallazgos",
+        "untitled": "Hallazgo sin título"
+        },
         "minimax": {
           "name": "MiniMax Code",
           "description": "Agente de código en terminal de MiniMax. Requiere Node.js 22.19+ / 24+ (no 23); comandos: mcode (minimax)"

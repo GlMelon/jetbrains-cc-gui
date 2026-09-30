@@ -1004,6 +1004,31 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Failed to copy",
       "tools": {
+        "reportFindings": {
+        "title": "レビュー指摘",
+        "findingsCount_one": "{{count}} 件の指摘",
+        "findingsCount_other": "{{count}} 件の指摘",
+        "confirmedCount_one": "確認済み {{count}} 件",
+        "confirmedCount_other": "確認済み {{count}} 件",
+        "plausibleCount_one": "要確認 {{count}} 件",
+        "plausibleCount_other": "要確認 {{count}} 件",
+        "confirmed": "確認済み",
+        "plausible": "要確認",
+        "fixed": "修正済み",
+        "skipped": "スキップ",
+        "noChangeNeeded": "修正不要",
+        "empty": "指摘はありません",
+        "summaryLabel": "レビュー概要",
+        "summary": "概要",
+        "failureScenario": "発生シナリオ",
+        "reviewLevel": "レビューレベル: {{level}}",
+        "openFile": "{{filePath}} を開く",
+        "expandFinding": "指摘の詳細を展開",
+        "collapseFinding": "指摘の詳細を折りたたむ",
+        "expandReport": "レビュー指摘を展開",
+        "collapseReport": "レビュー指摘を折りたたむ",
+        "untitled": "無題の指摘"
+        },
         "minimax": {
           "name": "MiniMax Code",
           "description": "MiniMax ターミナルコーディングエージェント。Node.js 22.19+ / 24+（23 は不可）が必要。コマンド: mcode (minimax)"

@@ -27,8 +27,14 @@ vi.mock('../toolBlocks', () => ({
     return <div data-testid="generic-tool" />;
   },
   McpToolBlock: () => null,
+  ReportFindingsToolBlock: ({ data }: { data: { findings: unknown[] } }) => (
+    <div data-testid="report-findings-block">{data.findings.length}</div>
+  ),
   SkillBlock: () => null,
   TaskExecutionBlock: () => null,
+  parseReportFindingsInput: (input?: { findings?: unknown }) => (
+    Array.isArray(input?.findings) ? { findings: input.findings } : null
+  ),
 }));
 
 const t = ((key: string) => key) as unknown as React.ComponentProps<
@@ -103,5 +109,30 @@ describe('ContentBlockRenderer tool lifecycle', () => {
     );
 
     expect(genericToolProps.toolStatus).toBe(MESSAGE_BLOCK_TOOL_STATUS.UNPAIRED);
+  });
+
+  it('routes a valid ReportFindings tool call to its structured renderer', () => {
+    render(
+      <ContentBlockRenderer
+        block={{
+          type: 'tool_use',
+          name: 'ReportFindings',
+          input: { findings: [{ summary: 'A structured finding' }] },
+        }}
+        messageIndex={0}
+        messageType="assistant"
+        isStreaming={false}
+        isThinkingExpanded={false}
+        isThinking={false}
+        isLastMessage={true}
+        isLastBlock={true}
+        t={t}
+        onToggleThinking={() => {}}
+        findToolResult={() => null}
+      />,
+    );
+
+    expect(document.querySelector('[data-testid="report-findings-block"]')?.textContent).toBe('1');
+    expect(document.querySelector('[data-testid="content-block-tool_use"]')).toBeNull();
   });
 });

@@ -970,6 +970,31 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Failed to copy",
       "tools": {
+        "reportFindings": {
+        "title": "審查發現",
+        "findingsCount_one": "{{count}} 項發現",
+        "findingsCount_other": "{{count}} 項發現",
+        "confirmedCount_one": "{{count}} 項已確認",
+        "confirmedCount_other": "{{count}} 項已確認",
+        "plausibleCount_one": "{{count}} 項待複核",
+        "plausibleCount_other": "{{count}} 項待複核",
+        "confirmed": "已確認",
+        "plausible": "待複核",
+        "fixed": "已修復",
+        "skipped": "已略過",
+        "noChangeNeeded": "無需修改",
+        "empty": "未發現問題",
+        "summaryLabel": "審查摘要",
+        "summary": "問題摘要",
+        "failureScenario": "觸發情境",
+        "reviewLevel": "審查層級：{{level}}",
+        "openFile": "開啟 {{filePath}}",
+        "expandFinding": "展開問題詳情",
+        "collapseFinding": "收合問題詳情",
+        "expandReport": "展開審查發現",
+        "collapseReport": "收合審查發現",
+        "untitled": "未命名問題"
+        },
         "minimax": {
           "name": "MiniMax Code",
           "description": "MiniMax 終端編碼智能體。需 Node.js 22.19+ / 24+（不支援 23）；命令：mcode (minimax)"

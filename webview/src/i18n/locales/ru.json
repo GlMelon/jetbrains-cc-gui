@@ -1007,6 +1007,31 @@
       "copied": "Copied to clipboard",
       "copyFailed": "Failed to copy",
       "tools": {
+        "reportFindings": {
+        "title": "Результаты ревью",
+        "findingsCount_one": "{{count}} замечание",
+        "findingsCount_other": "{{count}} замечаний",
+        "confirmedCount_one": "{{count}} подтверждено",
+        "confirmedCount_other": "{{count}} подтверждено",
+        "plausibleCount_one": "{{count}} требует проверки",
+        "plausibleCount_other": "{{count}} требует проверки",
+        "confirmed": "Подтверждено",
+        "plausible": "Требует проверки",
+        "fixed": "Исправлено",
+        "skipped": "Пропущено",
+        "noChangeNeeded": "Изменения не требуются",
+        "empty": "Замечаний нет",
+        "summaryLabel": "Сводка ревью",
+        "summary": "Описание",
+        "failureScenario": "Сценарий сбоя",
+        "reviewLevel": "Уровень ревью: {{level}}",
+        "openFile": "Открыть {{filePath}}",
+        "expandFinding": "Развернуть замечание",
+        "collapseFinding": "Свернуть замечание",
+        "expandReport": "Развернуть результаты ревью",
+        "collapseReport": "Свернуть результаты ревью",
+        "untitled": "Замечание без названия"
+        },
         "minimax": {
           "name": "MiniMax Code",
           "description": "Терминальный кодинг-агент MiniMax. Требуется Node.js 22.19+ / 24+ (не 23); команды: mcode (minimax)"

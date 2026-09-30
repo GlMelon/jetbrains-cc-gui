@@ -1,6 +1,6 @@
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useMemo } from 'react';
 import type { TFunction } from 'i18next';
-import type { ClaudeContentBlock, ToolResultBlock, CompactSummaryMetadata } from '../../types';
+import type { ClaudeContentBlock, ToolInput, ToolResultBlock, CompactSummaryMetadata } from '../../types';
 
 import MarkdownBlock from '../MarkdownBlock';
 import CollapsibleTextBlock from '../CollapsibleTextBlock';
@@ -10,10 +10,12 @@ import {
   EditToolBlock,
   GenericToolBlock,
   McpToolBlock,
+  ReportFindingsToolBlock,
   SkillBlock,
   TaskExecutionBlock,
+  parseReportFindingsInput,
 } from '../toolBlocks';
-import { EDIT_TOOL_NAMES, BASH_TOOL_NAMES, TASK_MANAGE_TOOL_NAMES, AGENT_TOOL_NAMES, isToolName, isTransientInternalToolName, normalizeToolName, parseMcpToolName } from '../../utils/toolConstants';
+import { EDIT_TOOL_NAMES, BASH_TOOL_NAMES, TASK_MANAGE_TOOL_NAMES, AGENT_TOOL_NAMES, REPORT_FINDINGS_TOOL_NAMES, isToolName, isTransientInternalToolName, normalizeToolName, parseMcpToolName } from '../../utils/toolConstants';
 import { TASK_STATUS_COLORS } from '../../utils/messageUtils';
 import { codiconToIcon } from '../Icons';
 
@@ -317,6 +319,12 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
   onToggleThinking: (blockIndex: number) => void;
   findToolResult: (toolId: string | undefined, messageIndex: number) => ToolResultBlock | null | undefined;
 }): React.ReactElement | null {
+  // 结构化代码审查报告的 payload 解析。Hook 必须无条件置顶(组件体内含大量
+  // 按 block.type 提前 return 的路由分支);每份 input 快照只解析一次,
+  // 避免流式重渲染反复重建 findings 击穿 ReportFindingsToolBlock 的行级 memo。
+  const blockInput: ToolInput | undefined = block.type === 'tool_use' ? block.input : undefined;
+  const reportFindings = useMemo(() => parseReportFindingsInput(blockInput), [blockInput]);
+
   if (block.type === 'text') {
     return messageType === 'user' ? (
       <CollapsibleTextBlock content={block.text ?? ''} />
@@ -558,6 +566,17 @@ export const ContentBlockRenderer = memo(function ContentBlockRenderer({
 
     if (!isStreaming && isTransientInternalToolName(block.name)) {
       return null;
+    }
+
+    // 结构化代码审查报告:解析成功才走专属卡片,payload 异常回退 GenericToolBlock。
+    if (REPORT_FINDINGS_TOOL_NAMES.has(toolName) && reportFindings) {
+      return (
+        <ReportFindingsToolBlock
+          data={reportFindings}
+          result={findToolResult(block.id, messageIndex)}
+          toolId={block.id}
+        />
+      );
     }
 
     if (AGENT_TOOL_NAMES.has(toolName)) {
