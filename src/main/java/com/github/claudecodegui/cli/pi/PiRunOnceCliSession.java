@@ -26,14 +26,15 @@ import java.util.regex.Pattern;
  * Pi CLI 直 spawn 会话({@code --print --mode json} 方言)。
  * <p>
  * 命令布局(对齐 pi.dev docs usage/json 事件流模式):
- * {@code pi --print --mode json "<positional>" [--model <pattern>] [--session-id <id>] [--thinking <level>]}。
+ * {@code pi --print --mode json "<positional>" [--model <pattern>] [--session <id>] [--thinking <level>]}。
  * 与基类 opencode 默认布局的有意差异(总则六记录):
  * <ul>
  *   <li>消息为末尾位置参数(pi 无 --prompt flag),--print/--mode 等价于 grok/kimi 的输出格式声明;</li>
  *   <li>{@code reasoningEffort} 全量映射 {@code --thinking}(能力表 clamp 后 wire 映射,
  *       协议 {@code none} → wire {@code off}),由 showThinking 门控(对称 opencode --thinking 开关语义);</li>
- *   <li>续接用 --session-id(pi 官方 resume 是交互 -r,非交互续接只有显式 id;--continue/-c
- *       是「继续最近会话」,与插件按 tab 显式管理 sessionId 的模型不符);</li>
+ *   <li>续接用 --session <id>(精确或部分 UUID;新版 pi 以 "Unknown option" 拒绝旧
+ *       --session-id,而 --continue/-c 是「继续最近会话」——同项目多会话时会接错,
+ *       且与插件按 tab 显式管理 sessionId 的模型不符;对称上游 687f37bc);</li>
  *   <li>permissionMode 不映射:pi 无审批弹窗设计(工具直接执行);</li>
  *   <li>MCP gateway 注入不适用(pi 故意不内置 MCP,靠扩展,官方立场)。</li>
  * </ul>

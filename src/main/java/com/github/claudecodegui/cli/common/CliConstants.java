@@ -436,8 +436,8 @@ public final class CliConstants {
     public static final String PI_ARG_MODE = "--mode";
     /** --mode 值：json 事件流。 */
     public static final String PI_FORMAT_JSON = "json";
-    /** --session-id：使用指定会话文件或部分 UUID。 */
-    public static final String PI_ARG_SESSION_ID = "--session-id";
+    /** --session：恢复指定会话(精确或部分 UUID;新版 pi 以 "Unknown option" 拒绝旧 --session-id)。 */
+    public static final String PI_ARG_SESSION_ID = "--session";
     /** --thinking：思考级别（off/minimal/low/medium/high/xhigh/max），由 reasoningEffort 映射。 */
     public static final String PI_ARG_THINKING = "--thinking";
 
