@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useNativeEventCapture } from '../../../../src/components/ChatInputBox/hooks/useNativeEventCapture.js';
 
@@ -56,6 +57,40 @@ describe('useNativeEventCapture', () => {
       })
     );
 
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13 }));
+    expect(handleSubmit).not.toHaveBeenCalled();
+  });
+
+  it('accepts the highlighted command when the menu opens after the first frame', () => {
+    // Regression: the open menu must be read from the committed-render ref
+    // (latestRef), not a closure frozen on the first frame — in JCEF the
+    // native listener can observe a pre-menu frame and would otherwise send
+    // the partial draft instead of letting the menu take Enter.
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const handleSubmit = vi.fn();
+
+    const { rerender } = renderHook(
+      ({ fileOpen }: { fileOpen: boolean }) =>
+        useNativeEventCapture({
+          editableRef: { current: el },
+          isComposingRef: { current: false },
+          lastCompositionEndTimeRef: { current: Date.now() - 1000 },
+          sendShortcut: 'enter',
+          fileCompletion: { isOpen: fileOpen },
+          commandCompletion: { isOpen: false },
+          agentCompletion: { isOpen: false },
+          promptCompletion: { isOpen: false },
+          dollarCommandCompletion: { isOpen: false },
+          completionSelectedRef: { current: false },
+          submittedOnEnterRef: { current: false },
+          handleSubmit,
+          handleEnhancePrompt: vi.fn(),
+        }),
+      { initialProps: { fileOpen: false } },
+    );
+
+    rerender({ fileOpen: true });
     el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13 }));
     expect(handleSubmit).not.toHaveBeenCalled();
   });
