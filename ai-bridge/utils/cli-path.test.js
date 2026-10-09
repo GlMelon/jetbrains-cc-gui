@@ -15,6 +15,8 @@ import {
   commonCliBinDirs,
   versionManagerBinDirs,
   whichViaLoginShell,
+  enrichPathWithBinDirs,
+  buildCliSpawnEnv,
 } from './cli-path.js';
 
 test('isWindowsCmdShim detects .cmd/.bat only on win32-style paths', () => {
@@ -346,4 +348,21 @@ test('whichViaLoginShell returns null for a missing binary', (t) => {
     return;
   }
   assert.equal(whichViaLoginShell('definitely-not-a-real-cli-9f8e7d', '/bin/sh'), null);
+});
+
+test('enrichPathWithBinDirs prepends binDirs as an ordered block (no reversal)', () => {
+  const sep = process.platform === 'win32' ? ';' : ':';
+  const env = { PATH: '/base/bin' };
+  enrichPathWithBinDirs(env, ['/newest/bin', '/older/bin', '/oldest/bin']);
+  const parts = env.PATH.split(sep);
+  // Priority order survives: newest first, oldest last, base PATH appended.
+  assert.deepEqual(parts, ['/newest/bin', '/older/bin', '/oldest/bin', '/base/bin']);
+});
+
+test('enrichPathWithBinDirs skips duplicates already on PATH', () => {
+  const sep = process.platform === 'win32' ? ';' : ':';
+  const env = { PATH: ['', '/a/bin'].join(sep) };
+  enrichPathWithBinDirs(env, ['/a/bin', '/b/bin', '/b/bin']);
+  const parts = env.PATH.split(sep).filter(Boolean);
+  assert.deepEqual(parts, ['/b/bin', '/a/bin']);
 });
