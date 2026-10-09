@@ -1887,8 +1887,12 @@
     "quoteSuccess": "已引用"
   },
   "contextMenu": {
-    "copy": "复制",
-    "quote": "引用"
+      "cut": "剪切",
+      "copy": "复制",
+      "paste": "粘贴",
+      "newline": "插入换行",
+      "quote": "引用",
+      "copyLink": "复制链接地址"
   },
   "mcp": {
     "title": "MCP 服务器",

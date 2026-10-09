@@ -1333,8 +1333,12 @@
     "quoteSuccess": "Cité !"
   },
   "contextMenu": {
-    "copy": "Copier",
-    "quote": "Citer"
+      "cut": "Couper",
+      "copy": "Copier",
+      "paste": "Coller",
+      "newline": "Insérer un saut de ligne",
+      "quote": "Citer",
+      "copyLink": "Copier l'adresse du lien"
   },
   "mcp": {
     "title": "Serveurs MCP",

@@ -1846,8 +1846,12 @@
     "quoteSuccess": "Quoted!"
   },
   "contextMenu": {
-    "copy": "Copy",
-    "quote": "Quote"
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "newline": "Insert Newline",
+      "quote": "Quote",
+      "copyLink": "Copy Link Address"
   },
   "mcp": {
     "title": "MCP Servers",
