@@ -9,8 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for {@link SkillFrontmatterParser}.
@@ -66,5 +68,42 @@ public class SkillFrontmatterParserTest {
         Path dir = Files.createTempDirectory("skill-empty");
         SkillFrontmatterParser.SkillMetadata metadata = SkillFrontmatterParser.parse(dir);
         assertNull(metadata);
+    }
+
+    /**
+     * Skill discovery re-parses the same files on every refresh, so the invalid-name
+     * warning must be emitted only on the first pass per file.
+     */
+    @Test
+    public void invalidNameWarnsOnlyOnTheFirstPassForEachFile() {
+        Path first = Path.of("/tmp/skills/alpha-warn-once/SKILL.md");
+        Path second = Path.of("/tmp/skills/beta-warn-once/SKILL.md");
+
+        assertTrue("first sighting must be reported", SkillFrontmatterParser.shouldReportInvalidName(first));
+        assertFalse("re-scanning the same file must stay quiet", SkillFrontmatterParser.shouldReportInvalidName(first));
+        assertTrue("a different file is its own warning", SkillFrontmatterParser.shouldReportInvalidName(second));
+        assertFalse(SkillFrontmatterParser.shouldReportInvalidName(second));
+    }
+
+    /**
+     * The warn-once guard only gates the log line - the parsed metadata must be
+     * identical on every pass, otherwise skill discovery would drift.
+     */
+    @Test
+    public void parseFallsBackToDirectoryNameAndStaysIdempotent() throws IOException {
+        Path skillDir = Files.createTempDirectory("skill-invalid-name").resolve("my-skill");
+        Files.createDirectories(skillDir);
+        Files.writeString(
+                skillDir.resolve("SKILL.md"),
+                "---\nname: Not A Valid Name\ndescription: does something\n---\n\nBody.\n",
+                StandardCharsets.UTF_8
+        );
+
+        SkillFrontmatterParser.SkillMetadata first = SkillFrontmatterParser.parse(skillDir);
+        SkillFrontmatterParser.SkillMetadata second = SkillFrontmatterParser.parse(skillDir);
+
+        assertEquals("my-skill", first.name());
+        assertEquals(first.name(), second.name());
+        assertEquals("does something", first.description());
     }
 }
