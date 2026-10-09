@@ -6,7 +6,7 @@
 
 import { existsSync, createReadStream, readFileSync, statSync } from 'fs';
 import { createInterface } from 'readline';
-import { getClaudeProjectSessionFilePath } from '../../utils/path-utils.js';
+import { getExistingClaudeProjectSessionFilePath } from '../../utils/path-utils.js';
 import { selectConversationChain } from './conversation-chain.js';
 import { extractTaskNotificationXml } from './task-notification-parser.js';
 
@@ -62,7 +62,7 @@ function parseJsonlContent(content) {
  */
 export function loadSessionHistory(sessionId, cwd) {
   try {
-    const sessionFile = getClaudeProjectSessionFilePath(sessionId, cwd);
+    const sessionFile = getExistingClaudeProjectSessionFilePath(sessionId, cwd);
 
     if (!existsSync(sessionFile)) {
       return [];
@@ -298,5 +298,5 @@ function resolveSessionFile(sessionId, cwd = null) {
   if (!sessionId || /[/\\]/.test(sessionId)) {
     throw new Error('Invalid session ID');
   }
-  return getClaudeProjectSessionFilePath(sessionId, cwd);
+  return getExistingClaudeProjectSessionFilePath(sessionId, cwd);
 }

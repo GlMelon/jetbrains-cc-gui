@@ -5,7 +5,10 @@
  */
 
 import { existsSync } from 'fs';
-import { getClaudeProjectSessionFilePath as resolveClaudeProjectSessionFilePath } from '../../utils/path-utils.js';
+import {
+  getClaudeProjectSessionFilePath as resolveClaudeProjectSessionFilePath,
+  getExistingClaudeProjectSessionFilePath,
+} from '../../utils/path-utils.js';
 import { loadClaudeSettings } from '../../config/api-config.js';
 
 // ========== Auto-retry configuration for transient API errors ==========
@@ -97,7 +100,7 @@ export function hasClaudeProjectSessionFile(sessionId, cwd) {
   try {
     if (!sessionId || typeof sessionId !== 'string') return false;
     if (sessionId.includes('/') || sessionId.includes('\\')) return false;
-    const sessionFile = getClaudeProjectSessionFilePath(sessionId, cwd);
+    const sessionFile = getExistingClaudeProjectSessionFilePath(sessionId, cwd);
     return existsSync(sessionFile);
   } catch {
     return false;

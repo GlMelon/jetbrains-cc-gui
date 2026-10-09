@@ -84,12 +84,16 @@ final class ClaudeHistoryProviderAdapter implements HistoryProviderAdapter {
             return null;
         }
         Path projectsDir = Paths.get(PlatformUtils.getHomeDirectory(), ".claude", "projects");
-        Path projectDir = projectsDir.resolve(PathUtils.sanitizePath(projectPath)).normalize();
-        Path sessionFile = projectDir.resolve(sessionId + ".jsonl").normalize();
-        if (!sessionFile.startsWith(projectDir) || !Files.isRegularFile(sessionFile)) {
-            return null;
+        // Follow symlinked project paths like the CLI: try the canonical key
+        // first, then the legacy raw key (issue #1789).
+        for (String candidate : PathUtils.getSanitizedPathCandidates(projectPath)) {
+            Path projectDir = projectsDir.resolve(candidate).normalize();
+            Path sessionFile = projectDir.resolve(sessionId + ".jsonl").normalize();
+            if (sessionFile.startsWith(projectDir) && Files.isRegularFile(sessionFile)) {
+                return sessionFile;
+            }
         }
-        return sessionFile;
+        return null;
     }
 
     @Override
@@ -102,47 +106,48 @@ final class ClaudeHistoryProviderAdapter implements HistoryProviderAdapter {
         String homeDir = PlatformUtils.getHomeDirectory();
         Path claudeDir = Paths.get(homeDir, ".claude");
         Path projectsDir = claudeDir.resolve("projects");
-        String sanitizedPath = PathUtils.sanitizePath(projectPath);
-        Path sessionDir = projectsDir.resolve(sanitizedPath);
-
-        if (!Files.exists(sessionDir)) {
-            LOG.error("[HistoryHandler] Claude project directory not found: " + sessionDir);
+        List<Path> sessionDirs = PathUtils.getSanitizedPathCandidates(projectPath).stream()
+                .map(projectsDir::resolve)
+                .filter(Files::isDirectory)
+                .collect(Collectors.toList());
+        if (sessionDirs.isEmpty()) {
+            LOG.error("[HistoryHandler] Claude project directory not found for: " + projectPath);
             return HistoryDeleteResult.none();
         }
 
         boolean mainDeleted = false;
         int agentFilesDeleted = 0;
 
-        Path mainSessionFile = sessionDir.resolve(sessionId + ".jsonl").normalize();
-        if (!mainSessionFile.startsWith(sessionDir.normalize())) {
-            LOG.warn("[HistoryHandler] Refused out-of-bounds path: " + mainSessionFile);
-            return HistoryDeleteResult.none();
-        }
-        if (Files.exists(mainSessionFile)) {
-            Files.delete(mainSessionFile);
-            LOG.info("[HistoryHandler] Deleted main session file: " + mainSessionFile.getFileName());
-            mainDeleted = true;
-        } else {
-            LOG.warn("[HistoryHandler] Main session file not found: " + mainSessionFile.getFileName());
-        }
+        for (Path sessionDir : sessionDirs) {
+            Path mainSessionFile = sessionDir.resolve(sessionId + ".jsonl").normalize();
+            if (!mainSessionFile.startsWith(sessionDir.normalize())) {
+                LOG.warn("[HistoryHandler] Refused out-of-bounds path: " + mainSessionFile);
+                continue;
+            }
+            if (Files.exists(mainSessionFile)) {
+                Files.delete(mainSessionFile);
+                LOG.info("[HistoryHandler] Deleted main session file: " + mainSessionFile.getFileName());
+                mainDeleted = true;
+            }
 
-        try (Stream<Path> stream = Files.list(sessionDir)) {
-            List<Path> agentFiles = stream
-                    .filter(path -> {
-                        String filename = path.getFileName().toString();
-                        return filename.startsWith("agent-") && filename.endsWith(".jsonl")
-                                && isAgentFileRelatedToSession(path, sessionId);
-                    })
-                    .collect(Collectors.toList());
+            try (Stream<Path> stream = Files.list(sessionDir)) {
+                List<Path> agentFiles = stream
+                        .filter(path -> {
+                            String filename = path.getFileName().toString();
+                            return filename.startsWith("agent-") && filename.endsWith(".jsonl")
+                                    && isAgentFileRelatedToSession(path, sessionId);
+                        })
+                        .collect(Collectors.toList());
 
-            for (Path agentFile : agentFiles) {
-                try {
-                    Files.delete(agentFile);
-                    LOG.info("[HistoryHandler] Deleted related agent file: " + agentFile.getFileName());
-                    agentFilesDeleted++;
-                } catch (Exception e) {
-                    LOG.error("[HistoryHandler] Failed to delete agent file: "
-                            + agentFile.getFileName() + " - " + e.getMessage(), e);
+                for (Path agentFile : agentFiles) {
+                    try {
+                        Files.delete(agentFile);
+                        LOG.info("[HistoryHandler] Deleted related agent file: " + agentFile.getFileName());
+                        agentFilesDeleted++;
+                    } catch (Exception e) {
+                        LOG.error("[HistoryHandler] Failed to delete agent file: "
+                                + agentFile.getFileName() + " - " + e.getMessage(), e);
+                    }
                 }
             }
         }
