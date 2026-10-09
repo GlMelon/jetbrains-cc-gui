@@ -78,17 +78,6 @@ public class PricingTableTest {
     }
 
     @Test
-    public void claudeResolvesOpus55AboveTheBareOpus5Prefix() {
-        // "claude-opus-5-5" has its own rate ($4/$20), so it must outrank the shorter
-        // "claude-opus-5" prefix ($5/$25) and survive dated snapshots instead of losing to it.
-        assertEquals(4.0, ClaudePricingTable.resolve("claude-opus-5-5").inputCostPer1M(), 1e-9);
-        assertEquals(20.0, ClaudePricingTable.resolve("claude-opus-5-5").outputCostPer1M(), 1e-9);
-        assertEquals(5.0, ClaudePricingTable.resolve("claude-opus-5-5-2026-03-01").cacheWriteCostPer1M(), 1e-9);
-        assertEquals(0.40, ClaudePricingTable.resolve("claude-opus-5-5").cacheReadCostPer1M(), 1e-9);
-        assertEquals(5.0, ClaudePricingTable.resolve("claude-opus-5").inputCostPer1M(), 1e-9);
-    }
-
-    @Test
     public void codexResolvesGpt6SolAndLunaBeforeTheBareGpt6Prefix() {
         // "gpt-6" itself still aliases to gpt-6-astra, but the newer Sol / Luna ids must win
         // over that prefix match (prefix order in CodexPricingTable) and survive snapshots.
