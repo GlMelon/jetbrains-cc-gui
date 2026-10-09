@@ -1787,7 +1787,9 @@
   },
   "models": {
     "searchPlaceholder": "Поиск моделей",
+    "clearSearch": "Очистить поиск",
     "noModelsFound": "Модели не найдены",
+    "noSearchMatches": "Нет моделей, соответствующих «{{query}}»",
     "hiddenModelCount": "+ {{count}} дополнительных моделей. Введите текст для поиска.",
     "pinned": "Закреплённые",
     "pin": "Закрепить",

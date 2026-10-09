@@ -438,6 +438,9 @@
 }
 
 .selector-search-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 4px 8px;
 }
 
@@ -452,7 +455,7 @@
 
 .selector-search-input {
   box-sizing: border-box;
-  width: 100%;
+  flex: 1;
   min-width: 180px;
   padding: 5px 8px;
   border: 1px solid var(--dropdown-border);
@@ -466,6 +469,42 @@
 
 .selector-search-input:focus {
   border-color: var(--accent-color);
+}
+
+/* Clear (×) button next to the model search input */
+.selector-search-clear {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.selector-search-clear:hover {
+  background: var(--dropdown-hover);
+  color: var(--text-primary);
+}
+
+.selector-search-clear .codicon {
+  font-size: 11px;
+}
+
+/* Row navigated to with ↑↓ from the model search input */
+.selector-option.keyboard-highlighted {
+  background: var(--dropdown-hover);
+  outline: 1px solid var(--accent-color);
+  outline-offset: -1px;
+}
+
+.selector-option.keyboard-highlighted.selected {
+  background: var(--dropdown-selected);
 }
 
 .selector-option-status {

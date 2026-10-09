@@ -1909,7 +1909,9 @@
   },
   "models": {
     "searchPlaceholder": "Pesquisar modelos",
+    "clearSearch": "Limpar pesquisa",
     "noModelsFound": "Nenhum modelo encontrado",
+    "noSearchMatches": "Nenhum modelo corresponde a \"{{query}}\"",
     "hiddenModelCount": "+ {{count}} modelos adicionais. Digite para pesquisar.",
     "pinned": "Fixados",
     "pin": "Fixar",

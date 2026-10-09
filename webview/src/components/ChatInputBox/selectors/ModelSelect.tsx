@@ -15,9 +15,11 @@ import {
 import {
   buildModelDropdownSections,
   MAX_VISIBLE_MODEL_OPTIONS,
+  modelMatchesSearchQuery,
   PINNED_GROUP_ID,
   readPinnedModelIds,
   shouldShowModelSearch,
+  tokenizeSearchQuery,
   togglePinnedModelId,
 } from '../modelSelectUtils';
 
@@ -162,13 +164,13 @@ export const ModelSelect = ({
     return resolveModelDescription(model, t);
   };
 
-  const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
-  const filteredModels = normalizedSearchQuery
-    ? models.filter((model) => {
-        const label = getModelLabel(model, false);
-        const description = getModelDescription(model) ?? '';
-        return [model.id, label, description].some((text) => text.toLowerCase().includes(normalizedSearchQuery));
-      })
+  const searchTokens = useMemo(() => tokenizeSearchQuery(deferredSearchQuery), [deferredSearchQuery]);
+  const filteredModels = searchTokens.length > 0
+    ? models.filter((model) => modelMatchesSearchQuery(searchTokens, {
+        id: model.id,
+        label: getModelLabel(model, false),
+        description: getModelDescription(model),
+      }))
     : models;
 
   const { sections, hiddenCount: hiddenModelCount } = buildModelDropdownSections(filteredModels, pinnedIds, {
@@ -177,6 +179,50 @@ export const ModelSelect = ({
   const visibleModelCount = sections.reduce((n, s) => n + s.models.length, 0);
   const showSearch = shouldShowModelSearch(models.length, searchQuery);
   const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+
+  // Rows in rendered order (sections flattened) drive keyboard navigation.
+  const flatVisibleModelIds = useMemo(
+    () => sections.flatMap((section) => section.models.map((model) => model.id)),
+    [sections],
+  );
+  const searchActive = searchTokens.length > 0;
+  // Keyboard-navigated row while the search input is focused; -1 = none.
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+
+  // Typing restarts navigation; reopening the dropdown does too.
+  useEffect(() => {
+    setHighlightIndex(-1);
+  }, [deferredSearchQuery, isOpen]);
+
+  const moveHighlight = useCallback((delta: 1 | -1) => {
+    const count = flatVisibleModelIds.length;
+    if (count === 0) return;
+    setHighlightIndex((prev) => {
+      const current = prev >= 0 && prev < count ? prev : searchActive ? 0 : -1;
+      if (current < 0) return delta > 0 ? 0 : count - 1;
+      return (current + delta + count) % count;
+    });
+  }, [flatVisibleModelIds, searchActive]);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+
+  const activeHighlightIndex = highlightIndex >= 0 && highlightIndex < flatVisibleModelIds.length
+    ? highlightIndex
+    : -1;
+  // While searching, the first hit is pre-selected so Enter picks it directly.
+  const highlightedModelId = flatVisibleModelIds[
+    activeHighlightIndex >= 0 ? activeHighlightIndex : searchActive ? 0 : -1
+  ] ?? null;
+
+  // Keep the keyboard-highlighted row visible while navigating.
+  useEffect(() => {
+    if (!highlightedModelId) return;
+    dropdownRef.current
+      ?.querySelector('.selector-option.keyboard-highlighted')
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedModelId]);
 
   /**
    * Toggle dropdown
@@ -203,6 +249,45 @@ export const ModelSelect = ({
     setSearchQuery('');
     onClose?.();
   }, [inline, onChange, onClose]);
+
+  const resetSearchAndClose = useCallback(() => {
+    setIsOpen(false);
+    setSearchQuery('');
+  }, []);
+
+  /**
+   * Search-input keyboard navigation: ↑↓ move through the rendered rows,
+   * Enter picks the highlighted one, Esc clears the query first and closes
+   * the dropdown when the query is already empty. Inline dropdowns keep
+   * Escape-with-empty-query bubbling so the parent popover can close.
+   */
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape' && !searchQuery && inline) return;
+    e.stopPropagation();
+    // Don't hijack keys while an IME is composing (e.g. confirming pinyin
+    // candidates with Enter — keydown arrives as 'Process'/isComposing).
+    if (e.nativeEvent.isComposing || e.key === 'Process') return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveHighlight(e.key === 'ArrowDown' ? 1 : -1);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const model = highlightedModelId
+        ? models.find((candidate) => candidate.id === highlightedModelId)
+        : undefined;
+      if (model) {
+        handleSelect(model);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (searchQuery) {
+        clearSearch();
+      } else {
+        resetSearchAndClose();
+        onClose?.();
+      }
+    }
+  };
 
   const handleTogglePin = useCallback((e: React.MouseEvent, modelId: string) => {
     e.stopPropagation();
@@ -286,11 +371,28 @@ export const ModelSelect = ({
                 data-testid="model-search-input"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={handleSearchKeyDown}
                 placeholder={t('models.searchPlaceholder', { defaultValue: 'Search models' })}
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="selector-search-clear"
+                  data-testid="model-search-clear"
+                  title={t('models.clearSearch', { defaultValue: 'Clear search' })}
+                  aria-label={t('models.clearSearch', { defaultValue: 'Clear search' })}
+                  // Keep the caret/focus inside the input when clicking the button.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearSearch();
+                  }}
+                >
+                  <span className="codicon codicon-close" />
+                </button>
+              )}
             </div>
           )}
           <div className={inline ? 'model-selector-list model-selector-list--inline' : 'model-selector-list'} style={DROPDOWN_LIST_STYLE}>
@@ -329,10 +431,11 @@ export const ModelSelect = ({
                 ) : null}
                 {section.models.map((model) => {
                   const isPinned = pinnedSet.has(model.id);
+                  const isHighlighted = model.id === highlightedModelId;
                   return (
                     <div
                       key={model.identifier ?? model.id}
-                      className={`selector-option ${isSelectedModel(model) ? 'selected' : ''}`}
+                      className={`selector-option ${isSelectedModel(model) ? 'selected' : ''} ${isHighlighted ? 'keyboard-highlighted' : ''}`}
                       onClick={() => handleSelect(model)}
                       data-testid={`model-option-${model.id}`}
                     >
@@ -371,8 +474,10 @@ export const ModelSelect = ({
               </div>
             ))}
             {visibleModelCount === 0 && !loading && (
-              <div className="selector-option selector-option-status">
-                {t('models.noModelsFound', { defaultValue: 'No models found' })}
+              <div className="selector-option selector-option-status" data-testid="model-no-results">
+                {searchQuery
+                  ? t('models.noSearchMatches', { query: searchQuery, defaultValue: `No models match "${searchQuery}"` })
+                  : t('models.noModelsFound', { defaultValue: 'No models found' })}
               </div>
             )}
             {hiddenModelCount > 0 && (

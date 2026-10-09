@@ -1803,7 +1803,9 @@
   },
   "models": {
     "searchPlaceholder": "モデルを検索",
+    "clearSearch": "検索をクリア",
     "noModelsFound": "モデルが見つかりません",
+    "noSearchMatches": "「{{query}}」に一致するモデルはありません",
     "hiddenModelCount": "+ {{count}} 件のモデルがあります。入力して検索してください。",
     "pinned": "ピン留め",
     "pin": "ピン留め",
