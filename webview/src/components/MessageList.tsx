@@ -361,12 +361,14 @@ export const MessageList = memo(
     const shouldShowWaitingIndicator =
       waitingVisible && queueDisplayState === 'QUEUED' && !hasInlineAssistantActivity;
 
-    // Context menu for message list (copy only, when text selected)
+    // Context menu for message list (copy link address / copy selection)
     const ctxMenu = useContextMenu();
     const handleMessageContextMenu = useCallback(
       (e: React.MouseEvent) => {
-        const sel = window.getSelection();
-        if (sel && sel.toString().trim().length > 0) {
+        const target = e.target as HTMLElement | null;
+        const onLink = Boolean(target?.closest?.('a[href]'));
+        const hasSelection = (window.getSelection()?.toString() ?? '').trim().length > 0;
+        if (onLink || hasSelection) {
           ctxMenu.open(e);
         }
       },
@@ -643,10 +645,18 @@ export const MessageList = memo(
             y={ctxMenu.y}
             onClose={ctxMenu.close}
             items={[
-              {
-                label: t('contextMenu.copy', 'Copy'),
-                action: () => copySelection(ctxMenu.savedRange, ctxMenu.selectedText),
-              },
+              // Link action first (browser convention), and independent of any
+              // text selection so right-clicking a link alone still offers it.
+              ...(ctxMenu.linkHref ? [{
+                label: t('contextMenu.copyLink', 'Copy Link Address'),
+                action: () => copySelection(null, ctxMenu.linkHref ?? ''),
+              }] : []),
+              ...(ctxMenu.selectedText ? [
+                {
+                  label: t('contextMenu.copy', 'Copy'),
+                  action: () => copySelection(ctxMenu.savedRange, ctxMenu.selectedText),
+                },
+              ] : []),
             ]}
           />
         )}
