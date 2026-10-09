@@ -15,6 +15,10 @@ const ROOT_STYLE: React.CSSProperties = {
   alignItems: 'center',
 };
 
+// The centered entry animation repeats the inline `translateX(-50%)` above; the
+// default `.selector-dropdown` keyframes would drop it and jump the menu.
+const DROPDOWN_CLASS = 'selector-dropdown provider-dropdown selector-dropdown--centered';
+
 const DROPDOWN_STYLE: React.CSSProperties = {
   position: 'absolute',
   top: '100%',
@@ -175,7 +179,7 @@ export const BlinkingLogo = ({ provider, modelId, onProviderChange }: BlinkingLo
         {isOpen && (
           <motion.div
             ref={dropdownRef}
-            className="selector-dropdown provider-dropdown"
+            className={DROPDOWN_CLASS}
             style={DROPDOWN_STYLE}
             initial={{ opacity: 0, y: -8, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
