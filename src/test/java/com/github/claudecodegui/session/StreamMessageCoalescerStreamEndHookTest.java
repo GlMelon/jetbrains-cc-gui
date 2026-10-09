@@ -105,31 +105,67 @@ public class StreamMessageCoalescerStreamEndHookTest {
     }
 
     @Test
-    public void thresholdConversationKeepsTheFullSnapshot() {
-        List<ClaudeSession.Message> messages = messages(300);
-
-        StreamMessageCoalescer.MessageTransport transport =
-                StreamMessageCoalescer.selectMessageTransport(messages, null);
-
-        assertFalse(transport.tailUpdate());
-        assertEquals(0, transport.baseIndex());
-        assertEquals(messages, transport.messages());
-    }
-
-    @Test
     public void growingConversationWithStablePrefixUsesTail() {
-        List<ClaudeSession.Message> previous = messages(300);
+        List<ClaudeSession.Message> previous = messages(350);
         List<ClaudeSession.Message> growing = new ArrayList<>(previous);
-        for (int i = 300; i < 400; i++) {
+        for (int i = 350; i < 400; i++) {
             growing.add(new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "message-" + i));
         }
 
         StreamMessageCoalescer.MessageTransport transport =
                 StreamMessageCoalescer.selectMessageTransport(growing, previous);
 
+        // Divergence-based transport ships only the appended suffix, not a fixed tail.
         assertTrue(transport.tailUpdate());
-        assertEquals(220, transport.baseIndex());
-        assertEquals(180, transport.messages().size());
+        assertEquals(350, transport.baseIndex());
+        assertEquals(50, transport.messages().size());
+    }
+
+    @Test
+    public void shortConversationGrowthAlsoUsesTail() {
+        // The reported freeze: ~50 messages with a huge transcript re-pushed in
+        // full every 2s. Incremental delivery must not be gated on length.
+        List<ClaudeSession.Message> previous = messages(50);
+        List<ClaudeSession.Message> growing = new ArrayList<>(previous);
+        growing.add(new ClaudeSession.Message(ClaudeSession.Message.Type.USER, "message-50"));
+        growing.add(new ClaudeSession.Message(ClaudeSession.Message.Type.ASSISTANT, "message-51"));
+
+        StreamMessageCoalescer.MessageTransport transport =
+                StreamMessageCoalescer.selectMessageTransport(growing, previous);
+
+        assertTrue(transport.tailUpdate());
+        assertEquals(50, transport.baseIndex());
+        assertEquals(2, transport.messages().size());
+    }
+
+    @Test
+    public void contentChangeInLastMessageTailsOnlyThatMessage() {
+        // Streaming appends text to the last message; only it should ship.
+        List<ClaudeSession.Message> previous = messages(50);
+        List<ClaudeSession.Message> streaming = new ArrayList<>(previous);
+        ClaudeSession.Message last = previous.get(49);
+        ClaudeSession.Message longer = new ClaudeSession.Message(last.type, last.content + "…delta");
+        longer.timestamp = last.timestamp;
+        streaming.set(49, longer);
+
+        StreamMessageCoalescer.MessageTransport transport =
+                StreamMessageCoalescer.selectMessageTransport(streaming, previous);
+
+        assertTrue(transport.tailUpdate());
+        assertEquals(49, transport.baseIndex());
+        assertEquals(1, transport.messages().size());
+        assertEquals(last.content + "…delta", transport.messages().get(0).content);
+    }
+
+    @Test
+    public void identicalSnapshotsFallBackToFull() {
+        List<ClaudeSession.Message> previous = messages(20);
+
+        StreamMessageCoalescer.MessageTransport transport =
+                StreamMessageCoalescer.selectMessageTransport(previous, previous);
+
+        assertFalse(transport.tailUpdate());
+        assertEquals(0, transport.baseIndex());
     }
 
     @Test
@@ -146,10 +182,10 @@ public class StreamMessageCoalescerStreamEndHookTest {
     }
 
     @Test
-    public void replacedPrefixForcesAFullRebase() {
-        List<ClaudeSession.Message> previous = messages(400);
+    public void divergenceAtFirstMessageForcesAFullRebase() {
+        List<ClaudeSession.Message> previous = messages(20);
         List<ClaudeSession.Message> rebuilt = new ArrayList<>(previous);
-        rebuilt.set(10, new ClaudeSession.Message(ClaudeSession.Message.Type.SYSTEM, "summary"));
+        rebuilt.set(0, new ClaudeSession.Message(ClaudeSession.Message.Type.SYSTEM, "rewritten"));
 
         StreamMessageCoalescer.MessageTransport transport =
                 StreamMessageCoalescer.selectMessageTransport(rebuilt, previous);
@@ -157,6 +193,23 @@ public class StreamMessageCoalescerStreamEndHookTest {
         assertFalse(transport.tailUpdate());
         assertEquals(0, transport.baseIndex());
         assertEquals(rebuilt, transport.messages());
+    }
+
+    @Test
+    public void replacedMiddleMessageTailsFromTheDivergence() {
+        // An edited/compacted middle message widens the suffix but does not
+        // force a full re-push: everything from the divergence point ships.
+        List<ClaudeSession.Message> previous = messages(400);
+        List<ClaudeSession.Message> rebuilt = new ArrayList<>(previous);
+        rebuilt.set(10, new ClaudeSession.Message(ClaudeSession.Message.Type.SYSTEM, "summary"));
+
+        StreamMessageCoalescer.MessageTransport transport =
+                StreamMessageCoalescer.selectMessageTransport(rebuilt, previous);
+
+        assertTrue(transport.tailUpdate());
+        assertEquals(10, transport.baseIndex());
+        assertEquals(390, transport.messages().size());
+        assertEquals("summary", transport.messages().get(0).content);
     }
 
     private static List<ClaudeSession.Message> messages(int count) {
