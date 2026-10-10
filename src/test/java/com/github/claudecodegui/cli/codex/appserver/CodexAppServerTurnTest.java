@@ -305,4 +305,23 @@ public class CodexAppServerTurnTest {
         assertTrue(cb.messages.isEmpty());
         assertFalse(turn.completion().isDone());
     }
+
+    @Test
+    public void anyServerOutputRefreshesTheIdleActivityStamp() throws Exception {
+        RecordingCallback cb = new RecordingCallback();
+        CodexAppServerTurn turn = new CodexAppServerTurn(cb);
+        long initial = turn.lastActivityNanos();
+
+        // 噪声白名单事件同样刷新活跃戳:任何 server 产出(含噪声)都证明服务端存活并推进,
+        // 空闲 watchdog(对称 one-shot awaitIdleAware)据此放行长活跃轮
+        Thread.sleep(20);
+        notify(turn, "{\"method\":\"thread/started\",\"params\":{\"threadId\":\"t1\"}}");
+        assertTrue(turn.lastActivityNanos() > initial);
+
+        // 审批请求路径经 noteActivity 手动刷新(Session 的 onServerRequest 包装)
+        Thread.sleep(5);
+        long before = turn.lastActivityNanos();
+        turn.noteActivity();
+        assertTrue(turn.lastActivityNanos() > before);
+    }
 }

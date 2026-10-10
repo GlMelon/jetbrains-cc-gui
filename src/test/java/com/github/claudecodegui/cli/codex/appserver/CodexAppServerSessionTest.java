@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -342,5 +343,102 @@ public class CodexAppServerSessionTest {
         fake.sendNotification(CliConstants.CODEX_APPSERVER_NOTIFY_TURN_COMPLETED, completed);
         sent.get(20, TimeUnit.SECONDS);
         assertNull(cb.error);
+    }
+
+    @Test
+    public void turnStartAckAloneDoesNotCompleteTheTurn() throws Exception {
+        // ack 不终结 turn(锁上游 025386b0 家族教训的对应不变量):turn/start 响应只回填
+        // turnId / 提交标记,轮的收尾只认 turn/completed 通知或进程死亡——否则 ack 后的
+        // 等待期会被误判为完成,流式事件全部丢失
+        fake.setHandler(method -> {
+            if (CliConstants.CODEX_APPSERVER_METHOD_THREAD_START.equals(method)) {
+                return FakeAppServer.okResponse(threadResult("t-1"));
+            }
+            if (CliConstants.CODEX_APPSERVER_METHOD_THREAD_RESUME.equals(method)) {
+                return FakeAppServer.okResponse(threadResult("t-1"));
+            }
+            if (CliConstants.CODEX_APPSERVER_METHOD_TURN_START.equals(method)) {
+                return FakeAppServer.okResponse(turnResult("u-1"));
+            }
+            return null;
+        });
+        CodexAppServerSession session =
+                new CodexAppServerSession("tab1", fake.createClient(), new RecordingFallback());
+        RecordingCallback cb = new RecordingCallback();
+
+        CompletableFuture<Void> sent = session.send(request(null), cb);
+        Thread.sleep(800); // ack 已返回、等待通知窗口:完成/失败回调都不应已发生
+
+        assertNull("ack alone must not complete the turn", cb.error);
+        assertNull("ack alone must not deliver a final result", cb.finalResult);
+
+        JsonObject turn = new JsonObject();
+        turn.addProperty("id", "u-1");
+        turn.addProperty("status", "completed");
+        JsonObject completed = new JsonObject();
+        completed.addProperty("threadId", "t-1");
+        completed.add("turn", turn);
+        fake.sendNotification(CliConstants.CODEX_APPSERVER_NOTIFY_TURN_COMPLETED, completed);
+        sent.get(20, TimeUnit.SECONDS);
+        assertTrue(cb.success);
+    }
+
+    @Test
+    public void submittedTurnProcessDeathFailsWithoutDegrading() throws Exception {
+        // 已递交轮(ack 已返回)进程死亡 → 只报错不降级 one-shot(防双发;提交语义见
+        // handleTurnFailure)——锁上游 1d78be55 类「中断/收尾期重发循环」教训的对应不变量
+        fake.setHandler(method -> {
+            if (CliConstants.CODEX_APPSERVER_METHOD_THREAD_START.equals(method)) {
+                return FakeAppServer.okResponse(threadResult("t-1"));
+            }
+            if (CliConstants.CODEX_APPSERVER_METHOD_THREAD_RESUME.equals(method)) {
+                return FakeAppServer.okResponse(threadResult("t-1"));
+            }
+            if (CliConstants.CODEX_APPSERVER_METHOD_TURN_START.equals(method)) {
+                return FakeAppServer.okResponse(turnResult("u-1"));
+            }
+            return null;
+        });
+        RecordingFallback fallback = new RecordingFallback();
+        CodexAppServerSession session = new CodexAppServerSession("tab1", fake.createClient(), fallback);
+        RecordingCallback cb = new RecordingCallback();
+
+        CompletableFuture<Void> sent = session.send(request(null), cb);
+        Thread.sleep(500); // 等 thread/start + turn/start 双 ack 落地(轮已递交)
+        fake.close();      // stdout EOF → 已递交轮失败收尾
+
+        sent.get(20, TimeUnit.SECONDS);
+        assertEquals("submitted turn must not be re-sent via one-shot", 0, fallback.sends.get());
+        assertTrue(cb.error != null && !cb.success);
+    }
+
+    @Test
+    public void silentTurnTimesOutAfterTheIdleWindow() throws Exception {
+        // 空闲感知 watchdog(对称 one-shot awaitIdleAware):递交后无任何 server 产出的轮,
+        // 连续无产出超过空闲窗口才判挂死报错;有产出的轮由活跃戳放行(anyServerOutput*
+        // 测试覆盖刷新语义)。注入小窗口使测试不必等真实 CLI_IDLE_TIMEOUT_MS。
+        fake.setHandler(method -> {
+            if (CliConstants.CODEX_APPSERVER_METHOD_THREAD_START.equals(method)) {
+                return FakeAppServer.okResponse(threadResult("t-1"));
+            }
+            if (CliConstants.CODEX_APPSERVER_METHOD_THREAD_RESUME.equals(method)) {
+                return FakeAppServer.okResponse(threadResult("t-1"));
+            }
+            if (CliConstants.CODEX_APPSERVER_METHOD_TURN_START.equals(method)) {
+                return FakeAppServer.okResponse(turnResult("u-1"));
+            }
+            return null;
+        });
+        RecordingFallback fallback = new RecordingFallback();
+        CodexAppServerSession session = new CodexAppServerSession("tab1", fake.createClient(), fallback);
+        session.setTurnIdleTimeoutForTest(300);
+        RecordingCallback cb = new RecordingCallback();
+
+        session.send(request(null), cb).get(20, TimeUnit.SECONDS);
+
+        // 已递交(ack 返回):空闲超时只报错,不降级防双发
+        assertEquals(0, fallback.sends.get());
+        assertTrue(cb.error != null && cb.error.contains("timed out"));
+        assertFalse(cb.success);
     }
 }

@@ -45,6 +45,11 @@ public class CodexAppServerSymmetryTest {
         assertTrue(source.contains("PlatformUtils.terminateProcess"));
         // 连续失败熔断(防无限重启)
         assertTrue(source.contains("MAX_CONSECUTIVE_SPAWN_FAILURES"));
+        // teardown 退出 drain:5s 优雅窗口 → destroyForcibly 升级 → 强制关闭进程流
+        // (孙进程继承 stdio 管道时不至阻塞 reader / teardown 线程,对称上游 442e5a83)
+        assertTrue(source.contains("CliConstants.CODEX_APPSERVER_EXIT_DRAIN_MS"));
+        assertTrue(source.contains("destroyForcibly"));
+        assertTrue(source.contains("closeProcessStreamsQuietly"));
         // provider 引用走枚举 SSOT,禁 provider 字面量
         assertTrue(source.contains("ProviderType.CODEX"));
         assertFalse(source.contains("\"codex\""));
@@ -102,6 +107,10 @@ public class CodexAppServerSymmetryTest {
         assertTrue(source.contains("degrading to one-shot"));
         assertTrue(source.contains("turn/start"));
         assertTrue(source.contains("fallbackSession()"));
+        // 轮看门狗空闲感知(对称 one-shot awaitIdleAware):活跃戳由任意 server 产出刷新,
+        // 连续 CLI_IDLE_TIMEOUT_MS 无产出才杀进程——活跃轮不受总时长上限
+        assertTrue(source.contains("CLI_IDLE_TIMEOUT_MS"));
+        assertTrue(source.contains("空闲感知"));
         // 权限:bypass→acceptForSession 直通;非 bypass 经 AppServerPermissionGate
         // 交互式授权(异常兜底 decline);非审批请求 -32601 应答
         assertTrue(source.contains("PERMISSION_MODE_BYPASS"));
@@ -135,6 +144,9 @@ public class CodexAppServerSymmetryTest {
         // 协议常量引用 CliConstants,禁字面量
         assertFalse(source.contains("\"item/agentMessage/delta\""));
         assertFalse(source.contains("\"turn/completed\""));
+        // 空闲 watchdog 活跃戳:任意通知(entry 处)+ 审批请求(noteActivity)刷新
+        assertTrue(source.contains("noteActivity"));
+        assertTrue(source.contains("lastActivityNanos"));
     }
 
     @Test
