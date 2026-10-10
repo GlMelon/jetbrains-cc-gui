@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * codex app-server 通知 → 统一 MSG_* 协议的轮级有状态映射
@@ -45,6 +46,13 @@ final class CodexAppServerTurn {
 
     private final CliSectionEmitter emitter;
     private final CompletableFuture<TurnResult> completion = new CompletableFuture<>();
+    /**
+     * 最近一次 server 产出时间戳(nanoTime):任意通知(entry 处刷新,含噪声白名单事件——
+     * 任何事件都证明服务端存活并在推进)与审批请求都会刷新。空闲感知 watchdog
+     * ({@link CliConstants#CLI_IDLE_TIMEOUT_MS})以此判定挂死,而非轮的总时长——
+     * 活跃轮不受总时长上限约束(对称 one-shot 的 awaitIdleAware / 上游 32a2ad50)。
+     */
+    private final AtomicLong lastActivityNanos = new AtomicLong(System.nanoTime());
 
     private final StringBuilder assistantContent = new StringBuilder();
     private final StringBuilder reasoningText = new StringBuilder();
@@ -63,6 +71,16 @@ final class CodexAppServerTurn {
 
     CompletableFuture<TurnResult> completion() {
         return completion;
+    }
+
+    /** server 产出活跃戳(nanoTime):空闲感知 watchdog 的判定输入。 */
+    long lastActivityNanos() {
+        return lastActivityNanos.get();
+    }
+
+    /** 任意 server 产出(通知 / 审批请求)刷新活跃戳;空闲感知 watchdog 由此判定存活。 */
+    void noteActivity() {
+        lastActivityNanos.set(System.nanoTime());
     }
 
     String accumulatedText() {
@@ -88,6 +106,7 @@ final class CodexAppServerTurn {
 
     /** server 通知入口(message 含 method/params,已按 threadId 路由到本实例)。 */
     void onNotification(@NotNull JsonObject notification) {
+        noteActivity();
         if (completion.isDone()) {
             return;
         }

@@ -62,6 +62,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * interrupt:turn/interrupt(确定性取消,优于杀树——app-server 是 project 级共享进程,
  * 杀树会波及其他 tab 的进行轮),{@link CliConstants#CLI_INTERRUPT_FALLBACK_MS} 无回应
  * 则 {@link CodexAppServerManager#terminateAppServer} 兜底杀树。
+ * <p>
+ * 轮看门狗为空闲感知(对称 one-shot 的 awaitIdleAware / 上游 32a2ad50):{@link CodexAppServerTurn}
+ * 的活跃戳由任意 server 产出(通知 / 审批请求)刷新,连续 {@link CliConstants#CLI_IDLE_TIMEOUT_MS}
+ * 无产出才判挂死杀进程——活跃轮(长重构 / 完整测试套件)不受总时长上限约束。
  */
 public class CodexAppServerSession implements CliSession {
 
@@ -99,6 +103,8 @@ public class CodexAppServerSession implements CliSession {
     private volatile CodexAppServerClient activeClient;
     /** one-shot 兜底会话(懒创建;降级轮与 interrupt 委托用它)。 */
     private volatile CliSession fallbackSession;
+    /** 空闲判定窗口(测试 seam 可注入小窗口;生产恒 {@link CliConstants#CLI_IDLE_TIMEOUT_MS})。 */
+    private volatile long turnIdleTimeoutMs = CliConstants.CLI_IDLE_TIMEOUT_MS;
 
     public CodexAppServerSession(String tabId, CodexAppServerManager appServerManager,
                                  McpGatewayService gatewayService,
@@ -128,6 +134,11 @@ public class CodexAppServerSession implements CliSession {
         this.injectedClient = injectedClient;
         this.fallbackOverride = fallbackOverride;
         this.permissionGate = permissionGate;
+    }
+
+    /** 测试 seam:注入缩小版的空闲判定窗口(生产路径不调用)。 */
+    void setTurnIdleTimeoutForTest(long idleTimeoutMs) {
+        this.turnIdleTimeoutMs = idleTimeoutMs;
     }
 
     @Override
@@ -368,19 +379,33 @@ public class CodexAppServerSession implements CliSession {
         params.addProperty("serviceTier", requestedTier);
     }
 
+    /** 空闲判定轮询间隔(对称 CliProcessLifecycle.PROCESS_POLL_SLICE_MS 的 500ms 节奏)。 */
+    private static final long TURN_POLL_SLICE_MS = 500L;
+
     private void awaitTurnCompletion(CodexAppServerTurn turn, CliSessionCallback callback) throws Exception {
+        awaitTurnCompletion(turn, callback, turnIdleTimeoutMs);
+    }
+
+    /**
+     * 等待本轮收尾,空闲感知(对称 one-shot 的 {@code CliProcessLifecycle.awaitIdleAware},
+     * 上游 32a2ad50 语义):{@link CodexAppServerTurn} 的活跃戳由任意 server 产出刷新,
+     * 只有连续无产出超过 {@code idleTimeoutMs} 才判挂死并终止 app-server——活跃轮
+     * (长重构 / 完整测试套件)不受总时长上限约束。idleTimeoutMs 为测试 seam 注入点。
+     */
+    private void awaitTurnCompletion(CodexAppServerTurn turn, CliSessionCallback callback,
+                                     long idleTimeoutMs) throws Exception {
         CodexAppServerTurn.TurnResult result;
-        try {
-            result = turn.completion().get(CliConstants.CLI_REQUEST_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            // 轮挂死:杀 app-server(当轮失败不重发;manager 摘除句柄,下轮重建)
-            if (appServerManager != null) {
-                appServerManager.terminateAppServer("turn timeout");
+        long idleNanos = TimeUnit.MILLISECONDS.toNanos(idleTimeoutMs);
+        while (true) {
+            try {
+                result = turn.completion().get(TURN_POLL_SLICE_MS, TimeUnit.MILLISECONDS);
+                break;
+            } catch (TimeoutException e) {
+                if (System.nanoTime() - turn.lastActivityNanos() > idleNanos) {
+                    terminateAndReportTurnTimeout(turn, callback);
+                    return;
+                }
             }
-            String err = CliErrorFormatter.formatError(ProviderType.CODEX.displayLabel(), "app-server turn timed out");
-            callback.onError(err);
-            callback.onComplete(false, turn.accumulatedText(), err);
-            return;
         }
         switch (result.kind()) {
             case COMPLETED -> {
@@ -400,6 +425,20 @@ public class CodexAppServerSession implements CliSession {
                 }
             }
         }
+    }
+
+    /**
+     * 空闲超时收尾:杀 app-server(manager 摘除句柄,下轮重建;当轮失败不重发),
+     * 补发流结束(对称失败分支:已开始流的轮必须闭合,否则前端流块悬置),再报错。
+     */
+    private void terminateAndReportTurnTimeout(CodexAppServerTurn turn, CliSessionCallback callback) {
+        if (appServerManager != null) {
+            appServerManager.terminateAppServer("turn idle timeout (" + CliConstants.CLI_IDLE_TIMEOUT_MS + "ms without output)");
+        }
+        turn.emitStreamEndIfStarted();
+        String err = CliErrorFormatter.formatError(ProviderType.CODEX.displayLabel(), "app-server turn timed out");
+        callback.onError(err);
+        callback.onComplete(false, turn.accumulatedText(), err);
     }
 
     /**
@@ -474,6 +513,9 @@ public class CodexAppServerSession implements CliSession {
 
             @Override
             public void onServerRequest(JsonObject serverRequest) {
+                // 审批请求同样是 server 存活产出:刷新空闲 watchdog 活跃戳
+                // (等待用户决策的轮不因静默被误判挂死)
+                turn.noteActivity();
                 handleServerRequest(client, turnThreadId, request, bypass, serverRequest);
             }
 
