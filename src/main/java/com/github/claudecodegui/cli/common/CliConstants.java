@@ -188,6 +188,12 @@ public final class CliConstants {
     public static final long CODEX_APPSERVER_CONTROL_TIMEOUT_MS = 15_000L;
     /** initialize 就绪等待上限(spawn 后等 initialize 响应,进程速死立即失败)。 */
     public static final long CODEX_APPSERVER_READY_TIMEOUT_MS = 15_000L;
+    /**
+     * teardown 退出 drain 窗口:终止后先给优雅退出时间,超时升级 destroyForcibly 并
+     * 强制关闭进程流(对称上游 442e5a83:孙进程继承 stdio 管道时,仅杀直接子进程
+     * 不足以解除读端阻塞;关闭管道读端立即解除 reader / drain 线程的 readLine 阻塞)。
+     */
+    public static final long CODEX_APPSERVER_EXIT_DRAIN_MS = 5_000L;
 
     // client → server 请求方法
     public static final String CODEX_APPSERVER_METHOD_INITIALIZE = "initialize";

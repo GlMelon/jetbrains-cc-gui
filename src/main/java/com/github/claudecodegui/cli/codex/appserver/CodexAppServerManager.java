@@ -50,6 +50,8 @@ import java.util.concurrent.TimeoutException;
  *       (对齐 acquire 未命中的静默降级);</li>
  *   <li>连续 spawn 失败 {@value #MAX_CONSECUTIVE_SPAWN_FAILURES} 次熔断,本次运行内不再尝试
  *       (全走 one-shot),防坏环境无限重启;</li>
+ *   <li>teardown 退出 drain:终止后 5s 优雅窗口 → destroyForcibly 升级 → 强制关闭进程流,
+ *       孙进程继承 stdio 管道时不至阻塞 reader / teardown 线程(对称上游 442e5a83);</li>
  *   <li>重建 / terminateServe 的旧句柄 teardown 异步化(平台共享执行器);dispose 同步优雅关闭
  *       (client.close → terminateProcess 兜底)。</li>
  * </ul>
@@ -372,14 +374,47 @@ public final class CodexAppServerManager implements Disposable {
         if (process.isAlive()) {
             PlatformUtils.terminateProcess(process);
             recordLifecycle(LifecycleEventType.TERMINATE, process, "codex app-server terminated");
-            try {
-                process.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            awaitExitWithDrain(process);
+        } else {
+            // 已死进程仍可能有未闭合的管道读端阻塞 reader 线程:强制关闭兜底
+            closeProcessStreamsQuietly(process);
         }
         NodeService.getInstance().getProcessManager()
                 .unregisterAuxiliaryProcess(target.processToken(), process);
+    }
+
+    /**
+     * 退出 drain(对称上游 442e5a83 的孙进程管道教训,Java 等价物):终止后先给
+     * {@link CliConstants#CODEX_APPSERVER_EXIT_DRAIN_MS} 优雅退出窗口;超时升级
+     * {@code destroyForcibly};最后强制关闭进程流——关闭管道读端立即解除 client reader
+     * 与 stderr drain 线程的 {@code readLine} 阻塞(孙进程继承管道写端时,仅杀直接子进程
+     * 不足以解除阻塞,与 Node 侧「close 事件等待 stdio 关闭」的挂死同源)。
+     * 等待全程有界(5s + 30s 上限),teardown 线程(共享执行器 / dispose)不无限阻塞。
+     */
+    private static void awaitExitWithDrain(Process process) {
+        try {
+            if (process.waitFor(CliConstants.CODEX_APPSERVER_EXIT_DRAIN_MS, TimeUnit.MILLISECONDS)) {
+                return;
+            }
+            process.destroyForcibly();
+            process.waitFor(CliConstants.PROCESS_WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            closeProcessStreamsQuietly(process);
+        }
+    }
+
+    /** 强制关闭进程三流(quietly):解除 stdio 管道上的阻塞读,收尾路径异常不互相阻断。 */
+    private static void closeProcessStreamsQuietly(Process process) {
+        for (var stream : new java.io.Closeable[]{
+                process.getOutputStream(), process.getErrorStream(), process.getInputStream()}) {
+            try {
+                stream.close();
+            } catch (Exception ignored) {
+                // 已关闭 / 管道已断
+            }
+        }
     }
 
     private void recordLifecycle(LifecycleEventType type, Process process, String detail) {
