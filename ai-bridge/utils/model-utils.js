@@ -33,12 +33,29 @@ export const MODEL_CONSTANTS = Object.freeze({
     DEFAULT_OPUS_MODEL: 'ANTHROPIC_DEFAULT_OPUS_MODEL',
     DEFAULT_HAIKU_MODEL: 'ANTHROPIC_DEFAULT_HAIKU_MODEL',
     DEFAULT_SONNET_MODEL: 'ANTHROPIC_DEFAULT_SONNET_MODEL',
+    SMALL_FAST_MODEL: 'ANTHROPIC_SMALL_FAST_MODEL',
+    SUBAGENT_MODEL: 'CLAUDE_CODE_SUBAGENT_MODEL',
   }),
   /** Anthropic 官方模型前缀（用于 vision 能力判定）。 */
   CLAUDE_PREFIX: 'claude-',
 });
 
 const { ROLE, ROLE_MODEL_ID, ENV, CLAUDE_PREFIX } = MODEL_CONSTANTS;
+
+/**
+ * 全量档位同步键（对齐 upstream 854b5ce1）。只写当前请求命中的档位时，子智能体以
+ * 档位别名声明模型（如 model: opus）找不到对应 env，会回退到 CLI 内置 Anthropic
+ * 模型名——第三方端点不认识该名字，静默错路由且不报错。ANTHROPIC_MODEL 不在列：
+ * 它每轮由当前请求无条件写入。
+ */
+export const MODEL_TIER_SYNC_ENV_KEYS = Object.freeze([
+  ENV.DEFAULT_FABLE_MODEL,
+  ENV.DEFAULT_OPUS_MODEL,
+  ENV.DEFAULT_SONNET_MODEL,
+  ENV.DEFAULT_HAIKU_MODEL,
+  ENV.SMALL_FAST_MODEL,
+  ENV.SUBAGENT_MODEL,
+]);
 
 /**
  * Map a full model ID to the short name expected by the Claude CLI.
@@ -214,10 +231,26 @@ export function resolveClaudeEnhanceModelName(model, actualModel) {
  * @param {string} [baseModelId] - The original internal model ID used to determine which env var to set.
  *                                  Required when modelId is a custom name that doesn't contain 'opus'/'haiku'/'sonnet'.
  *                                  Falls back to modelId if not provided.
+ * @param {Object} [settingsEnv] - ~/.claude/settings.json 的 env 块。提供时以它为唯一真相
+ *                                  全量同步档位（配置的写入、未配置的清除）；缺省时仅写当前档位。
  */
-export function setModelEnvironmentVariables(modelId, baseModelId) {
+export function setModelEnvironmentVariables(modelId, baseModelId, settingsEnv) {
   if (!modelId || typeof modelId !== 'string') {
     return;
+  }
+
+  // 全量档位同步（对齐 upstream 854b5ce1）:配置的档位写入 process.env，未配置的清除。
+  // 清除是对称必要面——残留的旧档位值会让子智能体解析到上一家供应商的模型名。
+  // 实测内联 settings 的 env 块不被 CLI 采纳，档位只能经 process.env 生效。
+  if (settingsEnv && typeof settingsEnv === 'object') {
+    for (const key of MODEL_TIER_SYNC_ENV_KEYS) {
+      const value = settingsEnv[key];
+      if (value !== undefined && value !== null && String(value).trim()) {
+        process.env[key] = String(value).trim();
+      } else {
+        delete process.env[key];
+      }
+    }
   }
 
   // Use baseModelId to determine model category (which env var to set).

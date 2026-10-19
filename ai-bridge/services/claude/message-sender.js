@@ -508,7 +508,7 @@ export async function sendMessage(message, resumeSessionId = null, cwd = null, p
 
     const settings = loadClaudeSettings();
     const resolvedModel = resolveModelFromSettings(/** @type {string} */ (model), settings?.env, actualModel ?? undefined);
-    setModelEnvironmentVariables(resolvedModel, model ?? undefined);
+    setModelEnvironmentVariables(resolvedModel, model ?? undefined, settings?.env);
 
     const effectivePermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
     const normalizedReasoningEffort = normalizeReasoningEffort(reasoningEffort);
@@ -558,7 +558,7 @@ export async function sendMessageWithAttachments(message, resumeSessionId = null
 
     const settings = loadClaudeSettings();
     const resolvedModel = resolveModelFromSettings(/** @type {string} */ (model), settings?.env);
-    setModelEnvironmentVariables(resolvedModel, model ?? undefined);
+    setModelEnvironmentVariables(resolvedModel, model ?? undefined, settings?.env);
 
     const effectivePermissionMode = (!permissionMode || permissionMode === '') ? 'default' : permissionMode;
     const normalizedReasoningEffort = normalizeReasoningEffort(null);
