@@ -2,7 +2,9 @@ package com.github.claudecodegui.session.runtime;
 
 import com.github.claudecodegui.bridge.NodeService;
 import com.github.claudecodegui.bridge.ProcessManager;
+import com.github.claudecodegui.cli.common.UserPathResolver;
 import com.github.claudecodegui.cli.compatibility.CliCompatibilityService;
+import com.github.claudecodegui.cli.compatibility.CodexCliVersionParser;
 import com.github.claudecodegui.util.PlatformUtils;
 
 import java.io.BufferedReader;
@@ -105,6 +107,20 @@ public final class CodexCliResolver {
             candidates.add(ProviderType.CODEX.cliCommand());
         }
 
+        // 官方独立安装器布局(对齐 upstream fe95dd8e):这些目录不在 IDE 进程 PATH 上,
+        // 独立安装的 codex 只能按布局显式发现;优先于 PATH shim(半安装 shim 可能仍可执行)。
+        for (String dir : standaloneBinDirs()) {
+            if (Thread.currentThread().isInterrupted()) {
+                return null;
+            }
+            for (String candidate : candidates) {
+                File file = new File(dir, candidate);
+                if (file.isFile() && verify(file.getPath()) != null) {
+                    return file.getAbsolutePath();
+                }
+            }
+        }
+
         for (String candidate : candidates) {
             if (Thread.currentThread().isInterrupted()) {
                 return null;
@@ -116,6 +132,51 @@ public final class CodexCliResolver {
         }
 
         return null;
+    }
+
+    /**
+     * 官方独立安装器布局候选目录(对齐 upstream fe95dd8e 的 codexHomeBinDirs):
+     * {@code CODEX_INSTALL_DIR} 覆盖、Windows
+     * {@code %LOCALAPPDATA%\Programs\OpenAI\Codex\bin}、
+     * {@code ${CODEX_HOME:-~/.codex}/packages/standalone/current} 的 bin/ 与扁平两种布局、
+     * 以及 {@code ~/.local/bin}/{@code ~/.cargo/bin}/{@code ~/.codex/bin}。
+     * 纯函数(无 PATH 依赖),便于单测。
+     */
+    static List<String> standaloneBinDirs(
+            String home, String localAppData, String codexInstallDir, String codexHome) {
+        List<String> dirs = new ArrayList<>();
+        if (codexInstallDir != null && !codexInstallDir.isBlank()) {
+            dirs.add(codexInstallDir.trim());
+        }
+        if (PlatformUtils.isWindows()) {
+            String base = localAppData != null && !localAppData.isBlank()
+                    ? localAppData
+                    : (home != null && !home.isBlank() ? home + File.separator + "AppData" + File.separator + "Local" : null);
+            if (base != null) {
+                dirs.add(base + File.separator + "Programs" + File.separator + "OpenAI"
+                        + File.separator + "Codex" + File.separator + "bin");
+            }
+        }
+        if (home != null && !home.isBlank()) {
+            dirs.add(home + File.separator + ".local" + File.separator + "bin");
+            String current = (codexHome != null && !codexHome.isBlank() ? codexHome.trim()
+                    : home + File.separator + ".codex")
+                    + File.separator + "packages" + File.separator + "standalone" + File.separator + "current";
+            // 只跟随安装器选中的版本;旧版独立包把二进制直接放在 current 下(扁平布局)。
+            dirs.add(current + File.separator + "bin");
+            dirs.add(current);
+            dirs.add(home + File.separator + ".cargo" + File.separator + "bin");
+            dirs.add(home + File.separator + ".codex" + File.separator + "bin");
+        }
+        return dirs;
+    }
+
+    private static List<String> standaloneBinDirs() {
+        return standaloneBinDirs(
+                PlatformUtils.getHomeDirectory(),
+                PlatformUtils.getEnvIgnoreCase("LOCALAPPDATA"),
+                PlatformUtils.getEnvIgnoreCase("CODEX_INSTALL_DIR"),
+                PlatformUtils.getEnvIgnoreCase("CODEX_HOME"));
     }
 
     /**
@@ -196,9 +257,10 @@ public final class CodexCliResolver {
     }
 
     private static String searchInPath(String candidate) {
-        String pathEnv = PlatformUtils.isWindows()
-                ? PlatformUtils.getEnvIgnoreCase("PATH")
-                : System.getenv("PATH");
+        // 用 UserPathResolver 解析用户真实 PATH(对称 ProviderCliResolver.searchInPath):
+        // IDE 进程 PATH 常缺失 npm/scoop/volta 等 shim 目录,独立安装的 codex 因此漏检;
+        // IDE PATH 保持在前,不破坏本地「CLI PATH 优先」的既有决策(9d4397d4)。
+        String pathEnv = UserPathResolver.resolveUserPath();
         if (pathEnv == null || pathEnv.isBlank()) {
             return null;
         }
@@ -264,8 +326,12 @@ public final class CodexCliResolver {
             }
             if (process.exitValue() == 0 && version != null) {
                 String trimmed = version.trim();
-                if (!trimmed.isEmpty() && CliCompatibilityService.getInstance()
-                        .isVersionAccepted(ProviderType.CODEX, trimmed)) {
+                // 探测门控(对齐 upstream fe95dd8e):半安装的 npm launcher 仍可执行(exit 0),
+                // 只有真实 `codex-cli <version>` 输出才能证明 CLI 可启动。
+                if (!trimmed.isEmpty()
+                        && CodexCliVersionParser.STRICT_VERSION_LINE.matcher(trimmed).find()
+                        && CliCompatibilityService.getInstance()
+                                .isVersionAccepted(ProviderType.CODEX, trimmed)) {
                     cachedVersion = trimmed;
                     return trimmed;
                 }
