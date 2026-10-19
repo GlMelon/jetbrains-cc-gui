@@ -140,12 +140,28 @@ public class SessionStateTest {
     }
 
     @Test
-    public void setModelMigratesRetiredOpus46ToOpus5() {
+    public void setModelMigratesRetiredOpus48ToOpus5ButKeepsStillServedOpus46() {
         SessionState state = new SessionState();
+        // claude-opus-4-6 is still served by the API; migrating it would rewrite a
+        // user's explicit custom id to a different model.
         state.setModel("claude-opus-4-6");
-        assertEquals("claude-opus-5", state.getModel());
+        assertEquals("claude-opus-4-6", state.getModel());
         state.setModel("claude-opus-4-8");
         assertEquals("claude-opus-5", state.getModel());
+    }
+
+    @Test
+    public void setModelVerbatimBypassesRetiredIdMigration() {
+        SessionState state = new SessionState();
+        // Explicit user selection (incl. custom relay models) must be sent verbatim.
+        state.setModelVerbatim("claude-sonnet-4-6");
+        assertEquals("claude-sonnet-4-6", state.getModel());
+        state.setModelVerbatim("claude-opus-4-8");
+        assertEquals("claude-opus-4-8", state.getModel());
+        state.setModelVerbatim(" my-relay-model ");
+        assertEquals("my-relay-model", state.getModel());
+        state.setModelVerbatim(null);
+        assertNull(state.getModel());
     }
 
     @Test

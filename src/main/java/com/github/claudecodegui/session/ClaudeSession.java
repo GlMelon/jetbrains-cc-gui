@@ -670,6 +670,14 @@ public class ClaudeSession {
     }
 
     /**
+     * Set the model verbatim (no retired-id migration) for explicit user selection.
+     */
+    public void setModelVerbatim(String model) {
+        state.setModelVerbatim(model);
+        LOG.info("Model updated (verbatim) to: " + model);
+    }
+
+    /**
      * Get the model.
      */
     public String getModel() {

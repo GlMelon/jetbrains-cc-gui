@@ -168,7 +168,9 @@ public class ModelProviderHandler {
         String storedModel = selection.storedModel();
 
         if (context.getSession() != null) {
-            context.getSession().setModel(storedModel);
+            // 显式选择的 id(含用户自定义模型)必须原样下发:SessionState.setModel 的退役
+            // 迁移只应自愈恢复路径,不能改写用户此刻的选择(如中继仍在服务的 claude-opus-4-6)。
+            context.getSession().setModelVerbatim(storedModel);
             if (modelChanged) {
                 // 模型切换 = 运行时意图变化:旋转 epoch 让旧模型的 in-flight 回调
                 // 被 ClaudeMessageHandler/CodexMessageHandler 守卫丢弃,避免串台到新模型会话。

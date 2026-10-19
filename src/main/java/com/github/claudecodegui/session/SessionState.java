@@ -335,6 +335,18 @@ public class SessionState {
     }
 
     /**
+     * Store a model id chosen explicitly by the user without retired-id migration.
+     *
+     * <p>Custom models are the user's explicit choice and must be sent verbatim, even
+     * when the id matches the migration table (e.g. a relay still serving
+     * claude-opus-4-6). Only restore/sticky-default paths go through
+     * {@link #setModel(String)} so stale built-in ids keep self-healing.</p>
+     */
+    public void setModelVerbatim(String model) {
+        this.model = model == null ? null : model.trim();
+    }
+
+    /**
      * Migrate retired Claude model ids to their live replacement on write.
      *
      * <p>Persisted tab state (.idea/claudeCodeTabState.xml) and history sessions keep
@@ -368,7 +380,9 @@ public class SessionState {
             case "claude-sonnet-4-7":
                 base = "claude-sonnet-5";
                 break;
-            case "claude-opus-4-6":
+            // claude-opus-4-6 is intentionally NOT migrated: the API still serves it
+            // (verified via `claude -p --model claude-opus-4-6[1m]`), and rewriting a
+            // user's explicit custom id would route the request to a different model.
             case "claude-opus-4-8":
                 base = "claude-opus-5";
                 break;
